@@ -76,9 +76,10 @@ select id from auth.users where email = 'pr@inaivuit.com';
 
 ## 3. Google Cloud (UAT, then production)
 
-Run in Cloud Shell, with `PROJECT=pottupaarkalaam-uat` (later `pottupaarkalaam-production`):
+Run in Cloud Shell. The first line names the project; use `pottupaarkalaam-production` for production:
 
 ```bash
+PROJECT=pottupaarkalaam-uat
 gcloud config set project $PROJECT
 gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com \
   secretmanager.googleapis.com cloudtasks.googleapis.com cloudscheduler.googleapis.com
@@ -116,9 +117,10 @@ Google Cloud Console → **Secret Manager** → **+ Create secret**, once for ea
 
 ### 3.1 Build triggers (as UduthiPaar)
 
-**a. An identity for the builds.** In Cloud Shell (same `PROJECT` as above):
+**a. An identity for the builds.** In Cloud Shell:
 
 ```bash
+PROJECT=$(gcloud config get-value project)   # pottupaarkalaam-uat (or -production)
 gcloud iam service-accounts create pp-builder --display-name="PottuPaarkalaam builds"
 BUILDER=pp-builder@$PROJECT.iam.gserviceaccount.com
 for role in roles/run.admin roles/artifactregistry.writer roles/logging.logWriter; do
@@ -126,6 +128,9 @@ for role in roles/run.admin roles/artifactregistry.writer roles/logging.logWrite
 done
 gcloud iam service-accounts add-iam-policy-binding pp-runner@$PROJECT.iam.gserviceaccount.com \
   --member=serviceAccount:$BUILDER --role=roles/iam.serviceAccountUser
+
+# Check: serviceAccountUser lists pp-builder and pp-runner; serviceAccountTokenCreator lists pp-runner.
+gcloud iam service-accounts get-iam-policy pp-runner@$PROJECT.iam.gserviceaccount.com
 ```
 
 **b. Connect the repository.** Cloud Build → **Triggers** → **Connect repository** → GitHub (Cloud Build GitHub App)
