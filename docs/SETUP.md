@@ -116,21 +116,46 @@ Google Cloud Console → **Secret Manager** → **+ Create secret**, once for ea
 
 ### 3.1 Build triggers (as UduthiPaar)
 
-Cloud Build → **Triggers → Create trigger**, connected to the GitHub repository `priyaraj-learnings/pottupaarkalaam`:
+**a. An identity for the builds.** In Cloud Shell (same `PROJECT` as above):
+
+```bash
+gcloud iam service-accounts create pp-builder --display-name="PottuPaarkalaam builds"
+BUILDER=pp-builder@$PROJECT.iam.gserviceaccount.com
+for role in roles/run.admin roles/artifactregistry.writer roles/logging.logWriter; do
+  gcloud projects add-iam-policy-binding $PROJECT --member=serviceAccount:$BUILDER --role=$role --condition=None
+done
+gcloud iam service-accounts add-iam-policy-binding pp-runner@$PROJECT.iam.gserviceaccount.com \
+  --member=serviceAccount:$BUILDER --role=roles/iam.serviceAccountUser
+```
+
+**b. Connect the repository.** Cloud Build → **Triggers** → **Connect repository** → GitHub (Cloud Build GitHub App)
+→ sign in to GitHub → install the **Google Cloud Build** app on the **priyaraj-learnings** account (only the
+`pottupaarkalaam` repository is enough) → choose `priyaraj-learnings/pottupaarkalaam` → **Connect**.
+
+**c. Create the trigger.** Cloud Build → **Triggers → Create trigger**:
 
 | | UAT | Production |
 | --- | --- | --- |
-| Event | Push to branch `^uat$` | Push to branch `^main$` |
-| Configuration file | `cloudbuild.uat.yaml` | `cloudbuild.yaml` |
-| Require approval | **Yes** | No (only reviewed merges reach `main`) |
-| Service account | the Cloud Build service account, with *Cloud Run Admin* and *Service Account User* on `pp-runner` | same |
-| Substitutions | `_SUPABASE_URL`, `_SUPABASE_ANON_KEY`, `_WORKER_URL`, `_PAYMENT_SMS_SENDERS` | same |
+| Name | `pottupaarkalaam-uat` | `pottupaarkalaam-production` |
+| Event | Push to a branch | Push to a branch |
+| Repository / branch | `priyaraj-learnings/pottupaarkalaam`, `^uat$` | same, `^main$` |
+| Configuration | Cloud Build configuration file, `cloudbuild.uat.yaml` | `cloudbuild.yaml` |
+| Substitution variables | `_SUPABASE_URL` = the Supabase Project URL; `_SUPABASE_ANON_KEY` = the **anon** key (or the new **publishable** key, `sb_publishable_…`); `_WORKER_URL` = empty for now; `_PAYMENT_SMS_SENDERS` = empty for now | same, with the production project's values |
+| Approval | tick **Require approval before build executes** | not ticked (only reviewed merges reach `main`) |
+| Service account | `pp-builder@…` | same |
 
-**First deploy:** leave `_WORKER_URL` empty, run the trigger once, then copy the service's address from
-Cloud Run (`https://pottupaarkalaam-uat-….asia-south1.run.app`) into `_WORKER_URL` and run it again. Until then
-pictures do not start (customers get their credits back automatically).
+**d. Run it.** Triggers list → the UAT trigger → **Run** → branch `uat` → **Run trigger**. Then Cloud Build →
+**History**: the build shows *Awaiting approval* → open it → **Approve**. It takes about 5 to 8 minutes. Later
+builds start by themselves when `uat` changes and wait for your approval the same way.
 
-Check: `https://<service address>/api/health` answers `{"ok":true,…}`.
+**e. First deploy only.** When the build is green, open Cloud Run → `pottupaarkalaam-uat` and copy its URL
+(`https://pottupaarkalaam-uat-….asia-south1.run.app`):
+1. Edit the trigger: set `_WORKER_URL` to that URL → **Save** → **Run** again and approve. Until then pictures do
+   not start (customers get their credits back automatically).
+2. Supabase → **Authentication → URL Configuration**: Site URL = that URL; add `<that URL>/**` under Redirect URLs.
+
+Check: `<that URL>/api/health` answers `{"ok":true,…}`. If a build fails, open it in **History**; the red step
+shows why.
 
 ---
 
