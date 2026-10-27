@@ -1,0 +1,21 @@
+import { requireAdmin } from '@/lib/server/auth'
+import { adminOverview, updateSettings } from '@/lib/server/admin'
+import { handle, json } from '@/lib/server/http'
+
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
+export async function GET(request: Request) {
+  return handle(async () => {
+    await requireAdmin(request)
+    return json(await adminOverview())
+  })
+}
+
+// Settings: UPI payee, prices, free credits.
+export async function PATCH(request: Request) {
+  return handle(async () => {
+    const admin = await requireAdmin(request)
+    return json({ settings: await updateSettings(admin.id, await request.json().catch(() => null)) })
+  })
+}

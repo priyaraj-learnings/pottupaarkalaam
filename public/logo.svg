@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="PottuPaarkalaam">
+  <defs>
+    <linearGradient id="pp-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#9d174d"/>
+      <stop offset="0.55" stop-color="#db2777"/>
+      <stop offset="1" stop-color="#f97316"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="116" fill="url(#pp-bg)"/>
+  <path d="M256 170 V150 C256 130 270 116 288 116 C305 116 318 129 318 146 C318 162 306 172 291 174" fill="none" stroke="#fff" stroke-width="16" stroke-linecap="round"/>
+  <path d="M256 170 L122 244 C110 251 115 268 128 268 H384 C397 268 402 251 390 244 Z" fill="none" stroke="#fff" stroke-width="16" stroke-linejoin="round"/>
+  <path d="M200 268 H230 Q256 300 282 268 H312 L298 334 L352 430 Q356 442 344 442 H168 Q156 442 160 430 L214 334 Z" fill="#fff"/>
+  <path d="M214 334 H298" stroke="#fdba74" stroke-width="12" stroke-linecap="round"/>
+  <path d="M396 104 L407 131 L434 142 L407 153 L396 180 L385 153 L358 142 L385 131 Z" fill="#fde68a"/>
+</svg>

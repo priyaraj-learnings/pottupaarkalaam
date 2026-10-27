@@ -1,0 +1,222 @@
+# Setting up PottuPaarkalaam (owner's guide)
+
+Everything needed to take PottuPaarkalaam live at **https://pp.inaivuit.com**, in order. UAT first, then production.
+Each environment has its own Supabase project and its own Google Cloud project, like KanakkuPaar.
+
+| Step | UAT | Production |
+| --- | --- | --- |
+| Supabase project | `pottupaarkalaam-uat` | `pottupaarkalaam-production` |
+| Google Cloud project | `pottupaarkalaam-uat` | `pottupaarkalaam-production` |
+| Cloud Run service | `pottupaarkalaam-uat` | `pottupaarkalaam` |
+| Git branch that deploys | `uat` (after you approve the build) | `main` |
+| Address | the service's `https://pottupaarkalaam-uat-….run.app` | `https://pp.inaivuit.com` (Firebase Hosting) |
+
+---
+
+## 1. Supabase (database, sign-in, photos)
+
+1. https://supabase.com/dashboard → **New project** → name `pottupaarkalaam-uat`, region **South Asia (Mumbai)**,
+   a strong database password (keep it in your password manager). Use the **Pro** plan for production so it never pauses.
+2. Apply the tables, from a laptop with the Supabase CLI:
+   ```bash
+   supabase link --project-ref <project-ref>
+   supabase db push
+   ```
+   This creates the tables, the credit functions and the private `try-on-photos` bucket.
+3. **Project Settings → API**: copy the **Project URL**, the **anon public** key and the **service_role** key
+   (the service_role key is secret; it goes into Google Secret Manager in §3, never into code).
+
+### 1.1 Sign-in with Google (the main button)
+
+1. Google Cloud Console (the Google Cloud project from §3) → **APIs & Services → OAuth consent screen**:
+   app name **PottuPaarkalaam**, the logo (`public/icons/icon-512.png`), support email, authorised domain
+   `inaivuit.com`, scopes *email* and *profile* only. Set **Publishing status: In production** (otherwise only test
+   users can sign in).
+2. **Credentials → Create credentials → OAuth client ID → Web application**. Authorised redirect URI:
+   `https://<project-ref>.supabase.co/auth/v1/callback`. Copy the client ID and secret.
+3. Supabase → **Authentication → Sign In / Providers → Google**: turn on, paste the client ID and secret.
+4. Supabase → **Authentication → URL Configuration**: Site URL `https://pp.inaivuit.com` (UAT: its run.app address);
+   add the same address with `/**` under **Redirect URLs**.
+
+On Android the Google button shows the account already on the phone, so signing in is one tap; people then stay
+signed in.
+
+### 1.2 Sign-in with an email code (for people without Google)
+
+1. Supabase → **Authentication → Emails → SMTP Settings**: connect a real mail service (e.g. the Resend or Gmail
+   account used for inaivu IT mail). Supabase's built-in mail only reaches your own team, so customers would get
+   nothing without this.
+2. **Authentication → Emails → Templates → Magic Link**: make sure the email shows the code, e.g.
+   `Your PottuPaarkalaam sign-in code is {{ .Token }}`.
+3. **Authentication → Sign In / Providers → Email**: keep **Confirm email** on, and turn **off** sign-up with
+   password if offered (the app never uses passwords).
+
+### 1.3 Make yourself an admin
+
+Sign in to the app once, then in Supabase → **SQL Editor**:
+
+```sql
+insert into public.app_admins (user_id)
+select id from auth.users where email = 'pr@inaivuit.com';
+```
+
+`/admin` (and an *Admin* link in the account menu) now works for you.
+
+---
+
+## 2. OpenAI
+
+1. https://platform.openai.com → **API keys** → create a key for the project (one for UAT, one for production).
+2. **Settings → Organization → Limits**: set a monthly budget and an email alert.
+3. The model and quality are set in the deploy files (`gpt-image-2.5-flare`, `low`). At `low`, a picture with one or
+   two garments costs roughly ₹2.6–4 (see [TRY-ON-MODELS.md](TRY-ON-MODELS.md)); `/admin` shows the estimate from
+   the real token counts. Check the rates in `lib/server/openaiImage.ts` against https://openai.com/api/pricing.
+
+---
+
+## 3. Google Cloud (UAT, then production)
+
+Run in Cloud Shell, with `PROJECT=pottupaarkalaam-uat` (later `pottupaarkalaam-production`):
+
+```bash
+gcloud config set project $PROJECT
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com \
+  secretmanager.googleapis.com cloudtasks.googleapis.com cloudscheduler.googleapis.com
+
+# Where the app's images are kept.
+gcloud artifacts repositories create pottupaarkalaam --repository-format=docker --location=asia-south1
+
+# The identity the app runs as. It may read its secrets, queue tasks, and sign the tasks' tokens.
+gcloud iam service-accounts create pp-runner --display-name="PottuPaarkalaam runner"
+SA=pp-runner@$PROJECT.iam.gserviceaccount.com
+gcloud projects add-iam-policy-binding $PROJECT --member=serviceAccount:$SA --role=roles/secretmanager.secretAccessor
+gcloud projects add-iam-policy-binding $PROJECT --member=serviceAccount:$SA --role=roles/cloudtasks.enqueuer
+gcloud iam service-accounts add-iam-policy-binding $SA --member=serviceAccount:$SA --role=roles/iam.serviceAccountUser
+gcloud iam service-accounts add-iam-policy-binding $SA --member=serviceAccount:$SA --role=roles/iam.serviceAccountTokenCreator
+
+# The queue the pictures go through (a retry only re-checks: a picture is never made twice).
+gcloud tasks queues create pp-looks --location=asia-south1 \
+  --max-concurrent-dispatches=20 --max-attempts=2 --min-backoff=10s
+
+# Secrets (paste each value when asked, then press Ctrl+D).
+for name in SUPABASE_SERVICE_ROLE_KEY OPENAI_API_KEY CRON_SECRET PAYMENT_WEBHOOK_SECRET; do
+  gcloud secrets create $name --data-file=-
+done
+```
+
+For `CRON_SECRET` and `PAYMENT_WEBHOOK_SECRET` use long random values, e.g. from `openssl rand -hex 32`.
+Keep `PAYMENT_WEBHOOK_SECRET` handy for §6.
+
+### 3.1 Build triggers (as UduthiPaar)
+
+Cloud Build → **Triggers → Create trigger**, connected to the GitHub repository `priyaraj-learnings/pottupaarkalaam`:
+
+| | UAT | Production |
+| --- | --- | --- |
+| Event | Push to branch `^uat$` | Push to branch `^main$` |
+| Configuration file | `cloudbuild.uat.yaml` | `cloudbuild.yaml` |
+| Require approval | **Yes** | No (only reviewed merges reach `main`) |
+| Service account | the Cloud Build service account, with *Cloud Run Admin* and *Service Account User* on `pp-runner` | same |
+| Substitutions | `_SUPABASE_URL`, `_SUPABASE_ANON_KEY`, `_WORKER_URL`, `_PAYMENT_SMS_SENDERS` | same |
+
+**First deploy:** leave `_WORKER_URL` empty, run the trigger once, then copy the service's address from
+Cloud Run (`https://pottupaarkalaam-uat-….asia-south1.run.app`) into `_WORKER_URL` and run it again. Until then
+pictures do not start (customers get their credits back automatically).
+
+Check: `https://<service address>/api/health` answers `{"ok":true,…}`.
+
+---
+
+## 4. The address pp.inaivuit.com (production only)
+
+Cloud Run cannot take a custom domain in Mumbai, so Firebase Hosting carries it (exactly as KanakkuPaar).
+
+1. `npx -y firebase-tools@14 login`, then from the repository: `npx -y firebase-tools@14 deploy --only hosting --project pottupaarkalaam-production`.
+2. Firebase console → **Hosting → Add custom domain** → `pp.inaivuit.com`.
+3. Hostinger → **Domains → inaivuit.com → DNS records**: add the records Firebase shows with the name **`pp`**
+   (Hostinger adds `.inaivuit.com` itself). Delete any other `A`/`AAAA`/`CNAME` record named `pp`.
+4. Wait for **Connected** (minutes to an hour; the certificate up to 24 hours).
+5. Add `https://pp.inaivuit.com/**` to Supabase **Redirect URLs** (§1.1) if not done already.
+
+Firebase Hosting ends a request after 60 seconds; that is why pictures are made through Cloud Tasks, which calls the
+service's own address directly.
+
+---
+
+## 5. Hourly cleanup (photos are deleted after 3 days)
+
+```bash
+gcloud scheduler jobs create http pp-cleanup --location=asia-south1 --schedule="17 * * * *" \
+  --uri="https://<service address>/api/cron/cleanup" --http-method=POST \
+  --headers="Authorization=Bearer <CRON_SECRET>"
+```
+
+It deletes photos and pictures older than 3 days and refunds any picture that never finished. (History never shows
+anything older than 3 days, even between runs.)
+
+---
+
+## 6. UPI recharges
+
+### 6.1 Payee
+
+`/admin` → **Settings**: inaivu IT's **business** UPI ID and payee name, the help contact customers see, and the prices
+(defaults: 5 free credits a month; ₹10 a credit, ₹5 a credit from a ₹1,000 recharge; recharges from ₹50 to ₹10,000).
+
+Use a business / merchant UPI ID (from the bank's merchant QR, PhonePe Business, Paytm Business or similar).
+Many incoming payments to a personal UPI ID can get the account flagged, and some UPI apps refuse pay links to
+personal IDs. Make a ₹50 test recharge from your own phone after any change.
+
+### 6.2 Approving by hand
+
+`/admin` → **Recharges to check**. Each shows the amount, the UTR the customer entered and, if the bank's SMS for that
+UTR has arrived, what it said (green: matches; red: a different amount). Check your bank app for the UTR, then
+**Approve** or **Reject** with a reason. Do it the same day; customers see "Checking" until then.
+
+### 6.3 Automatic verification (recommended)
+
+Recharges are approved within seconds when the bank's credit SMS reaches the app:
+
+1. Use an Android phone that receives the SMS of the bank account behind the UPI ID (a spare phone with that SIM is
+   best). Keep it charged and online.
+2. Install an SMS-forwarding app that can send each incoming SMS to a web address as JSON with a custom header. For
+   example, the open-source *SMS to URL Forwarder* (F-Droid / GitHub) or any similar app.
+3. Set it to forward only SMS from your bank's sender ID (e.g. `HDFCBK`) to:
+   - URL: `https://pp.inaivuit.com/api/payments/notify`
+   - Method: `POST`, body JSON `{"from": "<sender>", "text": "<message>"}` (the app's placeholders, e.g. `%from%`, `%text%`)
+   - Header: `Authorization: Bearer <PAYMENT_WEBHOOK_SECRET>`
+4. In Android settings, turn **battery optimisation off** for that app so it is not stopped in the background.
+5. Set the Cloud Build substitution `_PAYMENT_SMS_SENDERS` to the bank's sender ID(s), e.g. `HDFCBK`, so messages
+   from anyone else are ignored, and redeploy.
+
+Test it (replace the secret; use a made-up UTR):
+
+```bash
+curl -X POST https://pp.inaivuit.com/api/payments/notify \
+  -H "Authorization: Bearer <PAYMENT_WEBHOOK_SECRET>" -H "Content-Type: application/json" \
+  -d '{"from":"VM-HDFCBK","text":"Rs.50.00 credited to HDFC Bank A/c XX1234 from VPA test@ybl (UPI 600000000001)"}'
+```
+
+It answers `{"outcome":"STORED"}`; `/admin` lists it under *Bank credits nobody has claimed*. Then recharge ₹50 in the
+app with UTR `600000000001`: it is approved at once.
+
+How it stays safe: only requests with the secret are read; only messages that clearly say *credited / received*
+with a 12-digit UTR and an amount count; the customer's UTR **and** amount must both match; each UTR is credited once;
+anything unclear waits for you in §6.2.
+
+Later, with more volume, a payment gateway (Razorpay, Cashfree, PhonePe PG) can replace this. The credit functions
+stay the same; the gateway's webhook would approve the recharge instead of the SMS.
+
+---
+
+## 7. Before announcing it
+
+- [ ] UAT: sign in with Google and with an email code on an Android phone and an iPhone.
+- [ ] Try on: a saree from fabric, a kurti from a stitched dress, a shirt + pant pair, a saree + blouse pair.
+- [ ] Save to gallery (Android: Gallery → Downloads; iPhone: Save Image) and Share to WhatsApp.
+- [ ] Recharge ₹50 by hand approval, and ₹50 with automatic verification.
+- [ ] A failed picture returns its credits (e.g. try a photo of a wall as "your photo").
+- [ ] "Delete all my photos now" empties My pictures.
+- [ ] Add to Home screen: the PottuPaarkalaam icon opens full screen.
+- [ ] Read `/terms` and `/privacy`; have them checked (prices, refunds, GST) before launch.
+- [ ] OpenAI monthly budget and Google Cloud budget alerts are set.
