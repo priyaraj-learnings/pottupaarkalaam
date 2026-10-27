@@ -72,3 +72,11 @@ describe('helpers', () => {
     expect(monthStartIst(new Date('2026-10-31T18:40:00Z')).toISOString()).toBe('2026-10-31T18:30:00.000Z')
   })
 })
+
+describe('secrets saved with a stray line break', () => {
+  it('still match', () => {
+    expect(secretMatches('abc', 'abc\n')).toBe(true)
+    expect(secretMatches(' abc ', 'abc')).toBe(true)
+    expect(secretMatches('  ', '  ')).toBe(false)
+  })
+})

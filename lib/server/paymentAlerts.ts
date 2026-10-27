@@ -48,7 +48,7 @@ async function readMessage(request: Request) {
 }
 
 export async function receivePaymentAlert(request: Request) {
-  const secret = process.env.PAYMENT_WEBHOOK_SECRET
+  const secret = process.env.PAYMENT_WEBHOOK_SECRET?.trim()
   if (!secret) throw new ApiError(503, 'NOT_CONFIGURED', 'Automatic verification is not set up.')
   const supplied = bearerToken(request) ?? request.headers.get('x-webhook-secret')
   if (!secretMatches(supplied, secret)) throw new ApiError(401, 'UNAUTHORIZED', 'Unauthorized.')

@@ -37,11 +37,14 @@ export function dbError(error: { message?: string } | null, what: string) {
 
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
-// Constant-time comparison for shared secrets (cron, payment alerts).
+// Constant-time comparison for shared secrets (cron, payment alerts). Both
+// are trimmed, so a secret saved with a stray line break still matches.
 export function secretMatches(supplied: string | null | undefined, expected: string | undefined) {
-  if (!supplied || !expected) return false
-  const a = Buffer.from(supplied)
-  const b = Buffer.from(expected)
+  const given = supplied?.trim()
+  const wanted = expected?.trim()
+  if (!given || !wanted) return false
+  const a = Buffer.from(given)
+  const b = Buffer.from(wanted)
   if (a.length !== b.length) return false
   let diff = 0
   for (let i = 0; i < a.length; i += 1) diff |= a[i] ^ b[i]

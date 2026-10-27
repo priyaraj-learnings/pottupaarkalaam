@@ -98,14 +98,21 @@ gcloud iam service-accounts add-iam-policy-binding $SA --member=serviceAccount:$
 gcloud tasks queues create pp-looks --location=asia-south1 \
   --max-concurrent-dispatches=20 --max-attempts=2 --min-backoff=10s
 
-# Secrets (paste each value when asked, then press Ctrl+D).
-for name in SUPABASE_SERVICE_ROLE_KEY OPENAI_API_KEY CRON_SECRET PAYMENT_WEBHOOK_SECRET; do
-  gcloud secrets create $name --data-file=-
-done
+# Two random secrets (finish on their own; nothing to type).
+openssl rand -hex 32 | tr -d '\n' | gcloud secrets create CRON_SECRET --data-file=-
+openssl rand -hex 32 | tr -d '\n' | gcloud secrets create PAYMENT_WEBHOOK_SECRET --data-file=-
 ```
 
-For `CRON_SECRET` and `PAYMENT_WEBHOOK_SECRET` use long random values, e.g. from `openssl rand -hex 32`.
-Keep `PAYMENT_WEBHOOK_SECRET` handy for §6.
+Add the two keys you copy in the web console (no terminal typing, so no stray line breaks):
+Google Cloud Console → **Secret Manager** → **+ Create secret**, once for each, leaving the other options as they are:
+
+| Name | Secret value |
+| --- | --- |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Project Settings → **API Keys** → the **service_role** key (starts with `eyJ`; it may be on a "Legacy API keys" tab). If only new-style keys are shown, the **secret** key (starts with `sb_secret_`). |
+| `OPENAI_API_KEY` | the OpenAI key (starts with `sk-`) |
+
+`gcloud secrets list` then shows all four. To see a random one later (for §5 and §6):
+`gcloud secrets versions access latest --secret=PAYMENT_WEBHOOK_SECRET`
 
 ### 3.1 Build triggers (as UduthiPaar)
 
