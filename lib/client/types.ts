@@ -25,6 +25,8 @@ export type Me = {
   account: Account
   settings: AppSettings
   isAdmin: boolean
+  // The server's TERMS_VERSION: a page loaded before an update still asks.
+  currentTermsVersion: string
 }
 
 export type LookStatus = 'QUEUED' | 'PROCESSING' | 'COMPLETED' | 'FAILED'

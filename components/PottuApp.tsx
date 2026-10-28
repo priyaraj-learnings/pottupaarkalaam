@@ -2,7 +2,7 @@
 
 import type { Session } from '@supabase/supabase-js'
 import Link from 'next/link'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import History from '@/components/History'
 import { LegalOverlay, type LegalDoc } from '@/components/LegalOverlay'
@@ -89,9 +89,11 @@ export default function PottuApp() {
   }, [])
 
   const userId = session?.user.id ?? null
+  const loadedAt = useRef(0)
   const loadMe = useCallback(async (forUser: string) => {
     try {
       const result = await api<Me>('/api/me')
+      loadedAt.current = Date.now()
       setMe({ ...result, userId: forUser })
       setAskMobile(shouldAskForMobile(result.account, Date.now()))
       setLoadError('')
@@ -104,6 +106,17 @@ export default function PottuApp() {
     if (!userId) return
     const timer = setTimeout(() => loadMe(userId), 0)
     return () => clearTimeout(timer)
+  }, [userId, loadMe])
+
+  // Back to the app after a while (it stays open in the background on phones):
+  // refresh credits, and ask for consent if the terms changed meanwhile.
+  useEffect(() => {
+    if (!userId) return
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && Date.now() - loadedAt.current > 10 * 60_000) void loadMe(userId)
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
   }, [userId, loadMe])
 
   const setAccount = useCallback((account: Account) => {
@@ -132,7 +145,7 @@ export default function PottuApp() {
     )
   }
 
-  if (current.account.termsVersion !== TERMS_VERSION) {
+  if (current.account.termsVersion !== (current.currentTermsVersion ?? TERMS_VERSION)) {
     return (
       <>
         <TermsConsent updated={Boolean(current.account.termsVersion)} onAgreed={setAccount} onSignOut={signOut} onOpen={setLegal} />

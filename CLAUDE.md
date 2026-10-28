@@ -24,3 +24,11 @@ their branch triggers.
 
 `lib/garments.ts` copies UduthiPaar's garment rules (garment-ai-saas
 `lib/ai/garmentPromptProfile.ts`). When a rule is improved in one app, copy it to the other.
+
+# Terms and consent
+
+Any change to the Terms (`components/legal/TermsContent.tsx`), the Privacy Policy
+(`components/legal/PrivacyContent.tsx`) or the consent points (`lib/legal.ts`) needs a new
+`TERMS_VERSION` (lib/rules.ts) and `TERMS_EFFECTIVE` (lib/legal.ts): every customer is then
+asked once to tick and agree again before their next try-on. `tests/terms.test.ts` fails until
+the version and `tests/terms-fingerprint.json` are updated.

@@ -13,3 +13,14 @@ export const COMPANY = {
   grievanceEmail: 'grievance@inaivuit.com',
   jurisdiction: 'Salem, Tamil Nadu',
 }
+
+// The promises on the consent screen. Like the Terms and Privacy text, changing
+// them means bumping TERMS_VERSION (tests/terms.test.ts checks).
+export const CONSENT_POINTS = [
+  'I am 18 or older.',
+  'The photos I add are of me, or I have that person\'s permission.',
+  'My photos and pictures are deleted after 3 days. I will save the ones I want to keep.',
+  'Pictures are made by AI as a preview. Real clothes may look different.',
+  'Pictures I save or share are my responsibility once they leave the app.',
+  'Used credits are not refunded. If a picture fails, its credits come back automatically.',
+]
