@@ -6,14 +6,15 @@ import { useCallback, useEffect, useState } from 'react'
 
 import History from '@/components/History'
 import { LogoMark, Wordmark } from '@/components/Logo'
+import MobileAsk, { MobileForm, shouldAskForMobile } from '@/components/MobileNumber'
 import Recharge from '@/components/Recharge'
 import SignIn from '@/components/SignIn'
 import TermsConsent from '@/components/TermsConsent'
 import TryOn from '@/components/TryOn'
-import { Button, Notice, Sheet, Spinner, ToastProvider } from '@/components/ui'
+import { Button, Notice, Sheet, Spinner, ToastProvider, useToast } from '@/components/ui'
 import { api, errorMessage } from '@/lib/client/api'
 import type { Account, Me } from '@/lib/client/types'
-import { TERMS_VERSION } from '@/lib/rules'
+import { formatMobile, TERMS_VERSION } from '@/lib/rules'
 import { supabase } from '@/lib/supabase/browser'
 import { customerCode } from '@/lib/upi'
 
@@ -24,6 +25,33 @@ const TABS: Array<{ id: Tab; label: string; icon: string }> = [
   { id: 'history', label: 'My pictures', icon: '🖼️' },
   { id: 'recharge', label: 'Recharge', icon: '💳' },
 ]
+
+function MobileRow({ account, onAccount }: { account: Account; onAccount: (account: Account) => void }) {
+  const toast = useToast()
+  const [editing, setEditing] = useState(false)
+  return (
+    <div className="rounded-2xl p-4 ring-1 ring-stone-200">
+      {editing ? (
+        <MobileForm account={account} onCancel={() => setEditing(false)} onSaved={next => {
+          onAccount(next)
+          setEditing(false)
+          toast(next.phone ? 'Mobile number saved.' : 'Mobile number removed.')
+        }} />
+      ) : (
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm font-bold">Mobile number</p>
+            <p className="text-sm text-stone-600">
+              {account.phone ? `+91 ${formatMobile(account.phone)}` : 'Not added'}
+              {account.phone && <span className="block text-xs text-stone-500">{account.offersOk ? 'Offers on WhatsApp or SMS: yes' : 'No offers'}</span>}
+            </p>
+          </div>
+          <Button variant="secondary" onClick={() => setEditing(true)} className="min-h-10 shrink-0 text-sm">{account.phone ? 'Change' : 'Add'}</Button>
+        </div>
+      )}
+    </div>
+  )
+}
 
 function Splash() {
   return (
@@ -42,6 +70,8 @@ export default function PottuApp() {
   const [loadError, setLoadError] = useState('')
   const [tab, setTab] = useState<Tab>('tryon')
   const [menuOpen, setMenuOpen] = useState(false)
+  // Worked out when the account loads, so "Not now" sticks for this visit.
+  const [askMobile, setAskMobile] = useState(false)
 
   useEffect(() => {
     // Also fires once at start with the saved session (INITIAL_SESSION).
@@ -60,6 +90,7 @@ export default function PottuApp() {
     try {
       const result = await api<Me>('/api/me')
       setMe({ ...result, userId: forUser })
+      setAskMobile(shouldAskForMobile(result.account, Date.now()))
       setLoadError('')
     } catch (error) {
       setLoadError(errorMessage(error))
@@ -100,6 +131,13 @@ export default function PottuApp() {
 
   if (current.account.termsVersion !== TERMS_VERSION) {
     return <TermsConsent onAgreed={setAccount} onSignOut={signOut} />
+  }
+
+  if (askMobile) {
+    return <MobileAsk account={current.account} onDone={account => {
+      setAccount(account)
+      setAskMobile(false)
+    }} />
   }
 
   const credits = current.account.freeLeft + current.account.credits
@@ -153,6 +191,7 @@ export default function PottuApp() {
           <div className="space-y-3">
             <p className="text-sm text-stone-600">Signed in as <b>{current.user.email}</b></p>
             <p className="text-xs text-stone-500">Your customer code: <b>{customerCode(session.user.id)}</b></p>
+            <MobileRow account={current.account} onAccount={setAccount} />
             <nav className="flex flex-col divide-y divide-stone-100 rounded-2xl ring-1 ring-stone-200">
               {current.isAdmin && <Link href="/admin" className="px-4 py-3 font-semibold text-brand-700">Admin</Link>}
               <Link href="/terms" className="px-4 py-3 font-semibold">Terms</Link>

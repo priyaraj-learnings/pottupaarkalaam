@@ -186,14 +186,16 @@ const PAGE_SIZE = 50
 export async function adminCustomers(params: URLSearchParams) {
   const sort = SORTS.has(params.get('sort') ?? '') ? params.get('sort') : 'recent'
   const page = Math.max(0, Math.min(1000, Number.parseInt(params.get('page') ?? '0', 10) || 0))
+  // The CSV export reads 200 at a time.
+  const pageSize = Math.max(1, Math.min(200, Number.parseInt(params.get('size') ?? '', 10) || PAGE_SIZE))
   const { data, error } = await supabaseAdmin.rpc('admin_users', {
     p_search: text(params.get('search'), 100),
     p_sort: sort,
-    p_limit: PAGE_SIZE,
-    p_offset: page * PAGE_SIZE,
+    p_limit: pageSize,
+    p_offset: page * pageSize,
   })
   if (error) throw dbError(error, 'Unable to load customers')
-  return { ...(data as Record<string, unknown>), page, pageSize: PAGE_SIZE }
+  return { ...(data as Record<string, unknown>), page, pageSize }
 }
 
 export async function adminCustomer(userId: string) {

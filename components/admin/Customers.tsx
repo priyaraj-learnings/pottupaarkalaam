@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 
-import { money, type CustomerDetail, type CustomerRow } from '@/components/admin/types'
+import { downloadCsv, money, type CustomerDetail, type CustomerRow } from '@/components/admin/types'
 import { Button, formatWhen, Notice, Sheet, Spinner, useToast } from '@/components/ui'
 import { api, errorMessage } from '@/lib/client/api'
-import { categoryLabel } from '@/lib/rules'
+import { categoryLabel, formatMobile } from '@/lib/rules'
 import { customerCode } from '@/lib/upi'
 
 const SORTS = [
@@ -18,6 +18,36 @@ const SORTS = [
 type Page = { total: number; users: CustomerRow[]; page: number; pageSize: number }
 
 const STATUS_LABEL = { APPROVED: 'Added', PENDING: 'Checking', REJECTED: 'Rejected' } as const
+
+// Every customer matching the search, 200 at a time.
+async function exportCustomers(search: string, sort: string) {
+  const users: CustomerRow[] = []
+  for (let page = 0; page <= 1000; page += 1) {
+    const params = new URLSearchParams({ search, sort, page: String(page), size: '200' })
+    const result = await api<Page>(`/api/admin/customers?${params}`)
+    users.push(...result.users)
+    if (!result.users.length || users.length >= result.total) break
+  }
+  downloadCsv('pottupaarkalaam-customers.csv',
+    ['Name', 'Email', 'Mobile (+91)', 'Offers OK', 'Customer code', 'Joined', 'Last picture', 'Paid (Rs)', 'Pictures', 'Paid credits left'],
+    users.map(user => [
+      user.name, user.email, user.phone ? formatMobile(user.phone) : '', user.phone ? (user.offersOk ? 'yes' : 'no') : '',
+      customerCode(user.userId), user.joinedAt, user.lastPictureAt ?? '', user.paidInr, user.pictures, user.credits,
+    ]))
+  return users.length
+}
+
+function MobileLine({ phone, offersOk }: { phone: string | null; offersOk: boolean }) {
+  if (!phone) return <p className="text-xs text-stone-500">No mobile number</p>
+  return (
+    <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <span className="font-semibold tabular-nums">+91 {formatMobile(phone)}</span>
+      <a href={`tel:${phone}`} className="font-bold text-brand-700 underline">Call</a>
+      <a href={`https://wa.me/${phone.replace('+', '')}`} target="_blank" rel="noreferrer" className="font-bold text-brand-700 underline">WhatsApp</a>
+      <span className="text-xs text-stone-500">{offersOk ? 'Agreed to offers' : 'No offers'}</span>
+    </p>
+  )
+}
 
 function Figure({ label, value, tone }: { label: string; value: string | number; tone?: 'good' | 'bad' }) {
   return (
@@ -91,6 +121,7 @@ function CustomerSheet({ userId, onClose }: { userId: string | null; onClose: ()
         <div className="space-y-5 text-sm">
           <div>
             <p className="font-semibold">{shown.user.email}</p>
+            <MobileLine phone={shown.user.phone} offersOk={shown.user.offersOk} />
             <p className="text-xs text-stone-500">
               Code {customerCode(shown.user.userId)} · {shown.user.provider ?? 'email'} · joined {formatWhen(shown.user.joinedAt)}
               {shown.user.lastSignInAt ? ` · last sign-in ${formatWhen(shown.user.lastSignInAt)}` : ''}
@@ -172,6 +203,8 @@ function CustomerSheet({ userId, onClose }: { userId: string | null; onClose: ()
 }
 
 export default function Customers({ active }: { active: boolean }) {
+  const toast = useToast()
+  const [exporting, setExporting] = useState(false)
   const [search, setSearch] = useState('')
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<(typeof SORTS)[number]['value']>('recent')
@@ -210,15 +243,28 @@ export default function Customers({ active }: { active: boolean }) {
     return () => clearTimeout(timer)
   }, [active, load])
 
+  async function exportAll() {
+    setExporting(true)
+    try {
+      const count = await exportCustomers(query, sort)
+      toast(`Exported ${count} customer${count === 1 ? '' : 's'}.`)
+    } catch (exportError) {
+      toast(errorMessage(exportError), 'error')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
-        <input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Search email or name"
+        <input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Search email, name or mobile"
           aria-label="Search customers" className="min-h-10 min-w-0 flex-1 rounded-xl border border-stone-300 bg-white px-3" />
         <select value={sort} onChange={event => setSort(event.target.value as typeof sort)} aria-label="Sort"
           className="min-h-10 rounded-xl border border-stone-300 bg-white px-3 font-semibold">
           {SORTS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select>
+        <Button variant="secondary" busy={exporting} disabled={!total} onClick={exportAll} className="min-h-10 text-sm">Export CSV</Button>
       </div>
       {error && <Notice tone="error">{error}</Notice>}
       {total !== null && <p className="text-sm text-stone-500">{total.toLocaleString('en-IN')} customer{total === 1 ? '' : 's'}</p>}
@@ -228,7 +274,10 @@ export default function Customers({ active }: { active: boolean }) {
           <li key={row.userId}>
             <button type="button" onClick={() => setOpenId(row.userId)} className="w-full rounded-2xl bg-white p-3 text-left ring-1 ring-stone-200 hover:ring-brand-200">
               <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-                <p className="min-w-0 truncate font-bold">{row.name ? `${row.name} · ` : ''}<span className="font-semibold text-stone-600">{row.email}</span></p>
+                <p className="min-w-0 truncate font-bold">
+                  {row.name ? `${row.name} · ` : ''}<span className="font-semibold text-stone-600">{row.email}</span>
+                  {row.phone && <span className="font-semibold tabular-nums text-stone-600"> · {formatMobile(row.phone)}</span>}
+                </p>
                 <p className="text-xs text-stone-500">
                   Joined {formatWhen(row.joinedAt)}{row.lastPictureAt ? ` · last picture ${formatWhen(row.lastPictureAt)}` : ''}
                   {row.pendingRecharges ? ` · ${row.pendingRecharges} waiting` : ''}

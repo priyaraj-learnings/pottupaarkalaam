@@ -19,6 +19,7 @@ export default function PrivacyPage() {
         <h2>What we collect</h2>
         <ul>
           <li><b>Account:</b> your email address and name, from Google or the email you sign in with.</li>
+          <li><b>Mobile number (optional):</b> if you give it, and whether you agreed to hear about offers on it.</li>
           <li><b>Photos:</b> the photo of you and the photos of clothes you add, and the pictures we make from them.</li>
           <li><b>Payments:</b> the amount, date and UPI reference of your recharges, and the bank&rsquo;s credit message
             for that payment (which shows the payer&rsquo;s name or UPI ID).</li>
@@ -32,6 +33,9 @@ export default function PrivacyPage() {
           <li>To make your try-on pictures and show them to you.</li>
           <li>To keep your credit balance and confirm your payments.</li>
           <li>To keep the service secure and answer your questions or complaints.</li>
+          <li>To call or message you about your payments, pictures or account, if you gave your mobile number.</li>
+          <li>To send you offers and news on WhatsApp or SMS, only if you ticked the box for it. You can untick it or
+            remove your number any time from the account menu.</li>
         </ul>
         <p>We do not sell your data, show advertising, or use your photos to train AI models.</p>
       </section>

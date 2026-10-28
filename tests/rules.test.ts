@@ -5,7 +5,9 @@ import { buildPairPrompt, buildSinglePrompt } from '@/lib/prompts'
 import {
   canPair,
   DEFAULT_PRICING,
+  formatMobile,
   GARMENT_CATEGORIES,
+  normalizeMobile,
   normalizeUtr,
   planLooks,
   quoteRecharge,
@@ -114,5 +116,22 @@ describe('recharges', () => {
     expect(normalizeUtr(' 6299 1234 5678 ')).toBe('629912345678')
     expect(normalizeUtr('T2410261234')).toBeNull()
     expect(normalizeUtr('62991234567')).toBeNull()
+  })
+})
+
+describe('mobile numbers', () => {
+  it('accepts what people type or their phone autofills', () => {
+    for (const typed of ['9876543210', '98765 43210', '098765-43210', '+91 98765 43210', '+919876543210', '919876543210', '0091 9876543210', '(+91) 98765.43210']) {
+      expect(normalizeMobile(typed), typed).toBe('+919876543210')
+    }
+    // A number that itself starts with 91.
+    expect(normalizeMobile('9198765432')).toBe('+919198765432')
+    expect(formatMobile('+919876543210')).toBe('98765 43210')
+  })
+
+  it('refuses landlines, short numbers and other countries', () => {
+    for (const typed of ['', '044 2345 6789', '5876543210', '987654321', '98765432101', '+1 415 555 0100', 'abc']) {
+      expect(normalizeMobile(typed), typed).toBeNull()
+    }
   })
 })

@@ -34,7 +34,7 @@ Admins (`/admin`, people listed in `app_admins`) get four tabs:
 | Tab | What it shows |
 | --- | --- |
 | Overview | For this month, last month, the last 7 / 30 days or all time: **earned** (money received minus AI cost), money received, AI cost (from OpenAI's token counts and the AI prices in Settings, per picture and on free credits), the value of credits used, credits still owed to customers, a money-received-vs-AI-cost chart per day (or month), customers (new, active, paying), pictures (pairs, failed) and what people try on |
-| Customers | Every customer with what they paid, their AI cost and what you earned from them, pictures and credits left; search and sort; one customer's recharges, pictures and credit history, and give or take back credits |
+| Customers | Every customer with their mobile number (if given), what they paid, their AI cost and what you earned from them, pictures and credits left; search by email, name or mobile, sort, CSV export (with who agreed to offers); one customer's Call / WhatsApp links, recharges, pictures and credit history, and give or take back credits |
 | Payments | Recharges to check (with what the bank alert said), bank credits nobody claimed, all payments for a period with CSV export |
 | Settings | UPI ID and payee (the customer's QR and pay button), help contact, prices and free credits, AI prices, give credits |
 

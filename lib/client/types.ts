@@ -8,6 +8,9 @@ export type Account = {
   freeLeft: number
   termsVersion: string | null
   termsAcceptedAt: string | null
+  phone: string | null
+  offersOk: boolean
+  phoneAskedAt: string | null
 }
 
 export type AppSettings = {

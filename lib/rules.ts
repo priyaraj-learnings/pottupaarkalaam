@@ -237,3 +237,19 @@ export function normalizeUtr(value: string) {
   const digits = value.replace(/\s+/g, '')
   return /^\d{12}$/.test(digits) ? digits : null
 }
+
+// An Indian mobile number as +91 and 10 digits, from what people type or their
+// phone autofills: "98765 43210", "098765-43210", "+91 98765 43210".
+export function normalizeMobile(value: string) {
+  const digits = value.replace(/[\s().-]/g, '').replace(/^(\+91|0091|91(?=\d{10}$))/, '').replace(/^0(?=\d{10}$)/, '')
+  return /^[6-9]\d{9}$/.test(digits) ? `+91${digits}` : null
+}
+
+// "+919876543210" → "98765 43210".
+export function formatMobile(phone: string) {
+  const digits = phone.replace(/^\+91/, '')
+  return `${digits.slice(0, 5)} ${digits.slice(5)}`
+}
+
+// Someone who taps "Not now" is asked for their mobile number again after this.
+export const MOBILE_ASK_AGAIN_DAYS = 30

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { PeriodPicker } from '@/components/admin/Overview'
-import { money, type Overview, type Period, type Recharge } from '@/components/admin/types'
+import { downloadCsv, money, type Overview, type Period, type Recharge } from '@/components/admin/types'
 import { Button, Card, formatWhen, Notice, Spinner, useToast } from '@/components/ui'
 import { api, errorMessage } from '@/lib/client/api'
 import { customerCode } from '@/lib/upi'
@@ -57,27 +57,14 @@ function PendingRow({ recharge, onDone }: { recharge: Recharge; onDone: () => vo
   )
 }
 
-function csvCell(value: unknown) {
-  const text = value === null || value === undefined ? '' : String(value)
-  // Leading =, +, - or @ would run as a formula in Excel.
-  const safe = /^[=+\-@]/.test(text) ? `'${text}` : text
-  return /[",\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe
-}
-
-function downloadCsv(rows: Recharge[], period: Period) {
-  const header = ['Submitted', 'Email', 'Customer code', 'Amount (Rs)', 'Credits', 'Rs per credit', 'UTR', 'Status', 'Verified', 'Checked at', 'Reason']
-  const lines = rows.map(row => [
-    row.created_at, row.user_email, row.user_id ? customerCode(row.user_id) : '', row.amount_inr, row.credits, row.rate_inr ?? '',
-    row.utr, STATUS[row.status].label, row.status === 'APPROVED' ? (row.auto_verified ? 'automatic' : 'by admin') : '',
-    row.reviewed_at ?? '', row.rejection_reason ?? '',
-  ].map(csvCell).join(','))
-  const blob = new Blob([[header.join(','), ...lines].join('\n')], { type: 'text/csv;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = `pottupaarkalaam-payments-${period}.csv`
-  link.click()
-  setTimeout(() => URL.revokeObjectURL(url), 10_000)
+function exportPayments(rows: Recharge[], period: Period) {
+  downloadCsv(`pottupaarkalaam-payments-${period}.csv`,
+    ['Submitted', 'Email', 'Customer code', 'Amount (Rs)', 'Credits', 'Rs per credit', 'UTR', 'Status', 'Verified', 'Checked at', 'Reason'],
+    rows.map(row => [
+      row.created_at, row.user_email, row.user_id ? customerCode(row.user_id) : '', row.amount_inr, row.credits, row.rate_inr ?? '',
+      row.utr, STATUS[row.status].label, row.status === 'APPROVED' ? (row.auto_verified ? 'automatic' : 'by admin') : '',
+      row.reviewed_at ?? '', row.rejection_reason ?? '',
+    ]))
 }
 
 export default function Payments({ active, overview, onChanged }: { active: boolean; overview: Overview | null; onChanged: () => void }) {
@@ -144,7 +131,7 @@ export default function Payments({ active, overview, onChanged }: { active: bool
             </select>
             <input type="search" value={filter} onChange={event => setFilter(event.target.value)} placeholder="Email or UTR" aria-label="Filter by email or UTR"
               className="min-h-10 min-w-0 flex-1 rounded-xl border border-stone-300 px-3" />
-            <Button variant="secondary" disabled={!shown.length} onClick={() => downloadCsv(shown, period)} className="min-h-10 text-sm">Export CSV</Button>
+            <Button variant="secondary" disabled={!shown.length} onClick={() => exportPayments(shown, period)} className="min-h-10 text-sm">Export CSV</Button>
           </div>
           {error && <Notice tone="error">{error}</Notice>}
           {rows === null ? <div className="flex justify-center py-6 text-brand-600"><Spinner className="h-6 w-6" /></div> : (

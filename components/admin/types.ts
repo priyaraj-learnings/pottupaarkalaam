@@ -91,6 +91,8 @@ export type CustomerRow = {
   email: string | null
   name: string | null
   provider: string | null
+  phone: string | null
+  offersOk: boolean
   joinedAt: string
   lastSignInAt: string | null
   lastPictureAt: string | null
@@ -111,6 +113,9 @@ export type CustomerDetail = {
     email: string | null
     name: string | null
     provider: string | null
+    phone: string | null
+    offersOk: boolean
+    phoneUpdatedAt: string | null
     joinedAt: string
     lastSignInAt: string | null
     credits: number
@@ -171,4 +176,22 @@ export function bucketLabel(bucket: string, unit: 'day' | 'month', withYear = fa
   return unit === 'month'
     ? date.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
     : date.toLocaleDateString('en-IN', withYear ? { day: 'numeric', month: 'short', year: 'numeric' } : { day: 'numeric', month: 'short' })
+}
+
+function csvCell(value: unknown) {
+  const text = value === null || value === undefined ? '' : String(value)
+  // Leading =, + (a mobile number too), - or @ would run as a formula in Excel.
+  const safe = /^[=+\-@]/.test(text) ? `'${text}` : text
+  return /[",\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe
+}
+
+export function downloadCsv(fileName: string, header: string[], rows: unknown[][]) {
+  const lines = [header, ...rows].map(row => row.map(csvCell).join(','))
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  link.click()
+  setTimeout(() => URL.revokeObjectURL(url), 10_000)
 }

@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { DEFAULT_PRICING, normalizeUtr, TERMS_VERSION, type Pricing } from '@/lib/rules'
+import { DEFAULT_PRICING, normalizeMobile, normalizeUtr, TERMS_VERSION, type Pricing } from '@/lib/rules'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import type { SignedInUser } from '@/lib/server/auth'
 import { ApiError, dbError } from '@/lib/server/http'
@@ -11,6 +11,9 @@ export type Account = {
   freeLeft: number
   termsVersion: string | null
   termsAcceptedAt: string | null
+  phone: string | null
+  offersOk: boolean
+  phoneAskedAt: string | null
 }
 
 export type AppSettings = {
@@ -63,6 +66,29 @@ export async function getAccount(user: SignedInUser, acceptTerms = false): Promi
     p_accept_terms_version: acceptTerms ? TERMS_VERSION : null,
   })
   if (error) throw dbError(error, 'Unable to load your account')
+  return data as Account
+}
+
+// {"phone": "98765 43210", "offersOk": true} saves the mobile number,
+// {"phone": null} removes it and {"skip": true} is "Not now".
+export async function updatePhone(user: SignedInUser, body: unknown): Promise<Account> {
+  const input = (body ?? {}) as { phone?: unknown; offersOk?: unknown; skip?: unknown }
+  if (input.skip === true) {
+    const { data, error } = await supabaseAdmin.rpc('skip_phone', { p_user_id: user.id })
+    if (error) throw dbError(error, 'Unable to update your account')
+    return data as Account
+  }
+  let phone: string | null = null
+  if (input.phone !== null) {
+    phone = typeof input.phone === 'string' ? normalizeMobile(input.phone) : null
+    if (!phone) throw new ApiError(400, 'INVALID_PHONE', 'Enter your 10-digit mobile number.')
+  }
+  const { data, error } = await supabaseAdmin.rpc('save_phone', {
+    p_user_id: user.id,
+    p_phone: phone,
+    p_offers_ok: input.offersOk === true,
+  })
+  if (error) throw dbError(error, 'Unable to save your mobile number')
   return data as Account
 }
 

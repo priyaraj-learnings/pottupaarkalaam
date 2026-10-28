@@ -234,6 +234,52 @@ describe('admin numbers', () => {
   })
 })
 
+describe('mobile numbers', () => {
+  const savePhone = (userId: string, phone: string | null, offers: boolean) =>
+    one<Result>('select public.save_phone($1, $2, $3) as r', [userId, phone, offers])
+
+  it('saves, changes and removes the number, with offers only when there is one', async () => {
+    const user = await newUser('mobile@example.com')
+    expect(await account(user)).toMatchObject({ phone: null, offersOk: false, phoneAskedAt: null })
+
+    expect(await savePhone(user, '+919876543210', true)).toMatchObject({ phone: '+919876543210', offersOk: true })
+    expect(await savePhone(user, '+919123456780', false)).toMatchObject({ phone: '+919123456780', offersOk: false })
+    const removed = await savePhone(user, null, true)
+    expect(removed).toMatchObject({ phone: null, offersOk: false })
+    expect(removed.phoneAskedAt).toBeTruthy()
+
+    await expect(savePhone(user, '9876543210', false)).rejects.toThrow(/INVALID_PHONE/)
+    await expect(savePhone(user, '+914423456789', false)).rejects.toThrow(/INVALID_PHONE/)
+  })
+
+  it('remembers "Not now" without touching the number', async () => {
+    const user = await newUser('later@example.com')
+    const skipped = await one<Result>('select public.skip_phone($1) as r', [user])
+    expect(skipped).toMatchObject({ phone: null })
+    expect(skipped.phoneAskedAt).toBeTruthy()
+  })
+
+  it('shows the number to the admin and finds customers by it', async () => {
+    const user = await newUser('findme@example.com')
+    await savePhone(user, '+919988776655', true)
+    const search = (text: string) => one<{ total: number; users: Array<Record<string, unknown>> }>(
+      `select public.admin_users($1, 'recent', 50, 0) as r`, [text])
+
+    for (const text of ['99887 76655', '+91 9988776655', '09988776655', '776655']) {
+      const found = await search(text)
+      expect(found.users.map(row => row.email), text).toEqual(['findme@example.com'])
+      expect(found.users[0]).toMatchObject({ phone: '+919988776655', offersOk: true })
+    }
+    // Digits inside an email search don't match phone numbers.
+    expect((await search('findme@example')).total).toBe(1)
+    expect((await search('9')).users.map(row => row.email)).toContain('findme@example.com')
+
+    const detail = await one<{ user: Record<string, unknown> }>('select public.admin_user_detail($1) as r', [user])
+    expect(detail.user).toMatchObject({ phone: '+919988776655', offersOk: true })
+    expect(detail.user.phoneUpdatedAt).toBeTruthy()
+  })
+})
+
 describe('database permissions', () => {
   it('lets only the server call the functions and read the tables', async () => {
     for (const role of ['anon', 'authenticated']) {
@@ -242,6 +288,7 @@ describe('database permissions', () => {
         await expect(db.query(`select public.submit_recharge(gen_random_uuid(), 'a', 100, '600000000999')`)).rejects.toThrow(/permission denied/)
         await expect(db.query('select * from public.accounts')).rejects.toThrow(/permission denied/)
         await expect(db.query(`select public.adjust_credits('a@b.c', null, 5, 'Free')`)).rejects.toThrow(/permission denied/)
+        await expect(db.query(`select public.save_phone(gen_random_uuid(), '+919876543210', true)`)).rejects.toThrow(/permission denied/)
       } finally {
         await db.exec('reset role')
       }
