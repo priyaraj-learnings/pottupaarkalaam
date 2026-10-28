@@ -18,6 +18,23 @@ describe('bank credit alerts', () => {
     }
   })
 
+  it('reads bank alert emails, with their greetings, balances and safety advice', () => {
+    const footer = ' Never share your Card number, CVV, PIN, OTP, Internet Banking User ID or password with anyone, even if the'
+      + ' request appears to be from the bank. For any query call 1800 202 6161 or 1860 267 6161. Warm Regards, the Bank.'
+      + ' This is a system-generated email. '.repeat(20)
+    const cases: Array<[string, string, number]> = [
+      ['Dear Customer, Rs.100.00 has been credited to your account **1234 by VPA prworkshop@okaxis PRAVEENA on 28-10-26.'
+        + ' Your UPI transaction reference number is 630212345678. Thank you for banking with us.' + footer, '630212345678', 100],
+      ['Dear Customer, Your ICICI Bank Account XX123 has been credited with INR 100.00 on 28-Oct-26. Info:UPI/630212345679/MEENA.'
+        + ' The Available Balance in your Account is INR 5,000.00.' + footer, '630212345679', 100],
+      ['Dear Customer, your A/c X1234 has been credited by Rs.250.00 on 28-10-26 by transfer from MEENA (UPI Ref No 630212345680).'
+        + footer, '630212345680', 250],
+    ]
+    for (const [text, utr, amountInr] of cases) {
+      expect(parseBankCredit(text), text.slice(0, 80)).toEqual({ utr, amountInr })
+    }
+  })
+
   it('ignores debits, collect requests and messages without a UTR', () => {
     expect(parseBankCredit('Rs.500.00 debited from A/c XX1234 to VPA a@ybl UPI Ref 629912345678')).toBeNull()
     expect(parseBankCredit('abc@ybl has requested money Rs 500 from you. UPI Ref 629912345678')).toBeNull()

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
 
 import History from '@/components/History'
+import { LegalOverlay, type LegalDoc } from '@/components/LegalOverlay'
 import { LogoMark, Wordmark } from '@/components/Logo'
 import MobileAsk, { MobileForm, shouldAskForMobile } from '@/components/MobileNumber'
 import Recharge from '@/components/Recharge'
@@ -70,6 +71,8 @@ export default function PottuApp() {
   const [loadError, setLoadError] = useState('')
   const [tab, setTab] = useState<Tab>('tryon')
   const [menuOpen, setMenuOpen] = useState(false)
+  const [legal, setLegal] = useState<LegalDoc | null>(null)
+  const closeLegal = useCallback(() => setLegal(null), [])
   // Worked out when the account loads, so "Not now" sticks for this visit.
   const [askMobile, setAskMobile] = useState(false)
 
@@ -130,7 +133,12 @@ export default function PottuApp() {
   }
 
   if (current.account.termsVersion !== TERMS_VERSION) {
-    return <TermsConsent onAgreed={setAccount} onSignOut={signOut} />
+    return (
+      <>
+        <TermsConsent updated={Boolean(current.account.termsVersion)} onAgreed={setAccount} onSignOut={signOut} onOpen={setLegal} />
+        <LegalOverlay doc={legal} onClose={closeLegal} />
+      </>
+    )
   }
 
   if (askMobile) {
@@ -194,13 +202,14 @@ export default function PottuApp() {
             <MobileRow account={current.account} onAccount={setAccount} />
             <nav className="flex flex-col divide-y divide-stone-100 rounded-2xl ring-1 ring-stone-200">
               {current.isAdmin && <Link href="/admin" className="px-4 py-3 font-semibold text-brand-700">Admin</Link>}
-              <Link href="/terms" className="px-4 py-3 font-semibold">Terms</Link>
-              <Link href="/privacy" className="px-4 py-3 font-semibold">Privacy</Link>
+              <button type="button" onClick={() => setLegal('terms')} className="flex items-center justify-between px-4 py-3 text-left font-semibold">Terms of Use <span aria-hidden="true" className="text-stone-400">›</span></button>
+              <button type="button" onClick={() => setLegal('privacy')} className="flex items-center justify-between px-4 py-3 text-left font-semibold">Privacy Policy <span aria-hidden="true" className="text-stone-400">›</span></button>
               {current.settings.supportContact && <p className="px-4 py-3 text-sm">Help: {current.settings.supportContact}</p>}
             </nav>
             <Button variant="secondary" onClick={signOut} className="w-full">Sign out</Button>
           </div>
         </Sheet>
+        <LegalOverlay doc={legal} onClose={closeLegal} />
       </div>
     </ToastProvider>
   )

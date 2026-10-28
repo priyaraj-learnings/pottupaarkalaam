@@ -1,7 +1,7 @@
 // Who runs PottuPaarkalaam (the same firm and officers as UduthiPaar,
 // garment-ai-saas lib/legal/legal.ts). Shown on /terms and /privacy.
 
-export const TERMS_EFFECTIVE = '26 October 2026'
+export const TERMS_EFFECTIVE = '28 October 2026'
 
 export const COMPANY = {
   name: 'inaivu IT',

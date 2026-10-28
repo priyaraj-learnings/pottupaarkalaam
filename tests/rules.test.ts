@@ -6,6 +6,7 @@ import {
   canPair,
   DEFAULT_PRICING,
   formatMobile,
+  freeCreditsReturnDay,
   GARMENT_CATEGORIES,
   normalizeMobile,
   normalizeUtr,
@@ -116,6 +117,15 @@ describe('recharges', () => {
     expect(normalizeUtr(' 6299 1234 5678 ')).toBe('629912345678')
     expect(normalizeUtr('T2410261234')).toBeNull()
     expect(normalizeUtr('62991234567')).toBeNull()
+  })
+})
+
+describe('free credits', () => {
+  it('come back on the 1st of next month, India time', () => {
+    expect(freeCreditsReturnDay(new Date('2026-10-28T10:00:00Z'))).toBe('1 November')
+    // 31 Oct, 8 pm UTC is already 1 Nov in India.
+    expect(freeCreditsReturnDay(new Date('2026-10-31T20:00:00Z'))).toBe('1 December')
+    expect(freeCreditsReturnDay(new Date('2026-12-15T10:00:00Z'))).toBe('1 January')
   })
 })
 

@@ -8,7 +8,7 @@ import { Button, Card, Notice, Sheet, useToast } from '@/components/ui'
 import { api, ApiFailure, errorMessage } from '@/lib/client/api'
 import { shrinkPhoto } from '@/lib/client/photos'
 import { isFinished, type Account, type LookView } from '@/lib/client/types'
-import { canPair, categoryLabel, MAX_GARMENTS, planLooks, SOURCE_LABELS, type GarmentSource } from '@/lib/rules'
+import { canPair, categoryLabel, freeCreditsReturnDay, MAX_GARMENTS, planLooks, SOURCE_LABELS, type GarmentSource } from '@/lib/rules'
 
 type Item = { id: string; blob: Blob; url: string; category: string; source: GarmentSource }
 type Photo = { blob: Blob; url: string }
@@ -65,6 +65,7 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
     pairs.map(([a, b]) => [items.findIndex(item => item.id === a), items.findIndex(item => item.id === b)] as [number, number])
   ), [items, pairs])
   const available = account.freeLeft + account.credits
+  const [freeCreditsBack] = useState(() => freeCreditsReturnDay(new Date()))
   const needed = plan.ok ? plan.credits : 0
   const room = MAX_GARMENTS - items.length
 
@@ -260,6 +261,13 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
 
   return (
     <div className="space-y-4 pb-36">
+      {available === 0 && (
+        <Notice tone="warning">
+          <b>You have used this month&rsquo;s {account.freeCreditsPerMonth} free credits.</b> They come back on {freeCreditsBack}.
+          To keep trying on now,{' '}
+          <button type="button" onClick={onRecharge} className="font-extrabold underline">recharge</button>.
+        </Notice>
+      )}
       <Card title={<StepTitle number={1} done={Boolean(category)}>What are you trying?</StepTitle>}>
         <CategoryChips value={category} onChange={setCategory} />
         <div className="mt-4">

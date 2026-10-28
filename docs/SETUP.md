@@ -214,7 +214,24 @@ UTR has arrived, what it said (green: matches; red: a different amount). Check y
 
 ### 6.3 Automatic verification (recommended)
 
-Recharges are approved within seconds when the bank's credit SMS reaches the app:
+Recharges are approved within a minute when the bank's credit alert reaches the app. There are two ways; use either
+or both (an alert that arrives twice is recorded once).
+
+**Way 1 (recommended): bank alert emails, through Gmail.** Banks email every UPI credit, while many send no SMS for
+small ones (HDFC Bank, for example, only texts for UPI credits from Rs 500). No phone is needed.
+
+1. Make sure the bank emails you for every UPI credit (bank app or net banking → alerts), to a Gmail address.
+2. In `/admin` → **Settings** → *Automatic payment check* → *Way 1*, press **Copy script**.
+3. Signed in to that Gmail, open [script.google.com](https://script.google.com) → **New project**, replace the code
+   with the script, and change `BANK_EMAIL` to the address the bank's alert emails come from (open one alert email
+   to see it, e.g. `alerts@hdfcbank.net`).
+4. **Project Settings** (gear) → **Script properties** → add `PP_SECRET` = the `PAYMENT_WEBHOOK_SECRET` value
+   (Google Cloud → Secret Manager → PAYMENT_WEBHOOK_SECRET → latest version → *View secret value*).
+5. Select `forwardBankAlerts` → **Run**, and allow access to Gmail.
+6. **Triggers** (clock) → **Add trigger** → `forwardBankAlerts`, *Time-driven*, *Minutes timer*, *Every minute* →
+   **Save**.
+
+**Way 2: bank SMS, from an Android phone.**
 
 1. Use an Android phone that receives the SMS of the bank account behind the UPI ID (a spare phone with that SIM is
    best). Keep it charged and online.
@@ -225,8 +242,10 @@ Recharges are approved within seconds when the bank's credit SMS reaches the app
    - Method: `POST`, body JSON `{"from": "<sender>", "text": "<message>"}` (the app's placeholders, e.g. `%from%`, `%text%`)
    - Header: `Authorization: Bearer <PAYMENT_WEBHOOK_SECRET>`
 4. In Android settings, turn **battery optimisation off** for that app so it is not stopped in the background.
-5. Set the Cloud Build substitution `_PAYMENT_SMS_SENDERS` to the bank's sender ID(s), e.g. `HDFCBK`, so messages
-   from anyone else are ignored, and redeploy.
+
+Either way, set the Cloud Build substitution `_PAYMENT_SMS_SENDERS` to the bank's SMS sender ID and/or alert email
+domain (e.g. `HDFCBK,HDFCBANK.NET`) so alerts from anyone else are ignored, and redeploy. `/admin` → Settings shows
+when the last bank alert was read.
 
 Test it (replace the secret; use a made-up UTR):
 

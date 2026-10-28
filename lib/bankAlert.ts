@@ -22,25 +22,37 @@ export type BankCredit = {
 
 const CREDIT = /\b(credited|received|deposited)\b/i
 const DEBIT = /\b(debited|withdrawn|spent)\b/i
-const NOT_A_PAYMENT = /\b(request(?:ed)?|will be credited|otp)\b/i
+const WILL_BE_CREDITED = /\bwill be credited\b/i
+// Collect requests and OTP messages mention these before any "credited".
+const NOT_A_PAYMENT = /\b(request(?:ed)?|otp)\b/i
 
-const AMOUNT = /(?:rs\.?|inr|₹)\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/i
-const LABELLED_UTR = /(?:utr|rrn|ref(?:erence)?\s*(?:no|number|id)?|refno|upi(?:\/[a-z0-9]{2,4})?)\s*[.:#/-]?\s*(?:no\.?\s*[:-]?\s*)?(\d{12})(?!\d)/i
+const AMOUNT = /(?:rs\.?|inr|₹)\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/gi
+const LABELLED_UTR = /(?:utr|rrn|ref(?:erence)?\s*(?:no|number|id)?|refno|upi(?:\/[a-z0-9]{2,4})?)(?:\s+is)?\s*[.:#/-]?\s*(?:no\.?\s*[:-]?\s*)?(\d{12})(?!\d)/i
 const ANY_UTR = /(?<!\d)\d{12}(?!\d)/g
 
-export function parseBankCredit(text: string): BankCredit | null {
-  const message = text.replace(/\s+/g, ' ').trim()
-  if (!message || message.length > 2000) return null
-  if (NOT_A_PAYMENT.test(message)) return null
+// Emails add greetings, balances, helpline numbers and safety advice ("never
+// share your OTP"): only this much text around the first "credited" is read.
+const BEFORE = 300
+const AFTER = 400
 
-  const credit = message.search(CREDIT)
-  if (credit < 0) return null
+export function parseBankCredit(text: string): BankCredit | null {
+  const full = text.replace(/\s+/g, ' ').trim()
+  if (!full || full.length > 20_000) return null
+  const found = full.search(CREDIT)
+  if (found < 0) return null
+  const message = full.slice(Math.max(0, found - BEFORE), found + AFTER)
+  const credit = found - Math.max(0, found - BEFORE)
+
+  if (WILL_BE_CREDITED.test(message) || NOT_A_PAYMENT.test(message.slice(0, credit))) return null
   const debit = message.search(DEBIT)
   // "debited from X and credited to you" is someone else's alert.
   if (debit >= 0 && debit < credit) return null
 
-  const amountMatch = message.match(AMOUNT)
-  const amountInr = amountMatch ? Number(amountMatch[1].replace(/,/g, '')) : NaN
+  // The amount nearest "credited", not the balance further on.
+  const amounts = [...message.matchAll(AMOUNT)]
+    .map(match => ({ value: Number(match[1].replace(/,/g, '')), distance: Math.abs((match.index ?? 0) - credit) }))
+    .sort((a, b) => a.distance - b.distance)
+  const amountInr = amounts[0]?.value ?? NaN
   if (!Number.isFinite(amountInr) || amountInr <= 0) return null
 
   const labelled = message.match(LABELLED_UTR)?.[1]

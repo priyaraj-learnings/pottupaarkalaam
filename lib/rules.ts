@@ -13,7 +13,7 @@ export const PHOTO_BUCKET = 'try-on-photos'
 
 // Bump when the consent card or /terms changes: everyone is asked to agree
 // again before their next try-on.
-export const TERMS_VERSION = '2026-10-26'
+export const TERMS_VERSION = '2026-10-28'
 
 export type GarmentSource = 'FABRIC' | 'STITCHED'
 
@@ -253,3 +253,10 @@ export function formatMobile(phone: string) {
 
 // Someone who taps "Not now" is asked for their mobile number again after this.
 export const MOBILE_ASK_AGAIN_DAYS = 30
+
+// When this month's free credits come back: the 1st of next month, India time.
+export function freeCreditsReturnDay(now: Date) {
+  const india = new Date(now.getTime() + 5.5 * 3_600_000)
+  const next = new Date(Date.UTC(india.getUTCFullYear(), india.getUTCMonth() + 1, 1))
+  return next.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', timeZone: 'UTC' })
+}
