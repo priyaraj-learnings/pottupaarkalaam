@@ -145,13 +145,13 @@ export default function PottuApp() {
   return (
     <ToastProvider>
       <div className="mx-auto min-h-dvh max-w-md">
-        <header className="sticky top-0 z-40 flex items-center justify-between gap-2 bg-stone-50/95 px-4 pb-2 pt-[calc(0.75rem+env(safe-area-inset-top))] backdrop-blur">
+        <header className="sticky top-0 z-40 flex items-center justify-between gap-2 bg-ivory/95 px-4 pb-2 pt-[calc(0.75rem+env(safe-area-inset-top))] backdrop-blur">
           <button type="button" onClick={() => setTab('tryon')} className="flex min-w-0 items-center gap-2 text-left" aria-label="PottuPaarkalaam home">
             <LogoMark size={36} />
             <Wordmark />
           </button>
           <div className="flex shrink-0 items-center gap-2">
-            <button type="button" onClick={() => setTab('recharge')} className="rounded-full bg-white px-3 py-1.5 text-sm font-extrabold text-brand-700 shadow-sm ring-1 ring-brand-100">
+            <button type="button" onClick={() => setTab('recharge')} className="rounded-full bg-marigold-50 px-3 py-1.5 text-sm font-extrabold text-marigold-900 shadow-sm ring-1 ring-marigold-200">
               🪙 {credits}
             </button>
             <button type="button" onClick={() => setMenuOpen(true)} aria-label="Account"

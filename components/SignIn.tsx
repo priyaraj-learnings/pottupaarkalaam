@@ -71,9 +71,9 @@ export default function SignIn() {
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col">
-      <section className="brand-gradient rounded-b-[2.5rem] px-6 pb-10 pt-[calc(2.5rem+env(safe-area-inset-top))] text-white">
+      <section className="brand-hero rounded-b-[2.5rem] px-6 pb-10 pt-[calc(2.5rem+env(safe-area-inset-top))] text-white">
         <div className="flex items-center gap-3">
-          <LogoMark size={64} className="drop-shadow-lg" />
+          <LogoMark size={64} tile className="shadow-lg shadow-brand-800/30" />
           <Wordmark large light />
         </div>
         <p className="mt-6 text-2xl font-extrabold leading-snug">See yourself in it before you stitch or buy.</p>

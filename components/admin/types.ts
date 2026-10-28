@@ -84,6 +84,7 @@ export type Overview = {
   pending: Recharge[]
   recent: Recharge[]
   unmatchedAlerts: Array<{ id: string; utr: string; amount_inr: number; sender: string | null; message: string | null; received_at: string }>
+  paymentSms: { secretSet: boolean; senders: string[]; lastAlertAt: string | null }
 }
 
 export type CustomerRow = {

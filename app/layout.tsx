@@ -36,7 +36,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#9d174d',
+  themeColor: '#c2185b',
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
@@ -45,7 +45,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
     <html lang="en" className={`${notoTamil.variable} h-full antialiased`}>
-      <body className="min-h-full bg-stone-50 text-stone-900">{children}</body>
+      <body className="min-h-full bg-ivory text-stone-900">{children}</body>
     </html>
   )
 }

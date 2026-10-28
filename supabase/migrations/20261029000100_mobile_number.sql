@@ -195,3 +195,6 @@ revoke all on function public.save_phone(uuid, text, boolean) from public, anon,
 revoke all on function public.skip_phone(uuid) from public, anon, authenticated;
 grant execute on function public.save_phone(uuid, text, boolean) to service_role;
 grant execute on function public.skip_phone(uuid) to service_role;
+
+-- Make the Data API see the new columns and functions straight away.
+notify pgrst, 'reload schema';

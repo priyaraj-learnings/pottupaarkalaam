@@ -8,8 +8,8 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primar
 
 export function Button({ variant = 'primary', busy = false, className = '', children, disabled, ...rest }: ButtonProps) {
   const look = {
-    primary: 'brand-gradient text-white shadow-md shadow-pink-900/20',
-    secondary: 'border border-stone-300 bg-white text-stone-800',
+    primary: 'brand-gradient text-white shadow-md shadow-brand-800/20',
+    secondary: 'border border-brand-200 bg-white text-brand-700',
     ghost: 'text-brand-700',
     danger: 'border border-red-200 bg-white text-red-700',
   }[variant]

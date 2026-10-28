@@ -82,17 +82,19 @@ async function loadAiRates(): Promise<AiRates> {
 
 // Settings, recharges to check and bank credits nobody claimed.
 export async function adminOverview() {
-  const [settings, aiRates, pending, recent, alerts] = await Promise.all([
+  const [settings, aiRates, pending, recent, alerts, lastAlert] = await Promise.all([
     loadSettings(),
     loadAiRates(),
     supabaseAdmin.from('recharges').select(RECHARGE_COLUMNS).eq('status', 'PENDING').order('created_at', { ascending: true }).limit(100),
     supabaseAdmin.from('recharges').select(RECHARGE_COLUMNS).neq('status', 'PENDING').order('reviewed_at', { ascending: false }).limit(30),
     supabaseAdmin.from('payment_alerts').select('id, utr, amount_inr, sender, message, received_at')
       .is('recharge_id', null).order('received_at', { ascending: false }).limit(30),
+    supabaseAdmin.from('payment_alerts').select('received_at').order('received_at', { ascending: false }).limit(1),
   ])
   if (pending.error) throw dbError(pending.error, 'Unable to load recharges')
   if (recent.error) throw dbError(recent.error, 'Unable to load recharges')
   if (alerts.error) throw dbError(alerts.error, 'Unable to load bank alerts')
+  if (lastAlert.error) throw dbError(lastAlert.error, 'Unable to load bank alerts')
 
   // What the bank said for each waiting UTR, if its alert has arrived.
   const pendingRows = (pending.data ?? []) as RechargeRow[]
@@ -109,6 +111,12 @@ export async function adminOverview() {
     pending: pendingRows.map(row => ({ ...row, bank_amount_inr: bankAmount.get(row.utr) ?? null })),
     recent: (recent.data ?? []) as RechargeRow[],
     unmatchedAlerts: alerts.data ?? [],
+    // Whether bank credit SMS are reaching the app (docs/SETUP.md §6.3).
+    paymentSms: {
+      secretSet: Boolean(process.env.PAYMENT_WEBHOOK_SECRET?.trim()),
+      senders: (process.env.PAYMENT_SMS_SENDERS ?? '').split(',').map(sender => sender.trim()).filter(Boolean),
+      lastAlertAt: (lastAlert.data?.[0]?.received_at as string | undefined) ?? null,
+    },
   }
 }
 

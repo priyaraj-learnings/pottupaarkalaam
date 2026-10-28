@@ -14,7 +14,8 @@ export function json(body: unknown, status = 200, headers: Record<string, string
 }
 
 // Runs a route and turns errors into JSON. Unexpected errors are logged and
-// answered with a general message, never with database or provider details.
+// answered with a general message, never with database or provider details
+// (admin routes use handleAdmin in auth.ts, which shows the reason).
 export async function handle(work: () => Promise<Response>) {
   try {
     return await work()

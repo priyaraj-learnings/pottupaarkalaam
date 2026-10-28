@@ -27,7 +27,7 @@ export function CategoryChips({ value, onChange }: { value: string | null; onCha
                   type="button"
                   aria-pressed={selected}
                   onClick={() => onChange(category.code)}
-                  className={`min-h-10 rounded-full px-4 text-sm font-bold transition ${selected ? 'brand-gradient text-white shadow' : 'bg-stone-100 text-stone-800 active:bg-stone-200'}`}
+                  className={`min-h-10 rounded-full px-4 text-sm font-bold transition ${selected ? 'bg-brand-100 text-brand-800 ring-2 ring-brand-500' : 'bg-white text-stone-800 ring-1 ring-stone-200 active:bg-stone-100'}`}
                 >
                   {category.label}
                 </button>
