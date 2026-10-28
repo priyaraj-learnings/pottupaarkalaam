@@ -1,25 +1,7 @@
-import { readFileSync, readdirSync } from 'node:fs'
-import { join } from 'node:path'
-
-import { PGlite } from '@electric-sql/pglite'
+import type { PGlite } from '@electric-sql/pglite'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-// The migrations run on an in-memory Postgres (PGlite) with the few Supabase
-// objects they use (auth.users, storage.buckets, the API roles) stubbed, so
-// the credit, recharge and refund rules are tested in SQL, not in mocks.
-
-const SUPABASE_STUBS = `
-create role anon nologin;
-create role authenticated nologin;
-create role service_role nologin;
-create schema auth;
-create table auth.users (id uuid primary key default gen_random_uuid(), email text);
-create schema storage;
-create table storage.buckets (
-  id text primary key, name text, public boolean,
-  file_size_limit bigint, allowed_mime_types text[]
-);
-`
+import { freshDatabase } from './helpers/database'
 
 const TERMS = '2026-10-26'
 
@@ -68,12 +50,7 @@ const alert = (utr: string, amount: number) =>
   one<Result>(`select public.record_payment_alert($1, $2, 'VM-HDFCBK', 'Rs credited') as r`, [utr, amount])
 
 beforeAll(async () => {
-  db = new PGlite()
-  await db.exec(SUPABASE_STUBS)
-  const dir = join(__dirname, '..', 'supabase', 'migrations')
-  for (const file of readdirSync(dir).filter(name => name.endsWith('.sql')).sort()) {
-    await db.exec(readFileSync(join(dir, file), 'utf8'))
-  }
+  db = await freshDatabase()
 })
 
 afterAll(async () => {

@@ -29,9 +29,14 @@ Setting it up for the first time: **[docs/SETUP.md](docs/SETUP.md)**. Cheaper tr
 | Verification | Automatic when the bank's credit SMS (forwarded to `/api/payments/notify`) has the same UTR and amount; otherwise an admin approves it in `/admin`. A UTR is credited only once. |
 | My pictures | The last 3 days, with Save (to gallery) and Share. "Delete all my photos now" removes everything at once. |
 
-Admins (`/admin`, people listed in `app_admins`): recharges to check (with what the bank alert said), bank credits
-nobody claimed, give or take back credits, settings (UPI ID, payee, prices, free credits) and the month's numbers,
-including the estimated AI cost per picture.
+Admins (`/admin`, people listed in `app_admins`) get four tabs:
+
+| Tab | What it shows |
+| --- | --- |
+| Overview | For this month, last month, the last 7 / 30 days or all time: **earned** (money received minus AI cost), money received, AI cost (from OpenAI's token counts and the AI prices in Settings, per picture and on free credits), the value of credits used, credits still owed to customers, a money-received-vs-AI-cost chart per day (or month), customers (new, active, paying), pictures (pairs, failed) and what people try on |
+| Customers | Every customer with what they paid, their AI cost and what you earned from them, pictures and credits left; search and sort; one customer's recharges, pictures and credit history, and give or take back credits |
+| Payments | Recharges to check (with what the bank alert said), bank credits nobody claimed, all payments for a period with CSV export |
+| Settings | UPI ID and payee (the customer's QR and pay button), help contact, prices and free credits, AI prices, give credits |
 
 ## Getting started (developers)
 

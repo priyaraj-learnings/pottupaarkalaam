@@ -17,12 +17,14 @@ Each environment has its own Supabase project and its own Google Cloud project, 
 
 1. https://supabase.com/dashboard → **New project** → name `pottupaarkalaam-uat`, region **South Asia (Mumbai)**,
    a strong database password (keep it in your password manager). Use the **Pro** plan for production so it never pauses.
-2. Apply the tables, from a laptop with the Supabase CLI:
+2. Apply the tables: Supabase → **SQL Editor** → **New query** → paste each file from `supabase/migrations/`
+   in name order (oldest first) → **Run** ("Success. No rows returned"). Or, from a laptop with the Supabase CLI:
    ```bash
    supabase link --project-ref <project-ref>
    supabase db push
    ```
-   This creates the tables, the credit functions and the private `try-on-photos` bucket.
+   This creates the tables, the credit and report functions and the private `try-on-photos` bucket. A later release
+   that adds a migration file says so; run the new file the same way, on UAT first, **before** approving that build.
 3. **Project Settings → API**: copy the **Project URL**, the **anon public** key and the **service_role** key
    (the service_role key is secret; it goes into Google Secret Manager in §3, never into code).
 
@@ -197,7 +199,7 @@ anything older than 3 days, even between runs.)
 
 ### 6.1 Payee
 
-`/admin` → **Settings**: inaivu IT's **business** UPI ID and payee name, the help contact customers see, and the prices
+`/admin` → **Settings** tab: inaivu IT's **business** UPI ID and payee name, the help contact customers see, and the prices
 (defaults: 5 free credits a month; ₹10 a credit, ₹5 a credit from a ₹1,000 recharge; recharges from ₹50 to ₹10,000).
 
 Use a business / merchant UPI ID (from the bank's merchant QR, PhonePe Business, Paytm Business or similar).

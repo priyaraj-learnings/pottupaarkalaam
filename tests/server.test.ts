@@ -5,7 +5,7 @@ vi.mock('server-only', () => ({}))
 const rpc = vi.fn()
 vi.mock('@/lib/supabase/admin', () => ({ supabaseAdmin: { rpc: (...args: unknown[]) => rpc(...args) } }))
 
-import { monthStartIst } from '@/lib/server/admin'
+import { monthStartIst, periodRange } from '@/lib/server/admin'
 import { ApiError, secretMatches } from '@/lib/server/http'
 import { receivePaymentAlert } from '@/lib/server/paymentAlerts'
 
@@ -78,5 +78,27 @@ describe('secrets saved with a stray line break', () => {
     expect(secretMatches('abc', 'abc\n')).toBe(true)
     expect(secretMatches(' abc ', 'abc')).toBe(true)
     expect(secretMatches('  ', '  ')).toBe(false)
+  })
+})
+
+describe('report periods (India time)', () => {
+  const now = new Date('2026-11-10T06:00:00Z')
+
+  it('covers this month, last month, recent days and all time', () => {
+    const thisMonth = periodRange('this-month', now)
+    expect(thisMonth.from.toISOString()).toBe('2026-10-31T18:30:00.000Z')
+    expect(thisMonth.to.getTime()).toBe(now.getTime() + 60_000)
+
+    const lastMonth = periodRange('last-month', now)
+    expect(lastMonth.from.toISOString()).toBe('2026-09-30T18:30:00.000Z')
+    expect(lastMonth.to.toISOString()).toBe('2026-10-31T18:30:00.000Z')
+
+    expect(periodRange('last-7-days', now).from.toISOString()).toBe('2026-11-03T06:00:00.000Z')
+    expect(periodRange('all', now, new Date('2026-10-27T10:00:00Z')).from.toISOString()).toBe('2026-09-30T18:30:00.000Z')
+    expect(periodRange('all', now, null).from.toISOString()).toBe('2026-10-31T18:30:00.000Z')
+  })
+
+  it('handles January (last month is December of the year before)', () => {
+    expect(periodRange('last-month', new Date('2027-01-05T00:00:00Z')).from.toISOString()).toBe('2026-11-30T18:30:00.000Z')
   })
 })

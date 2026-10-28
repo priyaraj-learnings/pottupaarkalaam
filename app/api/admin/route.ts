@@ -16,6 +16,6 @@ export async function GET(request: Request) {
 export async function PATCH(request: Request) {
   return handle(async () => {
     const admin = await requireAdmin(request)
-    return json({ settings: await updateSettings(admin.id, await request.json().catch(() => null)) })
+    return json(await updateSettings(admin.id, await request.json().catch(() => null)))
   })
 }

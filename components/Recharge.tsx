@@ -125,7 +125,7 @@ export default function Recharge({ active, account, settings, userCode, onAccoun
           })}
         </div>
         <label className="mt-3 block text-sm font-bold text-stone-700" htmlFor="custom-amount">Or another amount (₹)</label>
-        <input id="custom-amount" inputMode="numeric" value={custom} placeholder={String(pricing.minRechargeInr)}
+        <input id="custom-amount" inputMode="numeric" value={custom} placeholder={`Minimum ${formatInr(pricing.minRechargeInr)}`}
           onChange={event => setCustom(event.target.value.replace(/\D/g, '').slice(0, 7))}
           className="mt-1 min-h-12 w-full rounded-2xl border border-stone-300 px-4 text-base outline-none focus:border-brand-500" />
         <p className={`mt-2 text-sm font-semibold ${quote.ok ? 'text-brand-800' : 'text-red-700'}`}>
@@ -146,10 +146,10 @@ export default function Recharge({ active, account, settings, userCode, onAccoun
             <p className="text-center text-sm text-stone-600">
               To <b>{settings.payeeName ?? 'inaivu IT'}</b> · <span className="select-all font-mono">{settings.upiId}</span>
             </p>
-            <details className="rounded-2xl bg-stone-50 p-3 text-sm">
-              <summary className="cursor-pointer font-bold">Paying from another phone? Show the QR</summary>
-              <div className="mt-3"><UpiQr link={link} amountInr={chosen} /></div>
-            </details>
+            <div className="rounded-2xl bg-stone-50 p-3 text-center text-sm">
+              <p className="mb-2 font-bold">Or scan this QR with any UPI app</p>
+              <UpiQr link={link} amountInr={chosen} />
+            </div>
             <p className="text-xs text-stone-500">Pay exactly {formatInr(chosen)}, then come back here for step 3.</p>
           </div>
         )}
