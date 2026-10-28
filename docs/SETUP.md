@@ -122,7 +122,8 @@ Google Cloud Console → **Secret Manager** → **+ Create secret**, once for ea
 **a. An identity for the builds.** In Cloud Shell:
 
 ```bash
-PROJECT=$(gcloud config get-value project)   # pottupaarkalaam-uat (or -production)
+PROJECT=pottupaarkalaam-uat   # or pottupaarkalaam-production; a new Cloud Shell may still point at the other one
+gcloud config set project $PROJECT
 gcloud iam service-accounts create pp-builder --display-name="PottuPaarkalaam builds"
 BUILDER=pp-builder@$PROJECT.iam.gserviceaccount.com
 for role in roles/run.admin roles/artifactregistry.writer roles/logging.logWriter; do
@@ -133,6 +134,9 @@ gcloud iam service-accounts add-iam-policy-binding pp-runner@$PROJECT.iam.gservi
 
 # Check: serviceAccountUser lists pp-builder and pp-runner; serviceAccountTokenCreator lists pp-runner.
 gcloud iam service-accounts get-iam-policy pp-runner@$PROJECT.iam.gserviceaccount.com
+# Both pp-builder and pp-runner of this project should be listed. If the trigger's
+# Service account list misses pp-builder, this block ran in the other project: run it again.
+gcloud iam service-accounts list
 ```
 
 **b. Connect the repository.** Cloud Build → **Triggers** → **Connect repository** → GitHub (Cloud Build GitHub App)
