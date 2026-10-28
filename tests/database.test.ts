@@ -222,6 +222,17 @@ describe('admin credit adjustments', () => {
   })
 })
 
+describe('settings', () => {
+  it('saves the UPI ID and refuses one that is not a UPI ID', async () => {
+    const save = (upiId: string | null) => db.query('update public.app_settings set upi_id = $1 where id', [upiId])
+    await save('prworkshop@okaxis')
+    await save('inaivuit.62669389@hdfcbank')
+    await save(null)
+    await expect(save('prworkshop okaxis')).rejects.toThrow(/app_settings_values_check/)
+    await expect(save(`${'a'.repeat(250)}@okaxis`)).rejects.toThrow(/app_settings_values_check/)
+  })
+})
+
 describe('admin numbers', () => {
   it('counts users, pictures, recharges and waiting work', async () => {
     const stats = await one<Record<string, number>>(`select public.admin_stats(now() - interval '1 day') as r`)

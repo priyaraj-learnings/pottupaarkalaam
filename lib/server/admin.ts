@@ -145,7 +145,7 @@ function whole(value: unknown, label: string, min: number, max: number) {
 export async function updateSettings(adminId: string, body: unknown) {
   const input = (body ?? {}) as Record<string, unknown>
   const upiId = text(input.upiId, 256)
-  if (upiId && !/^[A-Za-z0-9._-]{2,256}@[A-Za-z0-9.-]{2,64}$/.test(upiId)) {
+  if (upiId && !/^[A-Za-z0-9._-]{2,}@[A-Za-z0-9.-]{2,64}$/.test(upiId)) {
     throw new ApiError(400, 'INVALID_INPUT', 'Enter a UPI ID like inaivuit@okaxis.')
   }
   const minRecharge = whole(input.minRechargeInr, 'Smallest recharge', 1, 1_000_000)
