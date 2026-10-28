@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", var(--font-noto-tamil), sans-serif;
+  --font-tamil: var(--font-noto-tamil), "Noto Sans Tamil", sans-serif;
+
+  /* PottuPaarkalaam colours: rani pink and marigold, with a touch of peacock
+     teal (UduthiPaar's colour) in the logo. White text on brand-600 or darker
+     passes the contrast check. */
+  --color-brand-50: #fdf1f6;
+  --color-brand-100: #fce4ee;
+  --color-brand-200: #f8c6da;
+  --color-brand-500: #e0337a;
+  --color-brand-600: #c2185b;
+  --color-brand-700: #a3134d;
+  --color-brand-800: #7f0f3c;
+  --color-marigold-50: #fff4db;
+  --color-marigold-200: #fdd78a;
+  --color-marigold-400: #fbbf24;
+  --color-marigold-500: #f59e0b;
+  --color-marigold-900: #7a3e00;
+  --color-ivory: #fff8f1;
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  /* Room for the iPhone home bar under the tab bar. */
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.brand-gradient {
+  background-image: linear-gradient(135deg, var(--color-brand-700), var(--color-brand-600) 55%, #d02068);
+}
+
+/* The sign-in banner: rani pink with a marigold glow. */
+.brand-hero {
+  background-image:
+    radial-gradient(circle at 100% 0%, rgb(245 158 11 / 0.55), transparent 45%),
+    linear-gradient(160deg, var(--color-brand-700), var(--color-brand-600) 60%, #d02068);
+}
+
+.brand-text {
+  background-image: linear-gradient(90deg, #b3124f, var(--color-brand-500) 55%, var(--color-marigold-500));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@keyframes pp-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.pp-shimmer {
+  background-image: linear-gradient(90deg, #f5f5f4 0%, var(--color-brand-100) 50%, #f5f5f4 100%);
+  background-size: 200% 100%;
+  animation: pp-shimmer 1.6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pp-shimmer { animation: none; }
+}

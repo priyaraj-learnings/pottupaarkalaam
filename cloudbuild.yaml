@@ -1,0 +1,65 @@
+# Production: built and deployed by the Cloud Build trigger on the main branch
+# (docs/SETUP.md §5). Substitutions are set on the trigger.
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --build-arg
+      - APP_RELEASE_ID=$BUILD_ID
+      - --build-arg
+      - NEXT_PUBLIC_SUPABASE_URL=${_SUPABASE_URL}
+      - --build-arg
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${_SUPABASE_ANON_KEY}
+      - --tag
+      - asia-south1-docker.pkg.dev/$PROJECT_ID/pottupaarkalaam/web:$BUILD_ID
+      - --tag
+      - asia-south1-docker.pkg.dev/$PROJECT_ID/pottupaarkalaam/web:latest
+      - .
+
+  - name: gcr.io/cloud-builders/docker
+    args: [push, asia-south1-docker.pkg.dev/$PROJECT_ID/pottupaarkalaam/web:$BUILD_ID]
+
+  - name: gcr.io/cloud-builders/docker
+    args: [push, asia-south1-docker.pkg.dev/$PROJECT_ID/pottupaarkalaam/web:latest]
+
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - pottupaarkalaam
+      - --image=asia-south1-docker.pkg.dev/$PROJECT_ID/pottupaarkalaam/web:$BUILD_ID
+      - --region=asia-south1
+      - --platform=managed
+      - --service-account=pp-runner@$PROJECT_ID.iam.gserviceaccount.com
+      - --no-invoker-iam-check
+      - --port=8080
+      - --memory=1Gi
+      - --cpu=1
+      - --cpu-throttling
+      # One warm instance, so the first visit after a quiet spell is not a
+      # cold start (as UduthiPaar). Pictures are made by Cloud Tasks calls, so
+      # CPU is paid only while a request is running.
+      - --min-instances=1
+      - --cpu-boost
+      - --max-instances=5
+      - --concurrency=20
+      - --timeout=300
+      - --set-env-vars=^|^NEXT_PUBLIC_SUPABASE_URL=${_SUPABASE_URL}|NEXT_PUBLIC_SUPABASE_ANON_KEY=${_SUPABASE_ANON_KEY}|JOB_DISPATCH=CLOUD_TASKS|GOOGLE_CLOUD_PROJECT=$PROJECT_ID|TASKS_LOCATION=asia-south1|TASKS_QUEUE=pp-looks|TASK_SERVICE_ACCOUNT=pp-runner@$PROJECT_ID.iam.gserviceaccount.com|WORKER_URL=${_WORKER_URL}|OPENAI_IMAGE_QUALITY=low|PAYMENT_SMS_SENDERS=${_PAYMENT_SMS_SENDERS}
+      - --set-secrets=SUPABASE_SERVICE_ROLE_KEY=SUPABASE_SERVICE_ROLE_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,CRON_SECRET=CRON_SECRET:latest,PAYMENT_WEBHOOK_SECRET=PAYMENT_WEBHOOK_SECRET:latest
+      - --quiet
+
+images:
+  - asia-south1-docker.pkg.dev/$PROJECT_ID/pottupaarkalaam/web:$BUILD_ID
+  - asia-south1-docker.pkg.dev/$PROJECT_ID/pottupaarkalaam/web:latest
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+substitutions:
+  _SUPABASE_URL: required-on-trigger
+  _SUPABASE_ANON_KEY: required-on-trigger
+  # The service's own https://pottupaarkalaam-….run.app address, known after the first deploy.
+  _WORKER_URL: ''
+  # Bank SMS sender IDs allowed to confirm payments, e.g. HDFCBK,ICICIT (empty: any).
+  _PAYMENT_SMS_SENDERS: ''
