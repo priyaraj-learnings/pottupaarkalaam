@@ -15,6 +15,7 @@ import {
   normalizeMobile,
   normalizeUtr,
   OFFERED_CATEGORIES,
+  paidCreditsNeeded,
   planLooks,
   quoteRecharge,
   rechargeChoices,
@@ -52,6 +53,7 @@ describe('pairs', () => {
     expect(plan).toEqual({
       ok: true,
       credits: 3,
+      extraCredits: 0,
       looks: [
         {
           kind: 'PAIR',
@@ -266,5 +268,25 @@ describe('garment type in every prompt', () => {
     const couple = buildCouplePrompt({ category: 'KURTA', source: 'FABRIC' }, { category: 'CHUDIDHAR', source: 'FABRIC' })
     expect(couple).toMatch(/For the woman, the customer chose a chudidhar/)
     expect(couple).toMatch(/keep none of their current clothes/)
+  })
+})
+
+describe('extra photos', () => {
+  const saree = { category: 'SAREE', source: 'FABRIC' as const }
+
+  it('allow 3 photos normally and 5 with extra photos, the 4th and 5th costing extra', () => {
+    expect(planLooks(Array(4).fill(saree), [])).toMatchObject({ ok: false })
+    expect(planLooks(Array(3).fill(saree), [])).toMatchObject({ ok: true, credits: 3, extraCredits: 0 })
+    expect(planLooks(Array(4).fill(saree), [], { maxGarments: 5, extraCredits: 1 })).toMatchObject({ ok: true, credits: 5, extraCredits: 1 })
+    expect(planLooks(Array(5).fill(saree), [], { maxGarments: 5, extraCredits: 1 })).toMatchObject({ ok: true, credits: 7, extraCredits: 2 })
+    expect(planLooks(Array(6).fill(saree), [], { maxGarments: 5, extraCredits: 1 })).toMatchObject({ ok: false })
+  })
+
+  it('take the extra from paid credits only', () => {
+    // 5 photos (7 credits, 2 extra) with 5 free credits left: 2 paid credits.
+    expect(paidCreditsNeeded({ credits: 7, extraCredits: 2 }, 5)).toBe(2)
+    // With 3 free credits left: 2 normal + 2 extra = 4 paid credits.
+    expect(paidCreditsNeeded({ credits: 7, extraCredits: 2 }, 3)).toBe(4)
+    expect(paidCreditsNeeded({ credits: 3, extraCredits: 0 }, 3)).toBe(0)
   })
 })

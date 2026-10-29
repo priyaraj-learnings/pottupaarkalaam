@@ -7,13 +7,17 @@
 // into credits. No server-only imports.
 // =======================================================
 
+// Clothes photos per try: 3 for everyone; customers with a recharge approved
+// this month can add a 4th and 5th ("extra photos"), each of those pictures
+// costing the admin's extra credits more, from paid credits only.
 export const MAX_GARMENTS = 3
+export const MAX_GARMENTS_PAID = 5
 export const RETENTION_DAYS = 3
 export const PHOTO_BUCKET = 'try-on-photos'
 
 // Bump when the consent card or /terms changes: everyone is asked to agree
 // again before their next try-on.
-export const TERMS_VERSION = '2026-10-29.6'
+export const TERMS_VERSION = '2026-10-29.7'
 
 // Customers are asked to read the terms again at least once a year (IT Rules
 // 2021, rule 3(1)(c)), even when nothing changed.
@@ -178,16 +182,21 @@ export type PlannedLook = {
   garments: LookGarment[]
 }
 
+// credits: all of it; extraCredits: the part only paid credits can pay.
 export type LookPlan =
-  | { ok: true; looks: PlannedLook[]; credits: number }
+  | { ok: true; looks: PlannedLook[]; credits: number; extraCredits: number }
   | { ok: false; message: string }
 
 export function planLooks(
   garments: ReadonlyArray<{ category: string; source: GarmentSource }>,
-  pairs: ReadonlyArray<readonly [number, number]>
+  pairs: ReadonlyArray<readonly [number, number]>,
+  // maxGarments: MAX_GARMENTS_PAID with extra photos; extraCredits: the extra
+  // per photo beyond MAX_GARMENTS (SQL create_looks charges the same).
+  options: { maxGarments?: number; extraCredits?: number } = {}
 ): LookPlan {
+  const maxGarments = options.maxGarments ?? MAX_GARMENTS
   if (!garments.length) return { ok: false, message: 'Add a photo of the clothes first.' }
-  if (garments.length > MAX_GARMENTS) return { ok: false, message: `Add up to ${MAX_GARMENTS} clothes at a time.` }
+  if (garments.length > maxGarments) return { ok: false, message: `Add up to ${maxGarments} clothes at a time.` }
   for (const garment of garments) {
     if (!isGarmentCategory(garment.category) || !(garment.source in SOURCE_LABELS)) {
       return { ok: false, message: 'Choose what each photo is.' }
@@ -215,7 +224,14 @@ export function planLooks(
       looks.push({ kind: 'PAIR', garments: [garmentAt(plan.main, 'MAIN'), garmentAt(plan.companion, plan.role)] })
     }
   })
-  return { ok: true, looks, credits: looks.reduce((sum, look) => sum + LOOK_CREDITS[look.kind], 0) }
+  const extraCredits = (options.extraCredits ?? 1) * Math.max(0, garments.length - MAX_GARMENTS)
+  return { ok: true, looks, credits: looks.reduce((sum, look) => sum + LOOK_CREDITS[look.kind], 0) + extraCredits, extraCredits }
+}
+
+// Paid credits a try needs: free credits pay only for the normal part.
+export function paidCreditsNeeded(plan: { credits: number; extraCredits: number }, freeLeft: number) {
+  const normal = plan.credits - plan.extraCredits
+  return normal - Math.min(freeLeft, normal) + plan.extraCredits
 }
 
 // =======================================================

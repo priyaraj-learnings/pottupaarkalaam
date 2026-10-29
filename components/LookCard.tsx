@@ -21,9 +21,8 @@ function daysLeft(expiresAt: string) {
   return days === 1 ? 'Deletes tomorrow' : `Deletes in ${days} days`
 }
 
-// One try-on picture: making it, the result with Save and Share, or why it
-// failed (its credits are already back).
-export default function LookCard({ look, showDate = false, onRetry }: { look: LookView; showDate?: boolean; onRetry?: () => void }) {
+// Save and Share for a finished picture (the card and the slideshow).
+export function useLookActions(look: Pick<LookView, 'id'>) {
   const toast = useToast()
   const [busy, setBusy] = useState<'' | 'save' | 'share'>('')
   const fileName = `pottupaarkalaam-${look.id.slice(0, 8)}.jpg`
@@ -53,6 +52,15 @@ export default function LookCard({ look, showDate = false, onRetry }: { look: Lo
     }
   }
 
+  return { busy, save, share }
+}
+
+// One try-on picture: making it, the result with Save and Share, or why it
+// failed (its credits are already back). onOpen: tapping the picture opens it
+// full screen (the slideshow).
+export default function LookCard({ look, showDate = false, onRetry, onOpen }: { look: LookView; showDate?: boolean; onRetry?: () => void; onOpen?: () => void }) {
+  const { busy, save, share } = useLookActions(look)
+
   const subtitle = look.garments.map(garment => SOURCE_LABELS[garment.source].split(' ')[0].toLowerCase()).join(' + ')
 
   return (
@@ -60,8 +68,16 @@ export default function LookCard({ look, showDate = false, onRetry }: { look: Lo
       <div className="relative aspect-[2/3] w-full bg-stone-100">
         {look.status === 'COMPLETED' && look.imageUrl ? (
           // Signed storage links change every hour, so next/image caching does not help here.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={look.imageUrl} alt={look.kind === 'COUPLE' ? `Couple picture (${lookTitle(look)})` : `You wearing the ${lookTitle(look).toLowerCase()}`} className="h-full w-full object-cover" />
+          onOpen ? (
+            <button type="button" onClick={onOpen} aria-label={`Open ${lookTitle(look)} full screen`} className="block h-full w-full">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={look.imageUrl} alt={look.kind === 'COUPLE' ? `Couple picture (${lookTitle(look)})` : `You wearing the ${lookTitle(look).toLowerCase()}`} className="h-full w-full object-cover" />
+              <span aria-hidden="true" className="absolute bottom-2 right-2 rounded-full bg-black/55 px-2 py-0.5 text-xs font-bold text-white">⤢</span>
+            </button>
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={look.imageUrl} alt={look.kind === 'COUPLE' ? `Couple picture (${lookTitle(look)})` : `You wearing the ${lookTitle(look).toLowerCase()}`} className="h-full w-full object-cover" />
+          )
         ) : look.status === 'FAILED' ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-center">
             <span className="text-3xl" aria-hidden="true">😕</span>

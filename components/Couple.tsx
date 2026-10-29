@@ -4,7 +4,7 @@ import { useRef, useState, type ChangeEvent } from 'react'
 
 import { CameraCapture, cameraAvailable, type Facing } from '@/components/CameraCapture'
 import { CategoryChips, SourceToggle, type Group } from '@/components/CategoryPicker'
-import LookCard from '@/components/LookCard'
+import { LookGallery } from '@/components/LookGallery'
 import { Button, Card, formatInr, Notice, useToast } from '@/components/ui'
 import { api, ApiFailure, errorMessage } from '@/lib/client/api'
 import { shrinkPhoto } from '@/lib/client/photos'
@@ -180,9 +180,7 @@ export default function Couple({ account, settings, onAccount, onRecharge, onRef
             {making ? 'Making it now. You can leave this screen; it will be in My pictures.' : 'Save the ones you like. Pictures are deleted after 3 days.'}
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          {results.map(look => <LookCard key={look.id} look={look} onRetry={retryFrom[look.id] ? () => void submit(retryFrom[look.id], look.id) : undefined} />)}
-        </div>
+        <LookGallery looks={results} onRetry={look => (retryFrom[look.id] ? () => void submit(retryFrom[look.id], look.id) : undefined)} />
         <div className="grid grid-cols-1 gap-2">
           <Button onClick={() => {
             setPeople(current => ({ his: { ...current.his, garment: null }, her: { ...current.her, garment: null } }))

@@ -4,13 +4,13 @@ import { useMemo, useRef, useState, type ChangeEvent } from 'react'
 
 import { CameraCapture, cameraAvailable } from '@/components/CameraCapture'
 import { CategoryChips, SourceToggle } from '@/components/CategoryPicker'
-import LookCard from '@/components/LookCard'
+import { LookGallery } from '@/components/LookGallery'
 import { Button, Card, Notice, Sheet, useToast } from '@/components/ui'
 import { api, ApiFailure, errorMessage } from '@/lib/client/api'
 import { shrinkPhoto } from '@/lib/client/photos'
-import { isFinished, type Account, type LookView } from '@/lib/client/types'
+import { isFinished, type Account, type AppSettings, type LookView } from '@/lib/client/types'
 import { useLookPolling } from '@/lib/client/useLookPolling'
-import { canPair, categoryLabel, freeCreditsReturnDay, MAX_GARMENTS, planLooks, SOURCE_LABELS, type GarmentSource } from '@/lib/rules'
+import { canPair, categoryLabel, freeCreditsReturnDay, MAX_GARMENTS, MAX_GARMENTS_PAID, paidCreditsNeeded, planLooks, SOURCE_LABELS, type GarmentSource } from '@/lib/rules'
 
 type Item = { id: string; blob: Blob; url: string; category: string; source: GarmentSource }
 type Photo = { blob: Blob; url: string }
@@ -33,8 +33,9 @@ function StepTitle({ number, children, done }: { number: number; children: React
   )
 }
 
-export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }: {
+export default function TryOn({ account, settings, onAccount, onRecharge, onTermsNeeded }: {
   account: Account
+  settings: AppSettings
   onAccount: (account: Account) => void
   onRecharge: () => void
   onTermsNeeded: () => void
@@ -60,15 +61,24 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
   const selfieCamera = useRef<HTMLInputElement>(null)
   const selfieGallery = useRef<HTMLInputElement>(null)
 
+  // Extra (4th and 5th) photos: for customers who recharged this month.
+  const extraAllowed = settings.extraPhotos.enabled && account.paidThisMonth
+  const extraCredits = settings.extraPhotos.credits
+  const planOptions = useMemo(() => ({ maxGarments: extraAllowed ? MAX_GARMENTS_PAID : MAX_GARMENTS, extraCredits }), [extraAllowed, extraCredits])
+  const [chosenLimit, setLimit] = useState(MAX_GARMENTS)
+  const limit = extraAllowed ? Math.max(chosenLimit, items.length) : MAX_GARMENTS
+
   const indexOf = (id: string) => items.findIndex(item => item.id === id)
   const plan = useMemo(() => planLooks(
     items.map(item => ({ category: item.category, source: item.source })),
-    pairs.map(([a, b]) => [items.findIndex(item => item.id === a), items.findIndex(item => item.id === b)] as [number, number])
-  ), [items, pairs])
+    pairs.map(([a, b]) => [items.findIndex(item => item.id === a), items.findIndex(item => item.id === b)] as [number, number]),
+    planOptions,
+  ), [items, pairs, planOptions])
   const available = account.freeLeft + account.credits
   const [freeCreditsBack] = useState(() => freeCreditsReturnDay(new Date()))
   const needed = plan.ok ? plan.credits : 0
-  const room = MAX_GARMENTS - items.length
+  const short = plan.ok && (needed > available || paidCreditsNeeded(plan, account.freeLeft) > account.credits)
+  const room = limit - items.length
 
   const partnerOf = (id: string) => {
     const pair = pairs.find(([a, b]) => a === id || b === id)
@@ -100,7 +110,7 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
 
   async function addClothesFiles(files: File[]) {
     if (!files.length || !category) return
-    if (files.length > room) toast(`Only ${room} more photo${room === 1 ? '' : 's'} can be added (up to ${MAX_GARMENTS}).`)
+    if (files.length > room) toast(`Only ${room} more photo${room === 1 ? '' : 's'} can be added (up to ${limit}).`)
     setPreparing(true)
     try {
       const added: Item[] = []
@@ -108,7 +118,7 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
         const blob = await shrinkPhoto(file)
         added.push({ id: `item-${nextItemId++}`, blob, url: URL.createObjectURL(blob), category, source })
       }
-      setItems(current => [...current, ...added].slice(0, MAX_GARMENTS))
+      setItems(current => [...current, ...added].slice(0, limit))
     } catch (photoError) {
       toast(errorMessage(photoError), 'error')
     } finally {
@@ -171,7 +181,7 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
       const pairIndexes = chosenPairs.map(([a, b]) => [chosen.findIndex(item => item.id === a), chosen.findIndex(item => item.id === b)])
       form.append('pairs', JSON.stringify(pairIndexes))
 
-      const local = planLooks(chosen.map(item => ({ category: item.category, source: item.source })), pairIndexes as Array<[number, number]>)
+      const local = planLooks(chosen.map(item => ({ category: item.category, source: item.source })), pairIndexes as Array<[number, number]>, planOptions)
       const created = await api<CreateResponse>('/api/try-ons', { method: 'POST', body: form })
       onAccount(created.account)
 
@@ -198,6 +208,8 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
         onTermsNeeded()
         return
       }
+      // The account changed (for example a new month): load it again.
+      if (submitError instanceof ApiFailure && submitError.code === 'EXTRA_PHOTOS_NOT_ALLOWED') onTermsNeeded()
       const recharge = submitError instanceof ApiFailure && submitError.code === 'INSUFFICIENT_CREDITS'
       setError({ message: errorMessage(submitError), recharge })
       if (replaceLookId) toast(errorMessage(submitError), 'error')
@@ -236,9 +248,7 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
             {making ? 'Making them now. You can leave this screen; they will be in My pictures.' : 'Save the ones you like. Pictures are deleted after 3 days.'}
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          {results.map(look => <LookCard key={look.id} look={look} onRetry={retryFrom[look.id] ? () => retry(look) : undefined} />)}
-        </div>
+        <LookGallery looks={results} onRetry={look => (retryFrom[look.id] ? () => retry(look) : undefined)} />
         <div className="grid grid-cols-1 gap-2">
           <Button onClick={tryMore} className="w-full">Try other clothes</Button>
           <Button variant="secondary" onClick={() => { setShowResults(false); setError(null) }} className="w-full">Back to these clothes</Button>
@@ -266,7 +276,30 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
         </div>
       </Card>
 
-      <Card title={<StepTitle number={2} done={items.length > 0}>Photos of the clothes <span className="font-semibold text-stone-500">({items.length}/{MAX_GARMENTS})</span></StepTitle>}>
+      <Card title={<StepTitle number={2} done={items.length > 0}>Photos of the clothes <span className="font-semibold text-stone-500">({items.length}/{limit})</span></StepTitle>}>
+        {extraAllowed ? (
+          <div className="mb-3 space-y-1.5">
+            <p className="text-sm font-bold text-stone-700">Photos in this try</p>
+            <div role="radiogroup" aria-label="Photos in this try" className="grid grid-cols-3 gap-1 rounded-full bg-stone-100 p-1">
+              {[MAX_GARMENTS, MAX_GARMENTS + 1, MAX_GARMENTS_PAID].map(count => (
+                <button key={count} type="button" role="radio" aria-checked={limit === count} disabled={count < items.length}
+                  onClick={() => setLimit(count)}
+                  className={`min-h-9 rounded-full text-sm font-extrabold disabled:opacity-40 ${limit === count ? 'bg-white text-brand-800 shadow-sm ring-1 ring-brand-200' : 'text-stone-600'}`}>
+                  {count}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-stone-500">
+              You recharged this month, so you can add up to {MAX_GARMENTS_PAID}. The 4th and 5th pictures cost {1 + extraCredits} credits
+              each, from paid credits.
+            </p>
+          </div>
+        ) : settings.extraPhotos.enabled ? (
+          <p className="mb-3 text-xs text-stone-500">
+            Up to {MAX_GARMENTS} photos a try.{' '}
+            <button type="button" onClick={onRecharge} className="font-bold text-brand-700 underline">Recharge</button> this month to add up to {MAX_GARMENTS_PAID}.
+          </p>
+        ) : null}
         {!category && <p className="mb-3 text-sm text-stone-500">Choose what you are trying first.</p>}
         {category && room > 0 && (
           <p className="mb-3 text-sm text-stone-600">
@@ -348,11 +381,13 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
           )}
           <div className="flex items-center justify-between gap-2 px-1 text-sm">
             <span className="font-semibold text-stone-700">
-              {plan.ok ? `${plan.looks.length} picture${plan.looks.length === 1 ? '' : 's'} · ${needed} credit${needed === 1 ? '' : 's'}` : 'Add clothes and your photo'}
+              {plan.ok
+                ? `${plan.looks.length} picture${plan.looks.length === 1 ? '' : 's'} · ${needed} credit${needed === 1 ? '' : 's'}${plan.extraCredits ? ` (${plan.extraCredits} extra, paid)` : ''}`
+                : 'Add clothes and your photo'}
             </span>
-            <span className={`font-bold ${needed > available ? 'text-red-700' : 'text-stone-500'}`}>You have {available}</span>
+            <span className={`font-bold ${short ? 'text-red-700' : 'text-stone-500'}`}>You have {available}</span>
           </div>
-          {needed > available ? (
+          {short ? (
             <Button onClick={onRecharge} className="w-full">Recharge to try on</Button>
           ) : (
             <Button busy={submitting} disabled={!plan.ok || !photo || preparing} onClick={() => submit(items, pairs)} className="w-full text-base">
