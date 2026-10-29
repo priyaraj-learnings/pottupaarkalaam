@@ -6,6 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: 'PottuPaarkalaam | போட்டுப்பார்க்கலாம்',
     short_name: 'PottuPaarkalaam',
     description: 'Photograph a fabric or a dress, add your photo, and see yourself wearing it.',
+    id: '/',
     start_url: '/',
     scope: '/',
     display: 'standalone',

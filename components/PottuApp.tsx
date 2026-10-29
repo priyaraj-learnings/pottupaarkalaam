@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import History from '@/components/History'
+import { InstallApp } from '@/components/InstallApp'
 import { LegalOverlay, type LegalDoc } from '@/components/LegalOverlay'
 import { LogoMark, Wordmark } from '@/components/Logo'
 import MobileAsk, { MobileForm, shouldAskForMobile } from '@/components/MobileNumber'
@@ -213,6 +214,7 @@ export default function PottuApp() {
             <p className="text-sm text-stone-600">Signed in as <b>{current.user.email}</b></p>
             <p className="text-xs text-stone-500">Your customer code: <b>{customerCode(session.user.id)}</b></p>
             <MobileRow account={current.account} onAccount={setAccount} />
+            <InstallApp />
             <nav className="flex flex-col divide-y divide-stone-100 rounded-2xl ring-1 ring-stone-200">
               {current.isAdmin && <Link href="/admin" className="px-4 py-3 font-semibold text-brand-700">Admin</Link>}
               <button type="button" onClick={() => setLegal('terms')} className="flex items-center justify-between px-4 py-3 text-left font-semibold">Terms of Use <span aria-hidden="true" className="text-stone-400">›</span></button>

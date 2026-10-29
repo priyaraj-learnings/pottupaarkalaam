@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useState, type FormEvent } from 'react'
 
+import { InstallApp } from '@/components/InstallApp'
 import { LogoMark, Wordmark } from '@/components/Logo'
 import { Button, Notice } from '@/components/ui'
 import { supabase } from '@/lib/supabase/browser'
@@ -127,6 +128,8 @@ export default function SignIn() {
             <Button variant="ghost" onClick={() => { setMode('email'); setCode('') }}>Use a different email</Button>
           </form>
         )}
+
+        <InstallApp className="mt-4" />
 
         <p className="mt-auto pt-6 text-center text-xs text-stone-500">
           By continuing you agree to our <Link href="/terms" className="font-semibold underline">Terms</Link> and{' '}
