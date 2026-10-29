@@ -173,6 +173,7 @@ export async function updateSettings(adminId: string, body: unknown) {
   const row = {
     upi_id: upiId,
     upi_qr_text: upiQrText,
+    upi_app_buttons: input.upiAppButtons === true || input.upiAppButtons === 'true',
     payee_name: text(input.payeeName, 100),
     support_contact: text(input.supportContact, 200),
     free_credits_per_month: whole(input.freeCreditsPerMonth, 'Free credits', 0, 100),

@@ -1,11 +1,12 @@
 -- PottuPaarkalaam: catch-up for a database that is missing the 29 October changes.
 -- Contains, in order: 20261029000300_phone_login.sql, 20261029000400_mobile_required.sql,
--- 20261029000500_couple_pictures.sql, 20261029000600_delete_account.sql and 20261029000700_upi_qr.sql.
+-- 20261029000500_couple_pictures.sql, 20261029000600_delete_account.sql, 20261029000700_upi_qr.sql and
+-- 20261029000800_upi_app_buttons.sql.
 -- Safe to run more than once.
 --
 -- Supabase → the project the app uses → SQL Editor → New query → paste ALL of this → Run.
 -- It runs as one piece: if any line fails, nothing is changed and the error is shown.
--- The last result must show five "true" columns.
+-- The last result must show six "true" columns.
 
 -- ====================================================================
 -- 20261029000300_phone_login.sql
@@ -461,11 +462,26 @@ alter table public.app_settings add constraint app_settings_upi_qr_check check (
 notify pgrst, 'reload schema';
 
 -- ====================================================================
--- Check: all five must say true.
+-- 20261029000800_upi_app_buttons.sql
+-- ====================================================================
+-- Whether phones show "pay with Google Pay / PhonePe / Paytm" buttons (UPI
+-- links). UPI declines link payments to a business UPI ID that is not yet
+-- verified ("Payment failed as per UPI risk policy"), but accepts a scan of its
+-- QR, also from a photo in the gallery. So the buttons start off: phones show
+-- "Save QR to gallery" and how to scan it from the UPI app. The admin turns
+-- them on in /admin Settings once the business is verified.
+
+alter table public.app_settings add column if not exists upi_app_buttons boolean not null default false;
+
+notify pgrst, 'reload schema';
+
+-- ====================================================================
+-- Check: all six must say true.
 -- ====================================================================
 select
   exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'app_settings' and column_name = 'msg91_widget_id') as mobile_sign_in,
   exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'app_settings' and column_name = 'free_needs_mobile') as verified_mobile_rule,
   exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'app_settings' and column_name = 'couple_enabled') as couple_pictures,
   exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = 'free_use_carryover') as delete_account,
-  exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'app_settings' and column_name = 'upi_qr_text') as business_qr;
+  exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'app_settings' and column_name = 'upi_qr_text') as business_qr,
+  exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'app_settings' and column_name = 'upi_app_buttons') as app_buttons_switch;

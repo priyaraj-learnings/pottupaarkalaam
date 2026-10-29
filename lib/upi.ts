@@ -47,9 +47,9 @@ export function phoneKind(userAgent: string): PhoneKind {
 export function upiAppLinks(link: string, phone: PhoneKind) {
   const query = link.slice(link.indexOf('?'))
   return [
-    { app: 'Google Pay', href: phone === 'ios' ? `gpay://upi/pay${query}` : `tez://upi/pay${query}` },
     { app: 'PhonePe', href: `phonepe://pay${query}` },
     { app: 'Paytm', href: `paytmmp://pay${query}` },
+    { app: 'Google Pay', href: phone === 'ios' ? `gpay://upi/pay${query}` : `tez://upi/pay${query}` },
     { app: phone === 'android' ? 'Other UPI app (BHIM, bank apps…)' : 'Other UPI app', href: link },
   ]
 }

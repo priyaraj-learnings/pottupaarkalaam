@@ -94,6 +94,7 @@ function SettingsForm({ overview, onSaved }: { overview: Overview; onSaved: () =
   const [form, setForm] = useState<Record<string, string>>({
     upiId: settings.upiId ?? '',
     upiQrText: settings.upiQrText ?? '',
+    upiAppButtons: String(settings.upiAppButtons),
     payeeName: settings.payeeName ?? '',
     supportContact: settings.supportContact ?? '',
     ...Object.fromEntries(Object.entries(settings.pricing).map(([key, value]) => [key, String(value)])),
@@ -147,6 +148,16 @@ function SettingsForm({ overview, onSaved }: { overview: Overview; onSaved: () =
             upiId: current.upiId || parseUpiQr(value)?.pa || '',
             payeeName: current.payeeName || parseUpiQr(value)?.payeeName || '',
           }))} />
+          <label className="flex items-start gap-3 rounded-xl bg-stone-50 p-3 text-sm text-stone-700">
+            <input type="checkbox" checked={form.upiAppButtons === 'true'} onChange={event => setForm(current => ({ ...current, upiAppButtons: String(event.target.checked) }))}
+              className="mt-0.5 h-5 w-5 shrink-0 accent-brand-600" />
+            <span>
+              <b>Show &ldquo;pay with PhonePe / Paytm / Google Pay&rdquo; buttons on phones.</b> Leave this off until your
+              business UPI ID is verified: UPI declines button (link) payments to an unverified business (&ldquo;Payment
+              failed as per UPI risk policy&rdquo;) but accepts a scan of its QR. While it is off, phones show &ldquo;Save QR
+              to gallery&rdquo; and how to scan it from the UPI app.
+            </span>
+          </label>
         </div>
       </Card>
 

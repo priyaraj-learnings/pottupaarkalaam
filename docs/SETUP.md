@@ -82,6 +82,11 @@ Pay for Business) → **Save settings**. The pay buttons and QR then carry the s
 recharge as a payment to the business. Verify the business in Google Pay for Business too, or Google Pay may still
 warn about payments to an unverified business.
 
+UPI declines payments started from a link or button to a business UPI ID that is not verified yet ("Payment failed
+as per UPI risk policy"), but accepts a scan of its QR, also scanned from a photo in the gallery. So phones show
+**Save QR to gallery** and how to scan it from the UPI app. Run `20261029000800_upi_app_buttons.sql`, and tick
+**Show "pay with PhonePe / Paytm / Google Pay" buttons on phones** in Settings only once the business is verified.
+
 ### 1.3a Delete my account
 
 Run `supabase/migrations/20261029000600_delete_account.sql` (UAT first, then production). Customers can then delete

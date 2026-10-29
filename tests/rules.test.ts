@@ -199,9 +199,9 @@ describe('paying from the phone', () => {
     expect(query).toContain('pa=inaivuit%40okaxis')
     expect(query).toContain('am=80.00')
     expect(upiAppLinks(link, 'android').map(option => option.href)).toEqual([
-      `tez://upi/pay${query}`, `phonepe://pay${query}`, `paytmmp://pay${query}`, link,
+      `phonepe://pay${query}`, `paytmmp://pay${query}`, `tez://upi/pay${query}`, link,
     ])
-    expect(upiAppLinks(link, 'ios')[0].href).toBe(`gpay://upi/pay${query}`)
+    expect(upiAppLinks(link, 'ios')[2].href).toBe(`gpay://upi/pay${query}`)
   })
 
   it('tells phones from computers', () => {

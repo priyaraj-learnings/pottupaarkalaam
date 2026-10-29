@@ -103,6 +103,7 @@ export default function Recharge({ active, account, settings, userCode, onAccoun
 
   const chosen = custom ? Number(custom) : amount
   const quote = quoteRecharge(chosen, pricing)
+  const payee = settings.payeeName ?? 'inaivu IT'
   const link = settings.upiId && quote.ok
     ? upiLink({ upiId: settings.upiId, payeeName: settings.payeeName, amountInr: chosen, note: `PottuPaarkalaam ${userCode}`, qrText: settings.upiQrText })
     : null
@@ -197,7 +198,7 @@ export default function Recharge({ active, account, settings, userCode, onAccoun
           <p className="text-sm text-stone-500">Choose an amount first.</p>
         ) : (
           <div className="space-y-3">
-            {onPhone ? (
+            {onPhone && settings.upiAppButtons ? (
               <>
                 <p className="text-sm font-semibold text-stone-700">Tap your UPI app to pay {formatInr(chosen)}:</p>
                 <div className="grid grid-cols-3 gap-2">
@@ -209,27 +210,34 @@ export default function Recharge({ active, account, settings, userCode, onAccoun
                   ))}
                 </div>
                 <p className="text-xs text-stone-500">If nothing opens, that app is not on this phone: try another, or copy the UPI ID below.</p>
+                <details className="rounded-2xl bg-stone-50 p-3 text-center text-sm">
+                  <summary className="cursor-pointer font-semibold text-brand-700">Paying from another phone? Show the QR code</summary>
+                  <div className="mt-3"><UpiQr link={link} amountInr={chosen} payee={payee} /></div>
+                </details>
+              </>
+            ) : onPhone ? (
+              <>
+                {/* UPI accepts a scan of the business QR, also from a photo, where it declines link payments. */}
+                <ol className="list-decimal space-y-1.5 pl-5 text-sm text-stone-700">
+                  <li>Tap <b>Save QR to gallery</b> below.</li>
+                  <li>Open <b>PhonePe, Paytm, Google Pay or BHIM</b> → <b>Scan</b> → tap the <b>gallery / photo</b> icon → choose the saved QR.</li>
+                  <li>Pay <b>{formatInr(chosen)}</b>, then come back here for step 3.</li>
+                </ol>
+                <div className="rounded-2xl bg-stone-50 p-3 text-center text-sm">
+                  <UpiQr link={link} amountInr={chosen} payee={payee} primary onSaved={() => { wentToPay.current = true }} />
+                  <p className="mt-2 text-xs text-stone-500">Paying from another phone? Just scan this QR.</p>
+                </div>
               </>
             ) : (
-              <a href={link} className="brand-gradient flex min-h-12 items-center justify-center rounded-2xl px-4 text-base font-bold text-white shadow-md">
-                Pay {formatInr(chosen)} with a UPI app
-              </a>
-            )}
-            <div className="flex items-center justify-center gap-2 text-sm text-stone-600">
-              <span className="min-w-0 truncate">To <b>{settings.payeeName ?? 'inaivu IT'}</b> · <span className="select-all font-mono">{settings.upiId}</span></span>
-              <button type="button" onClick={copyUpiId} className="shrink-0 rounded-full border border-brand-200 px-3 py-1 text-xs font-bold text-brand-700">Copy</button>
-            </div>
-            {onPhone ? (
-              <details className="rounded-2xl bg-stone-50 p-3 text-center text-sm">
-                <summary className="cursor-pointer font-semibold text-brand-700">Paying from another phone? Show the QR code</summary>
-                <div className="mt-3"><UpiQr link={link} amountInr={chosen} /></div>
-              </details>
-            ) : (
               <div className="rounded-2xl bg-stone-50 p-3 text-center text-sm">
-                <p className="mb-2 font-bold">Or scan this QR with any UPI app</p>
-                <UpiQr link={link} amountInr={chosen} />
+                <p className="mb-2 font-bold">Scan this QR with any UPI app on your phone</p>
+                <UpiQr link={link} amountInr={chosen} payee={payee} />
               </div>
             )}
+            <div className="flex items-center justify-center gap-2 text-sm text-stone-600">
+              <span className="min-w-0 truncate">To <b>{payee}</b> · <span className="select-all font-mono">{settings.upiId}</span></span>
+              <button type="button" onClick={copyUpiId} className="shrink-0 rounded-full border border-brand-200 px-3 py-1 text-xs font-bold text-brand-700">Copy</button>
+            </div>
             <p className="text-xs text-stone-500">Pay exactly {formatInr(chosen)}, then come back here for step 3.</p>
           </div>
         )}
