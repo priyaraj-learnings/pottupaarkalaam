@@ -7,6 +7,10 @@ import { Button, Card, formatWhen, Notice, Spinner, useToast } from '@/component
 import { api, errorMessage } from '@/lib/client/api'
 import { gmailForwarderScript } from '@/lib/gmailForwarder'
 
+// MSG91 widget IDs are long codes such as 34686b716a33363035353831, never a
+// name with spaces or without digits.
+const looksLikeWidgetId = (value: string) => /^[A-Za-z0-9]{12,}$/.test(value.trim()) && /\d/.test(value)
+
 function SettingsForm({ overview, onSaved }: { overview: Overview; onSaved: () => void }) {
   const toast = useToast()
   const { settings, aiRates, phoneLogin } = overview
@@ -82,12 +86,22 @@ function SettingsForm({ overview, onSaved }: { overview: Overview; onSaved: () =
               : 'Off: fill in all three to turn it on. Clear the Widget ID to turn it off.'}
           </Notice>
           <div className="grid gap-3 sm:grid-cols-2">
-            {field('msg91WidgetId', 'Widget ID', { autoComplete: 'off', autoCapitalize: 'none', spellCheck: 'false' })}
+            {field('msg91WidgetId', 'Widget ID', { autoComplete: 'off', autoCapitalize: 'none', spellCheck: 'false', placeholder: 'e.g. 34686b716a33363035353831' })}
             {field('msg91TokenAuth', 'Widget token (tokenAuth)', { autoComplete: 'off', autoCapitalize: 'none', spellCheck: 'false' })}
             {field('msg91AuthKey', `Auth key${phoneLogin.authKeySet ? ' (saved; type a new one to replace it)' : ''}`, {
               type: 'password', autoComplete: 'new-password', placeholder: phoneLogin.authKeySet ? '••••••••' : 'From MSG91 → Authkey',
             })}
           </div>
+          <p className="text-xs text-stone-500">
+            Copy the Widget ID and token from MSG91 → OTP Widget/SDK → Widgets → your widget → <b>Client Side Integration</b>:
+            the values in quotes after <code>widgetId:</code> and <code>tokenAuth:</code>. The Auth key is under MSG91 → Authkey.
+          </p>
+          {form.msg91WidgetId.trim() && !looksLikeWidgetId(form.msg91WidgetId) && (
+            <Notice tone="warning">
+              That looks like the widget&rsquo;s name. The Widget ID is a long code (letters and numbers, no spaces) from
+              Client Side Integration; MSG91 answers &ldquo;Widget not found&rdquo; to a name.
+            </Notice>
+          )}
           <label className="flex items-start gap-3 rounded-xl bg-stone-50 p-3 text-sm text-stone-700">
             <input type="checkbox" checked={form.freeNeedsMobile === 'true'} onChange={event => setForm(current => ({ ...current, freeNeedsMobile: String(event.target.checked) }))}
               className="mt-0.5 h-5 w-5 shrink-0 accent-brand-600" />
