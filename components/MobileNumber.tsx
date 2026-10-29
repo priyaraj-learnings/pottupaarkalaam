@@ -5,6 +5,7 @@ import { useState, type FormEvent } from 'react'
 import { LogoMark, Wordmark } from '@/components/Logo'
 import { Button, Card, Notice } from '@/components/ui'
 import { api, errorMessage } from '@/lib/client/api'
+import { openMsg91Widget } from '@/lib/client/msg91'
 import type { Account } from '@/lib/client/types'
 import { formatMobile, MOBILE_ASK_AGAIN_DAYS, normalizeMobile } from '@/lib/rules'
 
@@ -16,7 +17,7 @@ export function shouldAskForMobile(account: Account, now: number) {
   return now - new Date(account.phoneAskedAt).getTime() > MOBILE_ASK_AGAIN_DAYS * 86_400_000
 }
 
-const savePhone = (json: Record<string, unknown>) => api<{ account: Account }>('/api/me/phone', { method: 'PUT', json })
+export const savePhone = (json: Record<string, unknown>) => api<{ account: Account }>('/api/me/phone', { method: 'PUT', json })
 
 export function MobileForm({ account, onSaved, onSkip, onCancel }: {
   account: Account
@@ -113,6 +114,84 @@ export default function MobileAsk({ account, onDone }: { account: Account; onDon
         <MobileForm account={account} onSaved={onDone} onSkip={skip} />
       </Card>
       <p className="px-1 text-xs text-stone-500">We never sell or share your number. Offers only if you tick the box.</p>
+    </main>
+  )
+}
+
+type Widget = { widgetId: string; tokenAuth: string }
+
+// Verifies a number with an SMS code through the MSG91 widget. The server takes
+// the number from MSG91, never from the browser.
+export function VerifyMobileForm({ account, widget, onVerified, onCancel }: {
+  account: Account
+  widget: Widget
+  onVerified: (account: Account) => void
+  onCancel?: () => void
+}) {
+  const [offersOk, setOffersOk] = useState(account.offersOk)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  async function finish(accessToken: string) {
+    setBusy(true)
+    setError('')
+    try {
+      onVerified((await savePhone({ accessToken, offersOk })).account)
+    } catch (verifyError) {
+      setError(errorMessage(verifyError))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function start() {
+    setError('')
+    try {
+      const identifier = account.phone && !account.phoneVerified ? account.phone.replace('+', '') : undefined
+      await openMsg91Widget({ ...widget, identifier }, accessToken => void finish(accessToken), setError)
+    } catch (widgetError) {
+      setError(errorMessage(widgetError))
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <label className="flex items-start gap-3 text-sm text-stone-700">
+        <input type="checkbox" checked={offersOk} onChange={event => setOffersOk(event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-brand-600" />
+        <span>Send me offers and new features on WhatsApp or SMS. I can stop them any time.</span>
+      </label>
+      {error && <Notice tone="error">{error}</Notice>}
+      <div className="flex flex-wrap gap-2">
+        <Button busy={busy} onClick={start} className="flex-1"><span aria-hidden="true">📱</span> Verify with SMS code</Button>
+        {onCancel && <Button variant="ghost" disabled={busy} onClick={onCancel}>Cancel</Button>}
+      </div>
+    </div>
+  )
+}
+
+// Shown after sign-in when free credits need a verified mobile number. One
+// number belongs to one account, so free credits go to one number a month.
+export function VerifyMobile({ account, widget, onDone, onSignOut }: {
+  account: Account
+  widget: Widget
+  onDone: (account: Account) => void
+  onSignOut: () => void
+}) {
+  return (
+    <main className="mx-auto flex min-h-dvh max-w-md flex-col gap-4 px-4 pb-8 pt-[calc(1.5rem+env(safe-area-inset-top))]">
+      <div className="flex items-center gap-3">
+        <LogoMark size={44} />
+        <Wordmark />
+      </div>
+      <Card title="Verify your mobile number">
+        <p className="mb-4 text-[15px] text-stone-600">
+          Your {account.freeCreditsPerMonth} free credits every month go to one mobile number. Verify yours with an SMS
+          code to start trying on. We also use it if a payment or a picture needs sorting out.
+        </p>
+        <VerifyMobileForm account={account} widget={widget} onVerified={onDone} />
+      </Card>
+      <p className="px-1 text-xs text-stone-500">One account per mobile number. We never sell or share your number.</p>
+      <Button variant="ghost" onClick={onSignOut}>Sign out</Button>
     </main>
   )
 }

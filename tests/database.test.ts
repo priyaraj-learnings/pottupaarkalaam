@@ -222,6 +222,48 @@ describe('admin credit adjustments', () => {
   })
 })
 
+describe('free credits for one mobile number', () => {
+  const verify = (userId: string, phone: string) => one<Result>('select public.verify_phone($1, $2) as r', [userId, phone])
+  const requireMobile = (on: boolean) => db.query('update public.app_settings set free_needs_mobile = $1 where id', [on])
+
+  it('gives free credits only to accounts with a verified number, when the admin requires it', async () => {
+    const user = await newUser('needs-mobile@example.com')
+    await one('select public.get_account($1, $2) as r', [user, TERMS])
+    await requireMobile(true)
+    try {
+      expect(await account(user)).toMatchObject({ freeLeft: 0, phoneVerified: false })
+      expect(await createLooks(user, [single(0)])).toMatchObject({ error: 'INSUFFICIENT_CREDITS', available: 0 })
+
+      expect(await verify(user, '+919000000001')).toMatchObject({ account: { phone: '+919000000001', phoneVerified: true, freeLeft: 5 } })
+      expect((await createLooks(user, [single(0)])).looks).toHaveLength(1)
+      expect(await account(user)).toMatchObject({ freeLeft: 4 })
+    } finally {
+      await requireMobile(false)
+    }
+  })
+
+  it('lets a verified number belong to one account only', async () => {
+    const first = await newUser('first-phone@example.com')
+    const second = await newUser('second-phone@example.com')
+    await verify(first, '+919000000002')
+    expect(await verify(second, '+919000000002')).toEqual({ error: 'PHONE_TAKEN' })
+    // The same account can verify it again, or move to a new number.
+    expect(await verify(first, '+919000000002')).toHaveProperty('account')
+    expect(await verify(first, '+919000000003')).toMatchObject({ account: { phone: '+919000000003' } })
+    // The old number is free again for someone else.
+    expect(await verify(second, '+919000000002')).toMatchObject({ account: { phoneVerified: true } })
+  })
+
+  it('never lets a typed number replace or remove a verified one', async () => {
+    const user = await newUser('typed-over@example.com')
+    await verify(user, '+919000000004')
+    await expect(one('select public.save_phone($1, $2, false) as r', [user, '+919000000005'])).rejects.toThrow(/PHONE_VERIFIED/)
+    await expect(one('select public.save_phone($1, null, false) as r', [user])).rejects.toThrow(/PHONE_VERIFIED/)
+    // Changing only the offers choice for the same number is fine.
+    expect(await one('select public.save_phone($1, $2, true) as r', [user, '+919000000004'])).toMatchObject({ offersOk: true, phoneVerified: true })
+  })
+})
+
 describe('settings', () => {
   it('saves the UPI ID and refuses one that is not a UPI ID', async () => {
     const save = (upiId: string | null) => db.query('update public.app_settings set upi_id = $1 where id', [upiId])
@@ -300,6 +342,7 @@ describe('database permissions', () => {
         await expect(db.query('select * from public.accounts')).rejects.toThrow(/permission denied/)
         await expect(db.query(`select public.adjust_credits('a@b.c', null, 5, 'Free')`)).rejects.toThrow(/permission denied/)
         await expect(db.query(`select public.save_phone(gen_random_uuid(), '+919876543210', true)`)).rejects.toThrow(/permission denied/)
+        await expect(db.query(`select public.verify_phone(gen_random_uuid(), '+919876543210')`)).rejects.toThrow(/permission denied/)
       } finally {
         await db.exec('reset role')
       }

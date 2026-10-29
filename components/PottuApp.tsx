@@ -8,7 +8,7 @@ import History from '@/components/History'
 import { InstallApp } from '@/components/InstallApp'
 import { LegalOverlay, type LegalDoc } from '@/components/LegalOverlay'
 import { LogoMark, Wordmark } from '@/components/Logo'
-import MobileAsk, { MobileForm, shouldAskForMobile } from '@/components/MobileNumber'
+import MobileAsk, { MobileForm, savePhone, shouldAskForMobile, VerifyMobile, VerifyMobileForm } from '@/components/MobileNumber'
 import Recharge from '@/components/Recharge'
 import SignIn from '@/components/SignIn'
 import TermsConsent from '@/components/TermsConsent'
@@ -28,27 +28,61 @@ const TABS: Array<{ id: Tab; label: string; icon: string }> = [
   { id: 'recharge', label: 'Recharge', icon: '💳' },
 ]
 
-function MobileRow({ account, onAccount }: { account: Account; onAccount: (account: Account) => void }) {
+function MobileRow({ account, widget, onAccount }: {
+  account: Account
+  widget: { widgetId: string; tokenAuth: string } | null
+  onAccount: (account: Account) => void
+}) {
   const toast = useToast()
   const [editing, setEditing] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  async function setOffers(offersOk: boolean) {
+    setBusy(true)
+    try {
+      onAccount((await savePhone({ phone: account.phone, offersOk })).account)
+    } catch (offersError) {
+      toast(errorMessage(offersError), 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const done = (next: Account) => {
+    onAccount(next)
+    setEditing(false)
+    toast(next.phone ? 'Mobile number saved.' : 'Mobile number removed.')
+  }
+
+  // Verified numbers change only by verifying the new one.
+  const verifyNew = Boolean(widget && (account.phoneVerified || !account.phone))
+
   return (
     <div className="rounded-2xl p-4 ring-1 ring-stone-200">
       {editing ? (
-        <MobileForm account={account} onCancel={() => setEditing(false)} onSaved={next => {
-          onAccount(next)
-          setEditing(false)
-          toast(next.phone ? 'Mobile number saved.' : 'Mobile number removed.')
-        }} />
+        verifyNew && widget
+          ? <VerifyMobileForm account={account} widget={widget} onVerified={done} onCancel={() => setEditing(false)} />
+          : <MobileForm account={account} onCancel={() => setEditing(false)} onSaved={done} />
       ) : (
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-sm font-bold">Mobile number</p>
-            <p className="text-sm text-stone-600">
-              {account.phone ? `+91 ${formatMobile(account.phone)}` : 'Not added'}
-              {account.phone && <span className="block text-xs text-stone-500">{account.offersOk ? 'Offers on WhatsApp or SMS: yes' : 'No offers'}</span>}
-            </p>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-bold">Mobile number</p>
+              <p className="text-sm text-stone-600">
+                {account.phone ? `+91 ${formatMobile(account.phone)}` : 'Not added'}
+                {account.phoneVerified && <span className="ml-1.5 font-bold text-emerald-700">✓ verified</span>}
+              </p>
+            </div>
+            {(widget || !account.phoneVerified) && (
+              <Button variant="secondary" onClick={() => setEditing(true)} className="min-h-10 shrink-0 text-sm">{account.phone ? 'Change' : 'Add'}</Button>
+            )}
           </div>
-          <Button variant="secondary" onClick={() => setEditing(true)} className="min-h-10 shrink-0 text-sm">{account.phone ? 'Change' : 'Add'}</Button>
+          {account.phone && (
+            <label className="flex items-center gap-2 text-xs text-stone-600">
+              <input type="checkbox" checked={account.offersOk} disabled={busy} onChange={event => void setOffers(event.target.checked)} className="h-4 w-4 accent-brand-600" />
+              Offers on WhatsApp or SMS
+            </label>
+          )}
         </div>
       )}
     </div>
@@ -155,7 +189,15 @@ export default function PottuApp() {
     )
   }
 
-  if (askMobile) {
+  // Free credits go to one verified mobile number a month: no app without one.
+  if (current.settings.mobileRequired && current.settings.phoneWidget && !current.account.phoneVerified) {
+    return <VerifyMobile account={current.account} widget={current.settings.phoneWidget} onDone={account => {
+      setAccount(account)
+      setAskMobile(false)
+    }} onSignOut={signOut} />
+  }
+
+  if (askMobile && !current.settings.mobileRequired) {
     return <MobileAsk account={current.account} onDone={account => {
       setAccount(account)
       setAskMobile(false)
@@ -213,7 +255,7 @@ export default function PottuApp() {
           <div className="space-y-3">
             <p className="text-sm text-stone-600">Signed in as <b>{current.user.email ?? (current.user.phone ? `+91 ${formatMobile(current.user.phone)}` : '')}</b></p>
             <p className="text-xs text-stone-500">Your customer code: <b>{customerCode(session.user.id)}</b></p>
-            <MobileRow account={current.account} onAccount={setAccount} />
+            <MobileRow account={current.account} widget={current.settings.phoneWidget} onAccount={setAccount} />
             <InstallApp />
             <nav className="flex flex-col divide-y divide-stone-100 rounded-2xl ring-1 ring-stone-200">
               {current.isAdmin && <Link href="/admin" className="px-4 py-3 font-semibold text-brand-700">Admin</Link>}

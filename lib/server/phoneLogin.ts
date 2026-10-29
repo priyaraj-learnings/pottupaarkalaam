@@ -14,7 +14,7 @@ export type PhoneLoginConfig = { widgetId: string; tokenAuth: string }
 const VERIFY_URL = 'https://control.msg91.com/api/v5/widget/verifyAccessToken'
 const FAILED = 'The code could not be confirmed. Please try again.'
 
-async function msg91Settings() {
+export async function msg91Settings() {
   const { data, error } = await supabaseAdmin.from('app_settings')
     .select('msg91_widget_id, msg91_token_auth, msg91_auth_key').eq('id', true).maybeSingle()
   if (error) throw dbError(error, 'Unable to load sign-in settings')
@@ -56,8 +56,8 @@ export async function verifyMsg91Token(accessToken: string, authKey: string) {
 }
 
 // Confirms the widget's token, makes the account on first sign-in (with the
-// number saved, so the app does not ask for it again) and returns a one-time
-// sign-in token the browser exchanges for a session.
+// number saved as verified, so the app does not ask for it again) and returns a
+// one-time sign-in token the browser exchanges for a session.
 export async function phoneSignIn(body: unknown) {
   const accessToken = typeof (body as { accessToken?: unknown } | null)?.accessToken === 'string'
     ? ((body as { accessToken: string }).accessToken).trim() : ''
@@ -78,13 +78,17 @@ export async function phoneSignIn(body: unknown) {
   if (created.error && !/already|exists|registered/i.test(created.error.message)) {
     throw dbError(created.error, 'Unable to create the account')
   }
-  if (created.data.user) {
-    const saved = await supabaseAdmin.rpc('save_phone', { p_user_id: created.data.user.id, p_phone: phone, p_offers_ok: false })
-    if (saved.error) throw dbError(saved.error, 'Unable to save the mobile number')
-  }
-
   const link = await supabaseAdmin.auth.admin.generateLink({ type: 'magiclink', email })
   const tokenHash = link.data?.properties?.hashed_token
-  if (link.error || !tokenHash) throw dbError(link.error, 'Unable to sign in')
+  const userId = link.data?.user?.id ?? created.data.user?.id
+  if (link.error || !tokenHash || !userId) throw dbError(link.error, 'Unable to sign in')
+
+  // The account's verified number (also for accounts made before numbers were
+  // verified). A number verified on another account stays there.
+  const verified = await supabaseAdmin.rpc('verify_phone', { p_user_id: userId, p_phone: phone, p_offers_ok: null })
+  if (verified.error) throw dbError(verified.error, 'Unable to save the mobile number')
+  if ((verified.data as { error?: string } | null)?.error === 'PHONE_TAKEN') {
+    throw new ApiError(409, 'PHONE_TAKEN', 'This mobile number belongs to a PottuPaarkalaam account you made with Google or email. Sign in that way instead.')
+  }
   return { tokenHash, type: 'magiclink' as const }
 }

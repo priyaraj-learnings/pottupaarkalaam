@@ -33,12 +33,18 @@ function loadWidget() {
 
 // Opens the widget. onToken runs once the person has entered the right code;
 // nothing runs if they close the window.
-export async function openMsg91Widget(config: { widgetId: string; tokenAuth: string }, onToken: (accessToken: string) => void, onError: (message: string) => void) {
+// identifier: a number to fill in, as 91 and 10 digits.
+export async function openMsg91Widget(
+  config: { widgetId: string; tokenAuth: string; identifier?: string },
+  onToken: (accessToken: string) => void,
+  onError: (message: string) => void,
+) {
   await loadWidget()
   if (!window.initSendOTP) throw new Error('The SMS service could not be reached. Please try again.')
   window.initSendOTP({
     widgetId: config.widgetId,
     tokenAuth: config.tokenAuth,
+    ...(config.identifier ? { identifier: config.identifier } : {}),
     // Both callbacks are needed: the widget fails without them.
     success: (data: { message?: unknown } | string) => {
       const token = typeof data === 'string' ? data : data?.message

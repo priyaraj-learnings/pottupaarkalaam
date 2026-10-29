@@ -58,14 +58,18 @@ signed in.
 Optional; for people who don't use Google or email. MSG91 sends and checks the code with its OTP widget (the same
 MSG91 account as salemtamilroots.in works; without your own DLT registration MSG91 uses its own sender).
 
-1. Run `supabase/migrations/20261029000300_phone_login.sql` (UAT first, then production).
-2. MSG91 → **OTP → Widget**: create a widget for PottuPaarkalaam (a separate one from salemtamilroots.in, so the
-   messages and settings stay apart) and allow the app's addresses: the UAT `run.app` address, the production
-   `run.app` address and `pp.inaivuit.com`.
+1. Run `supabase/migrations/20261029000300_phone_login.sql` and `20261029000400_mobile_required.sql` (UAT first,
+   then production).
+2. MSG91 → **OTP → Widgets**: create a widget for PottuPaarkalaam (a separate one from salemtamilroots.in, so the
+   messages and settings stay apart), with India allowed. Turn **Demo Credentials** off once testing is done:
+   anyone who knows the demo number and code could sign in as that number without an SMS.
 3. `/admin` → **Settings** → *Mobile number sign-in (MSG91)*: enter the **Widget ID**, the widget **token**
    (tokenAuth) and the account's **Auth key** (MSG91 → Authkey; secret: it is saved but never shown again) →
    **Save settings**. "Sign in with mobile number" then appears on the sign-in screen; clear the Widget ID to
    turn it off.
+4. Optional, once a test sign-in works: tick **Free credits only for a verified mobile number**. Everyone who
+   signs in with Google or email must then verify a number with an SMS code before using the app; a verified number
+   belongs to one account only, so free credits go to one number a month.
 
 People who sign in this way get a stand-in email address in Supabase (`pp-phone-<number>@inaivuit.com`); the app
 never emails it and shows their mobile number instead.

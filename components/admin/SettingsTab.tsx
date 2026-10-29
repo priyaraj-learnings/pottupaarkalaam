@@ -19,6 +19,7 @@ function SettingsForm({ overview, onSaved }: { overview: Overview; onSaved: () =
     msg91WidgetId: phoneLogin.widgetId,
     msg91TokenAuth: phoneLogin.tokenAuth,
     msg91AuthKey: '',
+    freeNeedsMobile: String(phoneLogin.freeNeedsMobile),
   })
   const [busy, setBusy] = useState(false)
 
@@ -72,9 +73,8 @@ function SettingsForm({ overview, onSaved }: { overview: Overview; onSaved: () =
       <Card title="Mobile number sign-in (MSG91)">
         <div className="space-y-3">
           <p className="text-sm text-stone-600">
-            Adds &ldquo;Sign in with mobile number&rdquo; to the sign-in screen, using your MSG91 OTP widget: MSG91 sends and
-            checks the code. In MSG91 → OTP → Widget, allow this site&rsquo;s address
-            {' '}(<code className="rounded bg-stone-100 px-1">{typeof window === 'undefined' ? '' : window.location.host}</code>).
+            Adds &ldquo;Sign in with mobile number&rdquo; to the sign-in screen, using your MSG91 OTP widget (MSG91 → OTP →
+            Widgets): MSG91 sends and checks the code. The same widget verifies the numbers of Google and email accounts.
           </p>
           <Notice tone={phoneLogin.widgetId && phoneLogin.tokenAuth && phoneLogin.authKeySet ? 'success' : 'info'}>
             {phoneLogin.widgetId && phoneLogin.tokenAuth && phoneLogin.authKeySet
@@ -88,6 +88,15 @@ function SettingsForm({ overview, onSaved }: { overview: Overview; onSaved: () =
               type: 'password', autoComplete: 'new-password', placeholder: phoneLogin.authKeySet ? '••••••••' : 'From MSG91 → Authkey',
             })}
           </div>
+          <label className="flex items-start gap-3 rounded-xl bg-stone-50 p-3 text-sm text-stone-700">
+            <input type="checkbox" checked={form.freeNeedsMobile === 'true'} onChange={event => setForm(current => ({ ...current, freeNeedsMobile: String(event.target.checked) }))}
+              className="mt-0.5 h-5 w-5 shrink-0 accent-brand-600" />
+            <span>
+              <b>Free credits only for a verified mobile number.</b> Everyone who signs in with Google or email must verify a
+              number with an SMS code, and one number can belong to one account only, so the free credits go to one number
+              a month. Needs the three boxes above.
+            </span>
+          </label>
         </div>
       </Card>
 

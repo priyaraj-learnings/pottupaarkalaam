@@ -9,6 +9,8 @@ export type Account = {
   termsVersion: string | null
   termsAcceptedAt: string | null
   phone: string | null
+  // Verified with an SMS code (MSG91); one account per verified number.
+  phoneVerified: boolean
   offersOk: boolean
   phoneAskedAt: string | null
 }
@@ -18,6 +20,10 @@ export type AppSettings = {
   payeeName: string | null
   supportContact: string | null
   pricing: Pricing
+  // Free credits only with a verified mobile number: the app asks for one.
+  mobileRequired: boolean
+  // The MSG91 OTP widget's public values, when verification is set up.
+  phoneWidget: { widgetId: string; tokenAuth: string } | null
 }
 
 export type Me = {

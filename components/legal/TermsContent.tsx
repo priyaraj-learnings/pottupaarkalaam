@@ -37,6 +37,8 @@ export function TermsContent() {
         <h2>4. Credits, prices and recharges</h2>
         <ul>
           <li>Every account gets free credits each calendar month (shown in the app). Unused free credits do not carry over.</li>
+          <li>Free credits may need a mobile number verified by an SMS code. One mobile number can belong to one account only,
+            so free credits go to one number a month. Making extra accounts to get more free credits is not allowed.</li>
           <li>One garment makes one picture for 1 credit. Two garments worn together (a pair) make one picture for 2 credits.</li>
           <li>You buy credits by paying {COMPANY.name} by UPI and entering the UPI reference (UTR). The price per credit
             depends on the recharge amount, as shown in the app before you pay. Credits are added when the payment is

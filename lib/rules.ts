@@ -13,7 +13,7 @@ export const PHOTO_BUCKET = 'try-on-photos'
 
 // Bump when the consent card or /terms changes: everyone is asked to agree
 // again before their next try-on.
-export const TERMS_VERSION = '2026-10-29.2'
+export const TERMS_VERSION = '2026-10-29.3'
 
 export type GarmentSource = 'FABRIC' | 'STITCHED'
 
