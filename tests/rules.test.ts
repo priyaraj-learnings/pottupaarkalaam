@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { hasGarmentProfile } from '@/lib/garments'
-import { phoneKind, upiAppLinks, upiLink } from '@/lib/upi'
+import { parseUpiQr, phoneKind, upiAppLinks, upiLink } from '@/lib/upi'
 import { buildCouplePrompt, buildPairPrompt, buildSinglePrompt } from '@/lib/prompts'
 import {
   canPair,
@@ -208,5 +208,32 @@ describe('paying from the phone', () => {
     expect(phoneKind('Mozilla/5.0 (Linux; Android 14; SM-A146B) Chrome/130 Mobile')).toBe('android')
     expect(phoneKind('Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) Safari/604.1')).toBe('ios')
     expect(phoneKind('Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130')).toBe('other')
+  })
+})
+
+describe('the business UPI QR', () => {
+  const qrText = 'upi://pay?pa=9677757237@okbizaxis&pn=Inaivu%20IT&mc=7372&aid=uGICAgKDFvo2sEQ&tr=BCR2DN7T7WKK7ARK&ver=01&mode=01'
+
+  it('reads the UPI ID, name and merchant category', () => {
+    expect(parseUpiQr(qrText)).toMatchObject({ pa: '9677757237@okbizaxis', payeeName: 'Inaivu IT', merchantCode: '7372' })
+    expect(parseUpiQr('https://example.com')).toBeNull()
+    expect(parseUpiQr('')).toBeNull()
+  })
+
+  it('gives the pay links the same merchant details, adding only the amount and note', () => {
+    const link = upiLink({ upiId: '9677757237@okbizaxis', payeeName: 'inaivu IT', amountInr: 80, note: 'PottuPaarkalaam ABCD1234', qrText })
+    const params = new URLSearchParams(link.slice(link.indexOf('?') + 1))
+    expect(Object.fromEntries(params)).toEqual({
+      pa: '9677757237@okbizaxis', pn: 'Inaivu IT', mc: '7372', aid: 'uGICAgKDFvo2sEQ', tr: 'BCR2DN7T7WKK7ARK', ver: '01', mode: '01',
+      am: '80.00', cu: 'INR', tn: 'PottuPaarkalaam ABCD1234',
+    })
+  })
+
+  it('ignores a QR for another UPI ID, and a signature that would not match the amount', () => {
+    const other = upiLink({ upiId: 'someone@okaxis', payeeName: null, amountInr: 40, note: 'x', qrText })
+    expect(other).not.toContain('mc=')
+    const signed = upiLink({ upiId: 'a@ok', payeeName: null, amountInr: 40, note: 'x', qrText: 'upi://pay?pa=a@ok&mc=5411&sign=abc' })
+    expect(signed).toContain('mc=5411')
+    expect(signed).not.toContain('sign=')
   })
 })

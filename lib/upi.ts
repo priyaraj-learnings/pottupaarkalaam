@@ -1,9 +1,33 @@
+// The business's own UPI QR text, read: its UPI ID and the merchant details
+// it carries (mc = merchant category, aid / tr = Google Pay merchant account
+// and QR reference, ver, mode…). null if it is not a UPI payment QR.
+export function parseUpiQr(text: string | null | undefined) {
+  const trimmed = text?.trim() ?? ''
+  if (!/^upi:\/\/pay\?/i.test(trimmed)) return null
+  const params = new URLSearchParams(trimmed.slice(trimmed.indexOf('?') + 1))
+  const pa = params.get('pa')
+  return pa ? { pa, payeeName: params.get('pn'), merchantCode: params.get('mc'), params } : null
+}
+
+// Set by the app for each payment; everything else comes from the QR.
+const PER_PAYMENT = ['pa', 'am', 'cu', 'tn', 'sign']
+
 // UPI payment link with the amount filled in (the same as KanakkuPaar's). On a
 // phone it opens the UPI app chooser; as a QR it can be scanned by any UPI app.
 // The note carries the customer's code so a payment can be matched by hand.
-export function upiLink(input: { upiId: string; payeeName: string | null; amountInr: number; note: string }) {
-  const query = new URLSearchParams({ pa: input.upiId, am: input.amountInr.toFixed(2), cu: 'INR', tn: input.note.slice(0, 50) })
-  if (input.payeeName) query.set('pn', input.payeeName)
+// With the business's own QR text (for the same UPI ID), the link keeps its
+// merchant details, so UPI apps treat it like a scan of that QR. A signed QR's
+// signature is left out: it would not match the added amount.
+export function upiLink(input: { upiId: string; payeeName: string | null; amountInr: number; note: string; qrText?: string | null }) {
+  const query = new URLSearchParams({ pa: input.upiId })
+  const qr = parseUpiQr(input.qrText)
+  if (qr && qr.pa.toLowerCase() === input.upiId.toLowerCase()) {
+    for (const [key, value] of qr.params) if (!PER_PAYMENT.includes(key)) query.set(key, value)
+  }
+  if (input.payeeName && !query.has('pn')) query.set('pn', input.payeeName)
+  query.set('am', input.amountInr.toFixed(2))
+  query.set('cu', 'INR')
+  query.set('tn', input.note.slice(0, 50))
   return `upi://pay?${query.toString().replace(/\+/g, '%20')}`
 }
 

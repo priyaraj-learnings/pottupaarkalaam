@@ -104,7 +104,7 @@ export default function Recharge({ active, account, settings, userCode, onAccoun
   const chosen = custom ? Number(custom) : amount
   const quote = quoteRecharge(chosen, pricing)
   const link = settings.upiId && quote.ok
-    ? upiLink({ upiId: settings.upiId, payeeName: settings.payeeName, amountInr: chosen, note: `PottuPaarkalaam ${userCode}` })
+    ? upiLink({ upiId: settings.upiId, payeeName: settings.payeeName, amountInr: chosen, note: `PottuPaarkalaam ${userCode}`, qrText: settings.upiQrText })
     : null
 
   async function submit(event: FormEvent) {

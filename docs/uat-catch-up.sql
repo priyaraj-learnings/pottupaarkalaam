@@ -1,10 +1,11 @@
 -- PottuPaarkalaam: catch-up for a database that is missing the 29 October changes.
 -- Contains, in order: 20261029000300_phone_login.sql, 20261029000400_mobile_required.sql,
--- 20261029000500_couple_pictures.sql and 20261029000600_delete_account.sql. Safe to run more than once.
+-- 20261029000500_couple_pictures.sql, 20261029000600_delete_account.sql and 20261029000700_upi_qr.sql.
+-- Safe to run more than once.
 --
 -- Supabase → the project the app uses → SQL Editor → New query → paste ALL of this → Run.
 -- It runs as one piece: if any line fails, nothing is changed and the error is shown.
--- The last result must show four "true" columns.
+-- The last result must show five "true" columns.
 
 -- ====================================================================
 -- 20261029000300_phone_login.sql
@@ -443,10 +444,28 @@ grant execute on function public.verify_phone(uuid, text, boolean) to service_ro
 notify pgrst, 'reload schema';
 
 -- ====================================================================
--- Check: all four must say true.
+-- 20261029000700_upi_qr.sql
+-- ====================================================================
+-- The text inside the business's own UPI QR (upi://pay?pa=…&mc=…&aid=…&tr=…),
+-- pasted or read from a photo in /admin Settings. The app's pay buttons and
+-- QR then carry the same merchant details (category code, Google Pay merchant
+-- ID and reference), adding only the amount and note, so UPI apps see a
+-- payment to the verified business rather than a plain link.
+
+alter table public.app_settings add column if not exists upi_qr_text text;
+alter table public.app_settings drop constraint if exists app_settings_upi_qr_check;
+alter table public.app_settings add constraint app_settings_upi_qr_check check (
+  upi_qr_text is null or (length(upi_qr_text) <= 600 and upi_qr_text ~* '^upi://pay\?')
+);
+
+notify pgrst, 'reload schema';
+
+-- ====================================================================
+-- Check: all five must say true.
 -- ====================================================================
 select
   exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'app_settings' and column_name = 'msg91_widget_id') as mobile_sign_in,
   exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'app_settings' and column_name = 'free_needs_mobile') as verified_mobile_rule,
   exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'app_settings' and column_name = 'couple_enabled') as couple_pictures,
-  exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = 'free_use_carryover') as delete_account;
+  exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = 'free_use_carryover') as delete_account,
+  exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'app_settings' and column_name = 'upi_qr_text') as business_qr;

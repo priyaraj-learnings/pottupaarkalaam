@@ -74,6 +74,14 @@ MSG91 account as salemtamilroots.in works; without your own DLT registration MSG
 People who sign in this way get a stand-in email address in Supabase (`pp-phone-<number>@inaivuit.com`); the app
 never emails it and shows their mobile number instead.
 
+### 1.3b Your business UPI QR
+
+Run `supabase/migrations/20261029000700_upi_qr.sql` (UAT first, then production). Then `/admin` → **Settings** →
+*Where customers pay* → **Read it from a photo of the QR** (a photo or screenshot of the QR from your bank or Google
+Pay for Business) → **Save settings**. The pay buttons and QR then carry the same merchant details, so UPI apps treat a
+recharge as a payment to the business. Verify the business in Google Pay for Business too, or Google Pay may still
+warn about payments to an unverified business.
+
 ### 1.3a Delete my account
 
 Run `supabase/migrations/20261029000600_delete_account.sql` (UAT first, then production). Customers can then delete

@@ -19,6 +19,8 @@ export type Account = {
 
 export type AppSettings = {
   upiId: string | null
+  // The business's own UPI QR text: its merchant details go into the pay links.
+  upiQrText: string | null
   payeeName: string | null
   supportContact: string | null
   pricing: Pricing
