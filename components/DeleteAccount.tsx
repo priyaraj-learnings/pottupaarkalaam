@@ -10,7 +10,9 @@ import { COMPANY } from '@/lib/legal'
 // "Delete my account" (DPDP Act 2023, sections 6(4) and 12): as easy as signing
 // up, from the account menu. The server deletes the photos, account, credits
 // and sign-in, and keeps only the payment records tax law needs.
-export function DeleteAccount({ account, onDeleted }: { account: Account; onDeleted: () => void }) {
+// Admin accounts see why they cannot be deleted here (so nobody locks the
+// admin out by mistake).
+export function DeleteAccount({ account, isAdmin, onDeleted }: { account: Account; isAdmin: boolean; onDeleted: () => void }) {
   const [open, setOpen] = useState(false)
   const [sure, setSure] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -41,6 +43,15 @@ export function DeleteAccount({ account, onDeleted }: { account: Account; onDele
         Delete my account
       </button>
       <Sheet open={open} title="Delete your account?" onClose={close}>
+        {isAdmin ? (
+          <div className="space-y-3 text-[15px] text-stone-700">
+            <Notice tone="info">
+              This is an <b>admin account</b>, so it cannot be deleted from the app. Customers see the delete steps here.
+              To delete this account, first remove it from <code>app_admins</code> in Supabase.
+            </Notice>
+            <Button variant="secondary" onClick={close} className="w-full">Close</Button>
+          </div>
+        ) : (
         <div className="space-y-3 text-[15px] text-stone-700">
           <p>This deletes, straight away and for good:</p>
           <ul className="list-disc space-y-1 pl-5">
@@ -65,6 +76,7 @@ export function DeleteAccount({ account, onDeleted }: { account: Account; onDele
             <Button variant="ghost" disabled={busy} onClick={close} className="w-full">Keep my account</Button>
           </div>
         </div>
+        )}
       </Sheet>
     </>
   )

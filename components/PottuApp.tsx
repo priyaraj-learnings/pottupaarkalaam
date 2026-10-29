@@ -324,12 +324,10 @@ export default function PottuApp() {
               {current.settings.supportContact && <p className="px-4 py-3 text-sm">Help: {current.settings.supportContact}</p>}
             </nav>
             <Button variant="secondary" onClick={signOut} className="w-full">Sign out</Button>
-            {!current.isAdmin && (
-              <DeleteAccount account={current.account} onDeleted={() => {
-                setSignInNotice('Your account has been deleted. Thank you for trying PottuPaarkalaam.')
-                void signOut()
-              }} />
-            )}
+            <DeleteAccount account={current.account} isAdmin={current.isAdmin} onDeleted={() => {
+              setSignInNotice('Your account has been deleted. Thank you for trying PottuPaarkalaam.')
+              void signOut()
+            }} />
           </div>
         </Sheet>
         <LegalOverlay doc={legal} onClose={closeLegal} />
