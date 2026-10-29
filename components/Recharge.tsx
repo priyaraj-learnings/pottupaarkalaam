@@ -203,7 +203,7 @@ export default function Recharge({ active, account, settings, userCode, onAccoun
                 <div className="grid grid-cols-3 gap-2">
                   {upiAppLinks(link, phone).map((option, index) => (
                     <a key={option.app} href={option.href} onClick={() => { wentToPay.current = true }}
-                      className={`flex min-h-12 items-center justify-center rounded-2xl px-2 text-center text-[15px] font-bold ${index < 3 ? 'brand-gradient text-white shadow-md' : 'col-span-3 border border-brand-200 bg-white text-brand-700'}`}>
+                      className={`flex min-h-10 items-center justify-center rounded-xl border border-brand-200 bg-white px-1.5 text-center text-[13px] font-bold whitespace-nowrap text-brand-700 sm:text-sm active:bg-brand-50 ${index < 3 ? '' : 'col-span-3'}`}>
                       {option.app}
                     </a>
                   ))}
@@ -242,7 +242,7 @@ export default function Recharge({ active, account, settings, userCode, onAccoun
           <div className="flex gap-2">
             <input ref={utrInput} inputMode="numeric" autoComplete="off" value={utr} placeholder="e.g. 629912345678" aria-label="UPI reference (UTR)"
               onChange={event => setUtr(event.target.value.replace(/[^\d ]/g, '').slice(0, 15))}
-              className="min-h-12 min-w-0 flex-1 rounded-2xl border border-stone-300 px-4 text-center text-lg font-bold tracking-widest outline-none focus:border-brand-500" />
+              className="min-h-12 min-w-0 flex-1 rounded-2xl border border-stone-300 px-3 text-center text-base font-bold tracking-wider outline-none focus:border-brand-500 sm:text-lg sm:tracking-widest" />
             {canPaste && <Button variant="secondary" onClick={pasteUtr} className="shrink-0 px-4">Paste</Button>}
           </div>
           <details className="text-sm text-stone-600">

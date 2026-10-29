@@ -101,14 +101,14 @@ function AdminConsole({ onBlocked }: { onBlocked: () => void }) {
 
   return (
     <div className="space-y-4">
-      <nav aria-label="Admin sections" className="flex gap-1 overflow-x-auto rounded-2xl bg-white p-1 ring-1 ring-stone-200">
+      <nav aria-label="Admin sections" className="grid grid-cols-4 gap-1 rounded-2xl bg-white p-1 ring-1 ring-stone-200">
         {TABS.map(item => (
           <button
             key={item.id}
             type="button"
             onClick={() => setTab(item.id)}
             aria-current={tab === item.id ? 'page' : undefined}
-            className={`flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl px-4 text-sm font-bold ${tab === item.id ? 'bg-stone-900 text-white' : 'text-stone-600'}`}
+            className={`flex min-h-10 min-w-0 items-center justify-center gap-1 rounded-xl px-1 text-[13px] font-bold sm:px-4 sm:text-sm ${tab === item.id ? 'bg-stone-900 text-white' : 'text-stone-600'}`}
           >
             {item.label}
             {item.id === 'payments' && waiting > 0 && (

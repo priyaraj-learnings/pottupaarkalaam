@@ -302,7 +302,7 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
       </Card>
 
       <Card title={<StepTitle number={3} done={Boolean(photo)}>Your photo</StepTitle>}>
-        <p className="mb-3 text-sm text-stone-600">Stand straight, full length (head to feet), in good light. Fitted clothes work best.</p>
+        <p className="mb-3 text-sm text-stone-600">Any clear photo works: full length or from the waist up, facing the camera, in good light. Full length shows the whole outfit best.</p>
         <div className="flex gap-3">
           {photo && (
             // eslint-disable-next-line @next/next/no-img-element

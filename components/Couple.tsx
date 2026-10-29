@@ -207,7 +207,7 @@ export default function Couple({ account, settings, onAccount, onRecharge, onRef
           />
           <PhotoSlot
             label={`Photo of ${words.him}`}
-            help="Standing straight, full length (head to feet), in good light."
+            help="Full length or from the waist up, facing the camera, in good light."
             photo={person.photo}
             disabled={preparing}
             onPick={file => void pick(side, 'photo', file)}
