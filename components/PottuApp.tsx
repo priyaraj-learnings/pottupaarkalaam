@@ -4,6 +4,7 @@ import type { Session } from '@supabase/supabase-js'
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+import Couple from '@/components/Couple'
 import History from '@/components/History'
 import { InstallApp } from '@/components/InstallApp'
 import { LegalOverlay, type LegalDoc } from '@/components/LegalOverlay'
@@ -15,18 +16,56 @@ import TermsConsent from '@/components/TermsConsent'
 import TryOn from '@/components/TryOn'
 import { Button, Notice, Sheet, Spinner, ToastProvider, useToast } from '@/components/ui'
 import { api, errorMessage } from '@/lib/client/api'
-import type { Account, Me } from '@/lib/client/types'
+import type { Account, AppSettings, Me } from '@/lib/client/types'
 import { formatMobile, TERMS_VERSION } from '@/lib/rules'
 import { supabase } from '@/lib/supabase/browser'
 import { customerCode } from '@/lib/upi'
 
-type Tab = 'tryon' | 'history' | 'recharge'
+type Tab = 'tryon' | 'couple' | 'history' | 'recharge'
 
 const TABS: Array<{ id: Tab; label: string; icon: string }> = [
   { id: 'tryon', label: 'Try on', icon: '✨' },
+  { id: 'couple', label: 'Couple', icon: '💑' },
   { id: 'history', label: 'My pictures', icon: '🖼️' },
   { id: 'recharge', label: 'Recharge', icon: '💳' },
 ]
+
+// The customer's "Couple pictures" switch (shown when the admin offers them).
+function CoupleRow({ account, settings, onAccount, onTurnedOn }: {
+  account: Account
+  settings: AppSettings
+  onAccount: (account: Account) => void
+  onTurnedOn: () => void
+}) {
+  const toast = useToast()
+  const [busy, setBusy] = useState(false)
+
+  async function set(on: boolean) {
+    setBusy(true)
+    try {
+      onAccount((await api<{ account: Account }>('/api/me/couple', { method: 'PUT', json: { on } })).account)
+      if (on) onTurnedOn()
+    } catch (coupleError) {
+      toast(errorMessage(coupleError), 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <label className="flex items-start gap-3 rounded-2xl p-4 ring-1 ring-stone-200">
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-bold">💑 Couple pictures</span>
+        <span className="block text-xs text-stone-600">
+          Adds a Couple tab: one picture of you and your partner, each in new clothes. {settings.couple.credits} paid
+          credits a picture (free credits can&rsquo;t be used).
+        </span>
+      </span>
+      <input type="checkbox" role="switch" checked={account.coupleOptIn} disabled={busy} onChange={event => void set(event.target.checked)}
+        className="mt-0.5 h-6 w-6 shrink-0 accent-brand-600" />
+    </label>
+  )
+}
 
 function MobileRow({ account, widget, onAccount }: {
   account: Account
@@ -205,6 +244,9 @@ export default function PottuApp() {
   }
 
   const credits = current.account.freeLeft + current.account.credits
+  const coupleOn = current.settings.couple.enabled && current.account.coupleOptIn
+  const tabs = TABS.filter(item => item.id !== 'couple' || coupleOn)
+  const shownTab: Tab = tabs.some(item => item.id === tab) ? tab : 'tryon'
 
   return (
     <ToastProvider>
@@ -226,24 +268,30 @@ export default function PottuApp() {
         </header>
 
         <main className="px-4 pb-28 pt-2">
-          <div className={tab === 'tryon' ? '' : 'hidden'}>
+          <div className={shownTab === 'tryon' ? '' : 'hidden'}>
             <TryOn account={current.account} onAccount={setAccount} onRecharge={() => setTab('recharge')}
               onTermsNeeded={() => loadMe(session.user.id)} />
           </div>
-          <div className={tab === 'history' ? '' : 'hidden'}>
-            <History active={tab === 'history'} onTryOn={() => setTab('tryon')} />
+          {coupleOn && (
+            <div className={shownTab === 'couple' ? '' : 'hidden'}>
+              <Couple account={current.account} settings={current.settings} onAccount={setAccount} onRecharge={() => setTab('recharge')}
+                onRefresh={() => loadMe(session.user.id)} />
+            </div>
+          )}
+          <div className={shownTab === 'history' ? '' : 'hidden'}>
+            <History active={shownTab === 'history'} onTryOn={() => setTab('tryon')} />
           </div>
-          <div className={tab === 'recharge' ? '' : 'hidden'}>
-            <Recharge active={tab === 'recharge'} account={current.account} settings={current.settings}
+          <div className={shownTab === 'recharge' ? '' : 'hidden'}>
+            <Recharge active={shownTab === 'recharge'} account={current.account} settings={current.settings}
               userCode={customerCode(session.user.id)} onAccount={setAccount} />
           </div>
         </main>
 
         <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-40 border-t border-stone-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
-          <div className="mx-auto grid max-w-md grid-cols-3">
-            {TABS.map(item => (
-              <button key={item.id} type="button" onClick={() => setTab(item.id)} aria-current={tab === item.id ? 'page' : undefined}
-                className={`flex min-h-16 flex-col items-center justify-center gap-0.5 text-xs font-bold ${tab === item.id ? 'text-brand-700' : 'text-stone-500'}`}>
+          <div className={`mx-auto grid max-w-md ${tabs.length === 4 ? 'grid-cols-4' : 'grid-cols-3'}`}>
+            {tabs.map(item => (
+              <button key={item.id} type="button" onClick={() => setTab(item.id)} aria-current={shownTab === item.id ? 'page' : undefined}
+                className={`flex min-h-16 flex-col items-center justify-center gap-0.5 text-xs font-bold ${shownTab === item.id ? 'text-brand-700' : 'text-stone-500'}`}>
                 <span className="text-xl" aria-hidden="true">{item.icon}</span>
                 {item.label}
               </button>
@@ -256,6 +304,12 @@ export default function PottuApp() {
             <p className="text-sm text-stone-600">Signed in as <b>{current.user.email ?? (current.user.phone ? `+91 ${formatMobile(current.user.phone)}` : '')}</b></p>
             <p className="text-xs text-stone-500">Your customer code: <b>{customerCode(session.user.id)}</b></p>
             <MobileRow account={current.account} widget={current.settings.phoneWidget} onAccount={setAccount} />
+            {current.settings.couple.enabled && (
+              <CoupleRow account={current.account} settings={current.settings} onAccount={setAccount} onTurnedOn={() => {
+                setMenuOpen(false)
+                setTab('couple')
+              }} />
+            )}
             <InstallApp />
             <nav className="flex flex-col divide-y divide-stone-100 rounded-2xl ring-1 ring-stone-200">
               {current.isAdmin && <Link href="/admin" className="px-4 py-3 font-semibold text-brand-700">Admin</Link>}

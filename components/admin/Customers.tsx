@@ -174,7 +174,7 @@ function CustomerSheet({ userId, onClose }: { userId: string | null; onClose: ()
                 {shown.pictures.map(picture => (
                   <li key={picture.id} className="flex justify-between gap-2 py-2">
                     <span className="min-w-0">
-                      <b>{picture.garments.map(garment => categoryLabel(garment.category)).join(' + ')}</b>
+                      <b>{picture.kind === 'COUPLE' && 'Couple: '}{picture.garments.map(garment => categoryLabel(garment.category)).join(' + ')}</b>
                       <span className="text-stone-500"> · {picture.garments.map(garment => (garment.source === 'FABRIC' ? 'fabric' : 'stitched')).join(' + ')}</span>
                       <span className="block truncate text-xs text-stone-500">
                         {formatWhen(picture.createdAt)} · {picture.freeCreditsUsed} free + {picture.paidCreditsUsed} paid credit{picture.credits === 1 ? '' : 's'}

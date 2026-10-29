@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import { hasGarmentProfile } from '@/lib/garments'
-import { buildPairPrompt, buildSinglePrompt } from '@/lib/prompts'
+import { buildCouplePrompt, buildPairPrompt, buildSinglePrompt } from '@/lib/prompts'
 import {
   canPair,
   categoryLabel,
+  coupleGarmentAllowed,
   DEFAULT_PRICING,
   formatMobile,
   freeCreditsReturnDay,
@@ -102,6 +103,28 @@ describe('prompts', () => {
 
     const layer = buildPairPrompt({ category: 'WAISTCOAT', source: 'FABRIC' }, { category: 'KURTA', source: 'FABRIC' }, 'INNER')
     expect(layer).toMatch(/outer layer over the kurta/)
+  })
+
+  it('dresses each person of a couple in their own garment', () => {
+    const couple = buildCouplePrompt({ category: 'KURTA', source: 'FABRIC' }, { category: 'SAREE', source: 'STITCHED' })
+    expect(couple).toMatch(/IMAGE 1 is the man and IMAGE 3 is the woman/)
+    expect(couple).toMatch(/THE MAN \(IMAGE 1\) wears a .*kurta.*, made only from IMAGE 2/i)
+    expect(couple).toMatch(/THE WOMAN \(IMAGE 3\) wears a .*saree.*, made only from IMAGE 4/i)
+    expect(couple).toMatch(/IMAGE 4 is a photo of a READY-MADE, STITCHED saree/)
+    expect(couple).toMatch(/onto the woman/)
+    expect(couple).toMatch(/never dress one person in the other person's garment/)
+    expect(couple).toMatch(/SAREE-SPECIFIC DRAPING RULES/)
+  })
+})
+
+describe('couple pictures', () => {
+  it("take a men's garment for him and a women's garment for her, from those still offered", () => {
+    expect(coupleGarmentAllowed('HIS', 'KURTA')).toBe(true)
+    expect(coupleGarmentAllowed('HER', 'SAREE')).toBe(true)
+    expect(coupleGarmentAllowed('HIS', 'SAREE')).toBe(false)
+    expect(coupleGarmentAllowed('HER', 'SHERWANI')).toBe(false)
+    expect(coupleGarmentAllowed('HER', 'BLOUSE')).toBe(false)
+    expect(coupleGarmentAllowed('HIS', 'NOT_A_GARMENT')).toBe(false)
   })
 })
 

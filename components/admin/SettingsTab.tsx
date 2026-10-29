@@ -24,6 +24,8 @@ function SettingsForm({ overview, onSaved }: { overview: Overview; onSaved: () =
     msg91TokenAuth: phoneLogin.tokenAuth,
     msg91AuthKey: '',
     freeNeedsMobile: String(phoneLogin.freeNeedsMobile),
+    coupleEnabled: String(settings.couple.enabled),
+    coupleCredits: String(settings.couple.credits),
   })
   const [busy, setBusy] = useState(false)
 
@@ -71,6 +73,31 @@ function SettingsForm({ overview, onSaved }: { overview: Overview; onSaved: () =
           {field('bulkMinRechargeInr', 'Bulk price from a recharge of (₹)', { inputMode: 'numeric' })}
           {field('minRechargeInr', 'Smallest recharge (₹)', { inputMode: 'numeric' })}
           {field('maxRechargeInr', 'Largest recharge (₹)', { inputMode: 'numeric' })}
+        </div>
+      </Card>
+
+      <Card title="Couple pictures">
+        <div className="space-y-3">
+          <p className="text-sm text-stone-600">
+            A &ldquo;Couple&rdquo; tab: his garment and photo, her garment and photo, and one picture of the two of them.
+            Customers see it after turning on &ldquo;Couple pictures&rdquo; in their account menu. It uses paid credits only
+            (never the free ones), and the credits come back if the picture fails.
+          </p>
+          <label className="flex items-start gap-3 rounded-xl bg-stone-50 p-3 text-sm text-stone-700">
+            <input type="checkbox" checked={form.coupleEnabled === 'true'} onChange={event => setForm(current => ({ ...current, coupleEnabled: String(event.target.checked) }))}
+              className="mt-0.5 h-5 w-5 shrink-0 accent-brand-600" />
+            <span><b>Offer couple pictures</b></span>
+          </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {field('coupleCredits', 'Credits per couple picture', { inputMode: 'numeric' })}
+          </div>
+          {Number(form.coupleCredits) > 0 && Number(form.standardRateInr) > 0 && (
+            <p className="text-xs text-stone-500">
+              = ₹{Number(form.coupleCredits) * Number(form.standardRateInr)} a picture at the standard price
+              {Number(form.bulkRateInr) > 0 && Number(form.bulkRateInr) !== Number(form.standardRateInr) && <>, ₹{Number(form.coupleCredits) * Number(form.bulkRateInr)} at the bulk price</>}.
+              It sends 4 photos to the AI instead of 2, so it costs a little more to make than a single picture (see the cost reports).
+            </p>
+          )}
         </div>
       </Card>
 

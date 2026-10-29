@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { DEFAULT_PRICING, formatMobile, normalizeMobile, normalizeUtr, TERMS_VERSION, type Pricing } from '@/lib/rules'
+import { DEFAULT_COUPLE_CREDITS, DEFAULT_PRICING, formatMobile, normalizeMobile, normalizeUtr, TERMS_VERSION, type Pricing } from '@/lib/rules'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import type { SignedInUser } from '@/lib/server/auth'
 import { ApiError, dbError } from '@/lib/server/http'
@@ -16,6 +16,8 @@ export type Account = {
   phoneVerified: boolean
   offersOk: boolean
   phoneAskedAt: string | null
+  // The customer chose to show couple pictures.
+  coupleOptIn: boolean
 }
 
 export type AppSettings = {
@@ -28,6 +30,8 @@ export type AppSettings = {
   mobileRequired: boolean
   // The MSG91 OTP widget's public values, when mobile verification is set up.
   phoneWidget: { widgetId: string; tokenAuth: string } | null
+  // Couple pictures: on for the whole app, and their price in paid credits.
+  couple: { enabled: boolean; credits: number }
 }
 
 type SettingsRow = {
@@ -38,6 +42,8 @@ type SettingsRow = {
   msg91_widget_id?: string | null
   msg91_token_auth?: string | null
   msg91_auth_key?: string | null
+  couple_enabled?: boolean
+  couple_credits?: number
   free_credits_per_month: number
   standard_rate_inr: number
   bulk_rate_inr: number
@@ -47,7 +53,10 @@ type SettingsRow = {
 }
 
 export function settingsFromRow(row: SettingsRow | null): AppSettings {
-  if (!row) return { upiId: null, payeeName: null, supportContact: null, pricing: DEFAULT_PRICING, mobileRequired: false, phoneWidget: null }
+  if (!row) {
+    return { upiId: null, payeeName: null, supportContact: null, pricing: DEFAULT_PRICING, mobileRequired: false, phoneWidget: null,
+      couple: { enabled: false, credits: DEFAULT_COUPLE_CREDITS } }
+  }
   // Never the auth key: these settings go to the browser.
   const widgetId = row.msg91_widget_id?.trim()
   const tokenAuth = row.msg91_token_auth?.trim()
@@ -58,6 +67,7 @@ export function settingsFromRow(row: SettingsRow | null): AppSettings {
     supportContact: row.support_contact,
     mobileRequired: Boolean(row.free_needs_mobile && phoneWidget),
     phoneWidget,
+    couple: { enabled: Boolean(row.couple_enabled), credits: row.couple_credits ?? DEFAULT_COUPLE_CREDITS },
     pricing: {
       freeCreditsPerMonth: row.free_credits_per_month,
       standardRateInr: row.standard_rate_inr,
@@ -130,6 +140,14 @@ export async function verifyMobile(userId: string, accessToken: string, offersOk
   const result = data as { account?: Account; error?: string }
   if (result.error === 'PHONE_TAKEN') throw new ApiError(409, 'PHONE_TAKEN', PHONE_TAKEN_MESSAGE)
   return result.account as Account
+}
+
+// The customer's "Couple pictures" switch.
+export async function setCoupleOptIn(user: SignedInUser, body: unknown): Promise<Account> {
+  const on = (body as { on?: unknown } | null)?.on === true
+  const { data, error } = await supabaseAdmin.rpc('set_couple_opt_in', { p_user_id: user.id, p_on: on })
+  if (error) throw dbError(error, 'Unable to update your account')
+  return data as Account
 }
 
 // ---------------------------------------------------------------------------

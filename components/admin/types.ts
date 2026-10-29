@@ -140,7 +140,7 @@ export type CustomerDetail = {
   pictures: Array<{
     id: string
     createdAt: string
-    kind: 'SINGLE' | 'PAIR'
+    kind: 'SINGLE' | 'PAIR' | 'COUPLE'
     garments: Array<{ category: string; source: 'FABRIC' | 'STITCHED' }>
     credits: number
     freeCreditsUsed: number

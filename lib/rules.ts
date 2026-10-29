@@ -13,7 +13,7 @@ export const PHOTO_BUCKET = 'try-on-photos'
 
 // Bump when the consent card or /terms changes: everyone is asked to agree
 // again before their next try-on.
-export const TERMS_VERSION = '2026-10-29.3'
+export const TERMS_VERSION = '2026-10-29.4'
 
 export type GarmentSource = 'FABRIC' | 'STITCHED'
 
@@ -134,7 +134,27 @@ export type LookGarment = {
   index: number
   category: string
   source: GarmentSource
-  role: 'MAIN' | PairRole
+  // HIS / HER: the two garments of a couple picture.
+  role: 'MAIN' | PairRole | CoupleRole
+}
+
+// =======================================================
+// COUPLE PICTURES
+//
+// One picture of two people, him and her, each in their
+// own new garment. Paid credits only, at the price the
+// admin sets.
+// =======================================================
+
+export type CoupleRole = 'HIS' | 'HER'
+
+export type LookKind = 'SINGLE' | 'PAIR' | 'COUPLE'
+
+// Whose garment it can be: men's garments for him, women's for her, from
+// what the app offers today.
+export function coupleGarmentAllowed(role: CoupleRole, category: string) {
+  const garment = OFFERED_CATEGORIES.find(item => item.code === category)
+  return Boolean(garment && garment.group === (role === 'HIS' ? 'MEN' : 'WOMEN'))
 }
 
 export type PlannedLook = {
@@ -185,6 +205,8 @@ export function planLooks(
 // =======================================================
 // PRICES
 // =======================================================
+
+export const DEFAULT_COUPLE_CREDITS = 3
 
 export type Pricing = {
   freeCreditsPerMonth: number

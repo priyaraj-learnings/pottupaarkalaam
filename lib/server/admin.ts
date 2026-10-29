@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { DEFAULT_COUPLE_CREDITS } from '@/lib/rules'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { loadSettings } from '@/lib/server/account'
 import { ApiError, dbError, UUID } from '@/lib/server/http'
@@ -202,6 +203,8 @@ export async function updateSettings(adminId: string, body: unknown) {
     }
   }
   row.free_needs_mobile = freeNeedsMobile
+  row.couple_enabled = input.coupleEnabled === true || input.coupleEnabled === 'true'
+  row.couple_credits = whole(input.coupleCredits ?? DEFAULT_COUPLE_CREDITS, 'Credits per couple picture', 1, 50)
   const { error } = await supabaseAdmin.from('app_settings').update(row).eq('id', true)
   if (error) throw dbError(error, 'Unable to save settings')
   return { settings: await loadSettings(), aiRates: await loadAiRates() }
