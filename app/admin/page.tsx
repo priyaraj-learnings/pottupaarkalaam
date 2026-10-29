@@ -9,7 +9,7 @@ import Payments from '@/components/admin/Payments'
 import SettingsTab from '@/components/admin/SettingsTab'
 import type { Analytics, Overview as OverviewData, Period } from '@/components/admin/types'
 import { LogoMark, Wordmark } from '@/components/Logo'
-import { ToastProvider } from '@/components/ui'
+import { Notice, ToastProvider } from '@/components/ui'
 import { api, ApiFailure, errorMessage } from '@/lib/client/api'
 
 type Tab = 'overview' | 'customers' | 'payments' | 'settings'
@@ -43,6 +43,7 @@ function AdminConsole({ onBlocked }: { onBlocked: () => void }) {
   const [analyticsBusy, setAnalyticsBusy] = useState(false)
   const [analyticsError, setAnalyticsError] = useState('')
   const [overview, setOverview] = useState<OverviewData | null>(null)
+  const [overviewError, setOverviewError] = useState('')
   const [blocked, setBlocked] = useState<number | null>(null)
 
   const loadAnalytics = useCallback(async (which: Period) => {
@@ -61,8 +62,10 @@ function AdminConsole({ onBlocked }: { onBlocked: () => void }) {
   const loadOverview = useCallback(async () => {
     try {
       setOverview(await api<OverviewData>('/api/admin'))
+      setOverviewError('')
     } catch (error) {
       if (error instanceof ApiFailure && (error.status === 401 || error.status === 403)) setBlocked(error.status)
+      else setOverviewError(errorMessage(error))
     }
   }, [])
 
@@ -124,8 +127,14 @@ function AdminConsole({ onBlocked }: { onBlocked: () => void }) {
       <div className={tab === 'customers' ? '' : 'hidden'}>
         <Customers active={tab === 'customers'} />
       </div>
+      {(tab === 'payments' || tab === 'settings') && overviewError && !overview && (
+        <Notice tone="error">
+          <b>Could not load this page.</b> {overviewError}{' '}
+          <button type="button" onClick={() => void loadOverview()} className="font-extrabold underline">Try again</button>
+        </Notice>
+      )}
       {tab === 'payments' && <Payments active overview={overview} onChanged={refresh} />}
-      {tab === 'settings' && <SettingsTab overview={overview} onSaved={refresh} />}
+      {tab === 'settings' && !(overviewError && !overview) && <SettingsTab overview={overview} onSaved={refresh} />}
     </div>
   )
 }

@@ -53,8 +53,9 @@ export function handleAdmin(request: Request, work: (admin: SignedInUser) => Pro
       if (error instanceof ApiError) throw error
       const reason = error instanceof Error ? error.message : String(error)
       console.error(JSON.stringify({ event: 'api.admin_error', message: reason }))
-      // PostgREST has not seen a new column or function yet (PGRST204/PGRST202).
-      const hint = /schema cache/i.test(reason)
+      // A new column or function the database does not have yet: a migration
+      // file not run, or PostgREST not reloaded (PGRST204/PGRST202, 42703).
+      const hint = /schema cache|does not exist|could not find/i.test(reason)
         ? " Supabase → SQL Editor: run any new files from supabase/migrations, then run  notify pgrst, 'reload schema';  and try again."
         : ''
       throw new ApiError(500, 'ADMIN_ACTION_FAILED', `${reason}.${hint}`)
