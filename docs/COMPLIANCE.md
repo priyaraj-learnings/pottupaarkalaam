@@ -27,6 +27,13 @@ This is an engineering record, not legal advice: have a lawyer review it before 
 - **Breach reporting** within 72 hours to the Data Protection Board (rule 7): keep a short runbook.
 - **Grievance replies** within 90 days at most (rule 14): already within 7 days.
 
+## Open items for the owner
+
+- [ ] **Tamil review:** have a native Tamil speaker read the consent screen (`CONSENT_SCREEN.ta` and
+  `CONSENT_POINTS_TA` in `lib/legal.ts`) and the Tamil Privacy Policy (`components/legal/PrivacyContentTa.tsx`).
+  Any wording change there needs a new `TERMS_VERSION` (see CLAUDE.md).
+- [ ] **Google Pay for Business verification** (video): then try the pay-buttons switch in /admin Settings.
+
 ## Operational (outside the code)
 
 - **Offers on SMS or WhatsApp** need TRAI DLT registration (header and templates) or WhatsApp Business opt-in. The

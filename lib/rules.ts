@@ -7,7 +7,7 @@
 // into credits. No server-only imports.
 // =======================================================
 
-export const MAX_GARMENTS = 5
+export const MAX_GARMENTS = 3
 export const RETENTION_DAYS = 3
 export const PHOTO_BUCKET = 'try-on-photos'
 
