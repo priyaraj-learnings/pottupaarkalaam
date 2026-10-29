@@ -21,33 +21,39 @@ export type GarmentCategory = {
   code: string
   label: string
   group: 'WOMEN' | 'MEN'
+  // false: no longer offered in the app (kept so earlier pictures still show
+  // their name, and pairs that use them still work for earlier photos).
+  offered?: false
 }
 
 // Codes are UduthiPaar's garment profile codes (lib/garments.ts), so its AI
 // instructions for each garment (saree draping, lehenga flare...) apply.
 export const GARMENT_CATEGORIES: GarmentCategory[] = [
   { code: 'SAREE', label: 'Saree', group: 'WOMEN' },
-  { code: 'BLOUSE', label: 'Blouse', group: 'WOMEN' },
+  { code: 'BLOUSE', label: 'Blouse', group: 'WOMEN', offered: false },
   { code: 'CHUDIDHAR', label: 'Chudidhar', group: 'WOMEN' },
-  { code: 'SALWAR_SUIT', label: 'Salwar suit', group: 'WOMEN' },
-  { code: 'KURTI', label: 'Kurti', group: 'WOMEN' },
-  { code: 'ANARKALI', label: 'Anarkali', group: 'WOMEN' },
+  { code: 'SALWAR_SUIT', label: 'Salwar suit', group: 'WOMEN', offered: false },
+  { code: 'KURTI', label: 'Kurti', group: 'WOMEN', offered: false },
+  { code: 'ANARKALI', label: 'Anarkali', group: 'WOMEN', offered: false },
   { code: 'LEHENGA', label: 'Lehenga', group: 'WOMEN' },
   { code: 'GOWN', label: 'Gown', group: 'WOMEN' },
   { code: 'FORMAL_SHIRT', label: 'Shirt', group: 'MEN' },
   { code: 'CASUAL_SHIRT', label: 'Casual shirt', group: 'MEN' },
-  { code: 'TROUSER', label: 'Pant', group: 'MEN' },
+  { code: 'TROUSER', label: 'Pant', group: 'MEN', offered: false },
   { code: 'KURTA', label: 'Kurta', group: 'MEN' },
-  { code: 'PYJAMA', label: 'Pyjama / bottom', group: 'MEN' },
+  { code: 'PYJAMA', label: 'Pyjama / bottom', group: 'MEN', offered: false },
   { code: 'DHOTI', label: 'Dhoti / Veshti', group: 'MEN' },
   { code: 'SHERWANI', label: 'Sherwani', group: 'MEN' },
   { code: 'COAT', label: 'Coat / Blazer', group: 'MEN' },
-  { code: 'WAISTCOAT', label: 'Nehru jacket', group: 'MEN' },
+  { code: 'WAISTCOAT', label: 'Nehru jacket', group: 'MEN', offered: false },
   { code: 'JACKET', label: 'Jacket', group: 'MEN' },
   { code: 'SAFARI', label: 'Safari suit', group: 'MEN' },
 ]
 
 const CATEGORY_CODES = new Set(GARMENT_CATEGORIES.map(category => category.code))
+
+// What a customer can pick today.
+export const OFFERED_CATEGORIES = GARMENT_CATEGORIES.filter(category => category.offered !== false)
 
 export function isGarmentCategory(code: unknown): code is string {
   return typeof code === 'string' && CATEGORY_CODES.has(code)
@@ -189,12 +195,13 @@ export type Pricing = {
   maxRechargeInr: number
 }
 
+// Until the admin sets prices in /admin Settings.
 export const DEFAULT_PRICING: Pricing = {
-  freeCreditsPerMonth: 5,
-  standardRateInr: 10,
+  freeCreditsPerMonth: 3,
+  standardRateInr: 8,
   bulkRateInr: 5,
   bulkMinRechargeInr: 1000,
-  minRechargeInr: 50,
+  minRechargeInr: 40,
   maxRechargeInr: 10000,
 }
 
@@ -224,9 +231,11 @@ export function quoteRecharge(amountInr: number, pricing: Pricing): RechargeQuot
   return { ok: true, rateInr, credits: amountInr / rateInr }
 }
 
-// Amounts offered as one tap on the recharge screen.
+// Amounts offered as one tap on the recharge screen: 10, 20 and 50 credits at
+// the standard price (₹80, ₹160, ₹400 at ₹8), then the bulk amounts.
 export function rechargeChoices(pricing: Pricing) {
-  const amounts = [100, 200, 500, pricing.bulkMinRechargeInr, pricing.bulkMinRechargeInr * 2]
+  const standard = [10, 20, 50].map(credits => credits * pricing.standardRateInr).filter(amount => amount < pricing.bulkMinRechargeInr)
+  const amounts = [...standard, pricing.bulkMinRechargeInr, pricing.bulkMinRechargeInr * 2]
   return [...new Set(amounts)]
     .filter(amount => quoteRecharge(amount, pricing).ok)
     .sort((a, b) => a - b)

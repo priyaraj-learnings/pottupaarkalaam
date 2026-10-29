@@ -178,6 +178,16 @@ export async function updateSettings(adminId: string, body: unknown) {
     updated_at: new Date().toISOString(),
     updated_by: adminId,
   } as Record<string, unknown>
+  // Recharges buy whole credits, so these amounts must divide by their price.
+  const standardRate = row.standard_rate_inr as number
+  const bulkRate = row.bulk_rate_inr as number
+  const bulkMin = row.bulk_min_recharge_inr as number
+  if (minRecharge % standardRate !== 0) {
+    throw new ApiError(400, 'INVALID_INPUT', `The smallest recharge must buy whole credits: use a multiple of ₹${standardRate}, e.g. ₹${Math.ceil(minRecharge / standardRate) * standardRate}.`)
+  }
+  if (bulkMin % bulkRate !== 0) {
+    throw new ApiError(400, 'INVALID_INPUT', `"Bulk price from" must buy whole credits: use a multiple of ₹${bulkRate}.`)
+  }
   // Write-only: an empty box keeps the saved key.
   const authKey = text(input.msg91AuthKey, 300)
   if (authKey) row.msg91_auth_key = authKey

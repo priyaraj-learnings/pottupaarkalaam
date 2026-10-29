@@ -4,12 +4,15 @@ import { hasGarmentProfile } from '@/lib/garments'
 import { buildPairPrompt, buildSinglePrompt } from '@/lib/prompts'
 import {
   canPair,
+  categoryLabel,
   DEFAULT_PRICING,
   formatMobile,
   freeCreditsReturnDay,
   GARMENT_CATEGORIES,
+  isGarmentCategory,
   normalizeMobile,
   normalizeUtr,
+  OFFERED_CATEGORIES,
   planLooks,
   quoteRecharge,
   rechargeChoices,
@@ -104,13 +107,31 @@ describe('prompts', () => {
 
 describe('recharges', () => {
   it('quotes credits at the standard and bulk rates', () => {
-    expect(quoteRecharge(500, DEFAULT_PRICING)).toEqual({ ok: true, rateInr: 10, credits: 50 })
-    expect(quoteRecharge(999, DEFAULT_PRICING)).toMatchObject({ ok: false, message: /multiples of ₹10/ })
+    expect(quoteRecharge(400, DEFAULT_PRICING)).toEqual({ ok: true, rateInr: 8, credits: 50 })
+    expect(quoteRecharge(50, DEFAULT_PRICING)).toMatchObject({ ok: false, message: /multiples of ₹8/ })
+    expect(quoteRecharge(999, DEFAULT_PRICING)).toMatchObject({ ok: false, message: /multiples of ₹8/ })
     expect(quoteRecharge(1000, DEFAULT_PRICING)).toEqual({ ok: true, rateInr: 5, credits: 200 })
     expect(quoteRecharge(1005, DEFAULT_PRICING)).toEqual({ ok: true, rateInr: 5, credits: 201 })
-    expect(quoteRecharge(40, DEFAULT_PRICING)).toMatchObject({ ok: false, message: /smallest/ })
+    expect(quoteRecharge(32, DEFAULT_PRICING)).toMatchObject({ ok: false, message: /smallest/ })
     expect(quoteRecharge(10010, DEFAULT_PRICING)).toMatchObject({ ok: false, message: /largest/ })
-    expect(rechargeChoices(DEFAULT_PRICING)).toEqual([100, 200, 500, 1000, 2000])
+  })
+
+  it('offers one-tap amounts that buy whole credits at the current price', () => {
+    expect(rechargeChoices(DEFAULT_PRICING)).toEqual([80, 160, 400, 1000, 2000])
+    expect(rechargeChoices({ ...DEFAULT_PRICING, standardRateInr: 10, minRechargeInr: 50 })).toEqual([100, 200, 500, 1000, 2000])
+  })
+
+  it('offers only the garments still in the app, and keeps names for earlier pictures', () => {
+    const offered = OFFERED_CATEGORIES.map(category => category.code)
+    for (const gone of ['BLOUSE', 'SALWAR_SUIT', 'ANARKALI', 'KURTI', 'TROUSER', 'PYJAMA', 'WAISTCOAT']) {
+      expect(offered, gone).not.toContain(gone)
+      expect(isGarmentCategory(gone), gone).toBe(true)
+    }
+    expect(categoryLabel('TROUSER')).toBe('Pant')
+    expect(offered).toEqual(expect.arrayContaining(['SAREE', 'CHUDIDHAR', 'LEHENGA', 'GOWN', 'FORMAL_SHIRT', 'KURTA', 'DHOTI', 'SHERWANI']))
+    // Pairs still possible with what is offered: shirt or kurta with veshti, coat with shirt.
+    expect(canPair('FORMAL_SHIRT', 'DHOTI')).toBe(true)
+    expect(canPair('COAT', 'KURTA')).toBe(true)
   })
 
   it('accepts only a 12-digit UPI reference', () => {

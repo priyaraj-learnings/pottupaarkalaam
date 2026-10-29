@@ -225,7 +225,8 @@ anything older than 3 days, even between runs.)
 ### 6.1 Payee
 
 `/admin` → **Settings** tab: inaivu IT's **business** UPI ID and payee name, the help contact customers see, and the prices
-(defaults: 5 free credits a month; ₹10 a credit, ₹5 a credit from a ₹1,000 recharge; recharges from ₹50 to ₹10,000).
+(suggested: 3 free credits a month; ₹8 a credit, ₹5 a credit from a ₹1,000 recharge; recharges from ₹40 to ₹10,000. The
+smallest recharge must be a multiple of the price per credit, so every recharge buys whole credits).
 
 Use a business / merchant UPI ID (from the bank's merchant QR, PhonePe Business, Paytm Business or similar).
 Many incoming payments to a personal UPI ID can get the account flagged, and some UPI apps refuse pay links to

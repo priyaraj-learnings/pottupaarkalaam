@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 
-import { GARMENT_CATEGORIES, SOURCE_LABELS, type GarmentSource } from '@/lib/rules'
+import { GARMENT_CATEGORIES, OFFERED_CATEGORIES, SOURCE_LABELS, type GarmentSource } from '@/lib/rules'
 
 type Group = 'WOMEN' | 'MEN'
 
@@ -59,7 +59,7 @@ export function CategoryChips({ value, onChange }: { value: string | null; onCha
         ))}
       </div>
       <div className="flex flex-wrap gap-2">
-        {GARMENT_CATEGORIES.filter(category => category.group === group).map(category => {
+        {OFFERED_CATEGORIES.filter(category => category.group === group).map(category => {
           const selected = category.code === value
           return (
             <button

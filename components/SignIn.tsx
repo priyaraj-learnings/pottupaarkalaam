@@ -35,12 +35,17 @@ export default function SignIn() {
   const [error, setError] = useState('')
   // The MSG91 widget's public settings, when mobile number sign-in is set up.
   const [phoneWidget, setPhoneWidget] = useState<{ widgetId: string; tokenAuth: string } | null>(null)
+  const [freeTryOns, setFreeTryOns] = useState<number | null>(null)
 
   useEffect(() => {
     let cancelled = false
     fetch('/api/sign-in-options', { cache: 'no-store' })
       .then(response => (response.ok ? response.json() : null))
-      .then(options => { if (!cancelled && options?.phone) setPhoneWidget(options.phone) })
+      .then(options => {
+        if (cancelled || !options) return
+        if (options.phone) setPhoneWidget(options.phone)
+        if (Number.isInteger(options.freeCreditsPerMonth)) setFreeTryOns(options.freeCreditsPerMonth)
+      })
       .catch(() => {})
     return () => { cancelled = true }
   }, [])
@@ -130,7 +135,9 @@ export default function SignIn() {
             </li>
           ))}
         </ol>
-        <p className="mt-5 inline-block rounded-full bg-white px-4 py-1.5 text-sm font-extrabold text-brand-700">5 free try-ons every month</p>
+        <p className="mt-5 inline-block rounded-full bg-white px-4 py-1.5 text-sm font-extrabold text-brand-700">
+          {freeTryOns ? `${freeTryOns} free try-on${freeTryOns === 1 ? '' : 's'} every month` : 'Free try-ons every month'}
+        </p>
       </section>
 
       <section className="flex flex-1 flex-col gap-3 px-6 py-8">

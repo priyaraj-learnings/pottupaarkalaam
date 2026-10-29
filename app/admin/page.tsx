@@ -9,9 +9,8 @@ import Payments from '@/components/admin/Payments'
 import SettingsTab from '@/components/admin/SettingsTab'
 import type { Analytics, Overview as OverviewData, Period } from '@/components/admin/types'
 import { LogoMark, Wordmark } from '@/components/Logo'
-import { Notice, ToastProvider } from '@/components/ui'
+import { ToastProvider } from '@/components/ui'
 import { api, ApiFailure, errorMessage } from '@/lib/client/api'
-import { supabase } from '@/lib/supabase/browser'
 
 type Tab = 'overview' | 'customers' | 'payments' | 'settings'
 
@@ -22,35 +21,22 @@ const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'settings', label: 'Settings' },
 ]
 
-function NotAllowed({ status }: { status: number }) {
-  const [email, setEmail] = useState<string | null>(null)
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setEmail(data.session?.user.email ?? null))
-  }, [])
-  if (status === 401) {
-    return (
-      <Notice tone="warning">
-        Please sign in first. <Link href="/" className="font-bold underline">Open PottuPaarkalaam</Link>, sign in, then come back to /admin.
-      </Notice>
-    )
-  }
+// For anyone who is not an admin (or not signed in): nothing to see, and no
+// hint of how admins are made (that is in docs/SETUP.md §1.4).
+function NotAllowed() {
   return (
-    <div className="space-y-3">
-      <Notice tone="warning">
-        {email ? <>You are signed in as <b>{email}</b>, which is not an admin yet.</> : 'This account is not an admin yet.'}
-      </Notice>
-      <div className="rounded-2xl bg-white p-4 text-sm ring-1 ring-stone-200">
-        <p className="font-bold">To make this account an admin</p>
-        <p className="mt-1 text-stone-600">Supabase → SQL Editor → New query → paste this → Run, then reload this page:</p>
-        <pre className="mt-2 overflow-x-auto rounded-xl bg-stone-900 p-3 text-xs text-white">
-          {`insert into public.app_admins (user_id)\nselect id from auth.users where email = '${email ?? 'you@example.com'}';`}
-        </pre>
-      </div>
+    <div className="mx-auto max-w-md space-y-4 py-16 text-center">
+      <p className="text-5xl" aria-hidden="true">🔒</p>
+      <h1 className="text-2xl font-black">There&rsquo;s nothing here</h1>
+      <p className="text-stone-600">This page isn&rsquo;t available.</p>
+      <Link href="/" className="inline-flex min-h-12 items-center justify-center rounded-2xl brand-gradient px-6 font-bold text-white">
+        Open PottuPaarkalaam
+      </Link>
     </div>
   )
 }
 
-function AdminConsole() {
+function AdminConsole({ onBlocked }: { onBlocked: () => void }) {
   const [tab, setTab] = useState<Tab>('overview')
   const [period, setPeriod] = useState<Period>('this-month')
   const [analytics, setAnalytics] = useState<Analytics | null>(null)
@@ -102,7 +88,11 @@ function AdminConsole() {
     }
   }, [loadOverview])
 
-  if (blocked) return <NotAllowed status={blocked} />
+  useEffect(() => {
+    if (blocked) onBlocked()
+  }, [blocked, onBlocked])
+
+  if (blocked) return <NotAllowed />
 
   const waiting = overview?.pending.length ?? 0
 
@@ -141,14 +131,16 @@ function AdminConsole() {
 }
 
 export default function AdminPage() {
+  const [blocked, setBlocked] = useState(false)
+  const onBlocked = useCallback(() => setBlocked(true), [])
   return (
     <ToastProvider>
       <main className="mx-auto max-w-5xl px-4 pb-16 pt-[calc(1rem+env(safe-area-inset-top))]">
         <div className="mb-4 flex items-center justify-between gap-3">
           <Link href="/" className="flex items-center gap-2"><LogoMark size={36} /><Wordmark /></Link>
-          <span className="rounded-full bg-stone-900 px-3 py-1 text-xs font-bold text-white">Admin</span>
+          {!blocked && <span className="rounded-full bg-stone-900 px-3 py-1 text-xs font-bold text-white">Admin</span>}
         </div>
-        <AdminConsole />
+        <AdminConsole onBlocked={onBlocked} />
       </main>
     </ToastProvider>
   )

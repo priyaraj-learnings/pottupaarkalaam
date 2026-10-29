@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     default: 'PottuPaarkalaam | போட்டுப்பார்க்கலாம் | Try clothes on yourself',
     template: '%s | PottuPaarkalaam',
   },
-  description: 'Photograph a fabric or a dress, add your photo, and see yourself wearing it. 5 free try-ons every month.',
+  description: 'Photograph a fabric or a dress, add your photo, and see yourself wearing it. Free try-ons every month.',
   applicationName: 'PottuPaarkalaam',
   appleWebApp: { capable: true, title: 'PottuPaarkalaam', statusBarStyle: 'default' },
   robots: isUat ? { index: false, follow: false } : { index: true, follow: true },
