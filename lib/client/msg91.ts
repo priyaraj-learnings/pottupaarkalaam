@@ -46,11 +46,25 @@ export async function openMsg91Widget(
     tokenAuth: config.tokenAuth,
     ...(config.identifier ? { identifier: config.identifier } : {}),
     // Both callbacks are needed: the widget fails without them.
-    success: (data: { message?: unknown } | string) => {
-      const token = typeof data === 'string' ? data : data?.message
-      if (typeof token === 'string' && token) onToken(token)
-      else onError('The code could not be confirmed. Please try again.')
+    success: (data: unknown) => {
+      const token = typeof data === 'string' ? data : (data as { message?: unknown } | null)?.message
+      if (typeof token === 'string' && token.length > 20) {
+        onToken(token)
+      } else {
+        console.warn('MSG91 widget success without a token', data)
+        onError(`MSG91 did not send back a sign-in token${widgetReason(data)}. Please try again.`)
+      }
     },
-    failure: () => onError('The code could not be confirmed. Please try again.'),
+    failure: (error: unknown) => {
+      console.warn('MSG91 widget failure', error)
+      onError(`The code could not be confirmed${widgetReason(error)}. Please try again.`)
+    },
   })
+}
+
+// MSG91's own words, when it gives any: " (MSG91: Invalid OTP)".
+function widgetReason(value: unknown) {
+  const text = typeof value === 'string' ? value
+    : (value as { message?: unknown; error?: unknown } | null)?.message ?? (value as { error?: unknown } | null)?.error
+  return typeof text === 'string' && text.trim() && text.length < 160 ? ` (MSG91: ${text.trim()})` : ''
 }

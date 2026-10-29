@@ -62,6 +62,28 @@ describe('MSG91 widget token check', () => {
     await expect(verifyMsg91Token('email-token', 'auth-789')).rejects.toMatchObject({ status: 401 })
   })
 
+  it('finds the number wherever MSG91 puts it, or in the token MSG91 confirmed', async () => {
+    msg91Says({ type: 'success', message: 'Access token verified', data: { mobile: '919876543210' } })
+    await expect(verifyMsg91Token('jwt-token', 'auth-789')).resolves.toBe('+919876543210')
+
+    const claims = Buffer.from(JSON.stringify({ identifier: '919812345678', exp: 1761700000 })).toString('base64url')
+    msg91Says({ type: 'success', message: 'verified' })
+    await expect(verifyMsg91Token(`header.${claims}.signature`, 'auth-789')).resolves.toBe('+919812345678')
+  })
+
+  it('never reads the token before MSG91 confirms it, and passes on what MSG91 said', async () => {
+    const claims = Buffer.from(JSON.stringify({ identifier: '919812345678' })).toString('base64url')
+    msg91Says({ type: 'error', message: 'Authentication failure' }, 401)
+    await expect(verifyMsg91Token(`header.${claims}.signature`, 'wrong-key')).rejects.toMatchObject({
+      status: 401, message: expect.stringContaining('MSG91: Authentication failure'),
+    })
+  })
+
+  it('refuses when two different numbers turn up', async () => {
+    msg91Says({ type: 'success', message: '919876543210', other: '919812345678' })
+    await expect(verifyMsg91Token('jwt-token', 'auth-789')).rejects.toMatchObject({ status: 401 })
+  })
+
   it('says so when MSG91 cannot be reached', async () => {
     fetchMock.mockRejectedValue(new TypeError('fetch failed'))
     await expect(verifyMsg91Token('jwt', 'auth-789')).rejects.toMatchObject({ status: 502 })

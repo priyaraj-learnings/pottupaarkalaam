@@ -33,7 +33,30 @@ export async function phoneLoginConfig(): Promise<PhoneLoginConfig | null> {
   return widgetId && tokenAuth && authKey ? { widgetId, tokenAuth } : null
 }
 
-// The +91 number MSG91 verified for this widget access token.
+// Every +91 mobile number in a value (strings, and inside objects and lists).
+function mobilesIn(value: unknown, depth = 0): string[] {
+  if (depth > 4 || value === null || value === undefined) return []
+  if (typeof value === 'string' || typeof value === 'number') {
+    const phone = normalizeMobile(String(value))
+    return phone ? [phone] : []
+  }
+  if (typeof value === 'object') return Object.values(value as Record<string, unknown>).flatMap(item => mobilesIn(item, depth + 1))
+  return []
+}
+
+// The claims inside a widget access token (a JWT). Read only after MSG91 has
+// confirmed the token is genuine.
+function tokenClaims(accessToken: string): unknown {
+  try {
+    const part = accessToken.split('.')[1]
+    return part ? JSON.parse(Buffer.from(part, 'base64url').toString('utf8')) : null
+  } catch {
+    return null
+  }
+}
+
+// The +91 number MSG91 verified for this widget access token: from MSG91's
+// reply, or else from the token MSG91 has just confirmed.
 export async function verifyMsg91Token(accessToken: string, authKey: string) {
   let response: Response
   try {
@@ -47,12 +70,16 @@ export async function verifyMsg91Token(accessToken: string, authKey: string) {
     throw new ApiError(502, 'OTP_UNAVAILABLE', 'Could not reach the SMS service. Please try again.')
   }
   const body = await response.json().catch(() => null) as { type?: string; message?: unknown } | null
-  const phone = body?.type === 'success' ? normalizeMobile(String(body.message ?? '')) : null
-  if (!response.ok || !phone) {
-    console.warn(JSON.stringify({ event: 'phone_login.rejected', status: response.status, type: body?.type ?? null }))
-    throw new ApiError(401, 'OTP_NOT_CONFIRMED', FAILED)
+  const confirmed = response.ok && body?.type === 'success'
+  const phones = confirmed ? [...new Set([...mobilesIn(body), ...mobilesIn(tokenClaims(accessToken))])] : []
+  if (phones.length !== 1) {
+    // What MSG91 said, without the number: for the admin and the logs.
+    const said = typeof body?.message === 'string' ? body.message.replace(/\d{6,}/g, '…').slice(0, 120) : ''
+    console.warn(JSON.stringify({ event: 'phone_login.rejected', status: response.status, type: body?.type ?? null, said, keys: body ? Object.keys(body) : [], phones: phones.length }))
+    const reason = !confirmed && said ? ` (MSG91: ${said})` : confirmed ? ' (MSG91 confirmed the code but sent no mobile number)' : ''
+    throw new ApiError(401, 'OTP_NOT_CONFIRMED', `The code could not be confirmed${reason}. Please try again.`)
   }
-  return phone
+  return phones[0]
 }
 
 // Confirms the widget's token, makes the account on first sign-in (with the
