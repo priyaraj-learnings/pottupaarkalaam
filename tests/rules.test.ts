@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { hasGarmentProfile } from '@/lib/garments'
+import { phoneKind, upiAppLinks, upiLink } from '@/lib/upi'
 import { buildCouplePrompt, buildPairPrompt, buildSinglePrompt } from '@/lib/prompts'
 import {
   canPair,
@@ -187,5 +188,25 @@ describe('mobile numbers', () => {
     for (const typed of ['', '044 2345 6789', '5876543210', '987654321', '98765432101', '+1 415 555 0100', 'abc']) {
       expect(normalizeMobile(typed), typed).toBeNull()
     }
+  })
+})
+
+describe('paying from the phone', () => {
+  const link = upiLink({ upiId: 'inaivuit@okaxis', payeeName: 'inaivu IT', amountInr: 80, note: 'PottuPaarkalaam ABCD1234' })
+
+  it('opens each UPI app with the payee and amount filled in', () => {
+    const query = link.slice(link.indexOf('?'))
+    expect(query).toContain('pa=inaivuit%40okaxis')
+    expect(query).toContain('am=80.00')
+    expect(upiAppLinks(link, 'android').map(option => option.href)).toEqual([
+      `tez://upi/pay${query}`, `phonepe://pay${query}`, `paytmmp://pay${query}`, link,
+    ])
+    expect(upiAppLinks(link, 'ios')[0].href).toBe(`gpay://upi/pay${query}`)
+  })
+
+  it('tells phones from computers', () => {
+    expect(phoneKind('Mozilla/5.0 (Linux; Android 14; SM-A146B) Chrome/130 Mobile')).toBe('android')
+    expect(phoneKind('Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) Safari/604.1')).toBe('ios')
+    expect(phoneKind('Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130')).toBe('other')
   })
 })

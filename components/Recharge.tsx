@@ -1,13 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 
 import UpiQr from '@/components/UpiQr'
 import { Button, Card, formatInr, formatWhen, Notice, useToast } from '@/components/ui'
 import { api, errorMessage } from '@/lib/client/api'
 import type { Account, AppSettings, RechargeView } from '@/lib/client/types'
 import { normalizeUtr, quoteRecharge, rechargeChoices, type Pricing } from '@/lib/rules'
-import { upiLink } from '@/lib/upi'
+import { phoneKind, upiAppLinks, upiLink } from '@/lib/upi'
 
 const STATUS = {
   APPROVED: { label: 'Added', className: 'bg-emerald-100 text-emerald-800' },
@@ -37,6 +37,50 @@ export default function Recharge({ active, account, settings, userCode, onAccoun
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [recharges, setRecharges] = useState<RechargeView[]>([])
+  // The app only renders in the browser (after sign-in), so navigator is there.
+  const [phone] = useState(() => (typeof navigator === 'undefined' ? 'other' : phoneKind(navigator.userAgent)))
+  const onPhone = phone !== 'other'
+  const canPaste = typeof navigator !== 'undefined' && Boolean(navigator.clipboard?.readText)
+  const step3 = useRef<HTMLDivElement>(null)
+  const utrInput = useRef<HTMLInputElement>(null)
+  const wentToPay = useRef(false)
+
+  // Back from the UPI app: straight to "Enter the UPI reference".
+  useEffect(() => {
+    if (!active) return
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible' || !wentToPay.current) return
+      wentToPay.current = false
+      step3.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      utrInput.current?.focus({ preventScroll: true })
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [active])
+
+  async function copyUpiId() {
+    try {
+      await navigator.clipboard.writeText(settings.upiId ?? '')
+      toast('UPI ID copied. Paste it in your UPI app.')
+    } catch {
+      toast('Could not copy. Press and hold the UPI ID to copy it.', 'error')
+    }
+  }
+
+  async function pasteUtr() {
+    try {
+      const text = await navigator.clipboard.readText()
+      const found = text.replace(/\s/g, '').match(/\d{12}/)?.[0]
+      if (found) {
+        setUtr(found)
+        setError('')
+      } else {
+        setError('No 12-digit UPI reference was copied. Copy it from your payment app, then tap Paste.')
+      }
+    } catch {
+      setError('Could not paste. Press and hold in the box, then choose Paste.')
+    }
+  }
 
   const load = useCallback(async () => {
     try {
@@ -153,27 +197,54 @@ export default function Recharge({ active, account, settings, userCode, onAccoun
           <p className="text-sm text-stone-500">Choose an amount first.</p>
         ) : (
           <div className="space-y-3">
-            <a href={link} className="brand-gradient flex min-h-12 items-center justify-center rounded-2xl px-4 text-base font-bold text-white shadow-md">
-              Pay {formatInr(chosen)} with a UPI app
-            </a>
-            <p className="text-center text-sm text-stone-600">
-              To <b>{settings.payeeName ?? 'inaivu IT'}</b> · <span className="select-all font-mono">{settings.upiId}</span>
-            </p>
-            <div className="rounded-2xl bg-stone-50 p-3 text-center text-sm">
-              <p className="mb-2 font-bold">Or scan this QR with any UPI app</p>
-              <UpiQr link={link} amountInr={chosen} />
+            {onPhone ? (
+              <>
+                <p className="text-sm font-semibold text-stone-700">Tap your UPI app to pay {formatInr(chosen)}:</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {upiAppLinks(link, phone).map((option, index) => (
+                    <a key={option.app} href={option.href} onClick={() => { wentToPay.current = true }}
+                      className={`flex min-h-12 items-center justify-center rounded-2xl px-2 text-center text-[15px] font-bold ${index < 3 ? 'brand-gradient text-white shadow-md' : 'col-span-3 border border-brand-200 bg-white text-brand-700'}`}>
+                      {option.app}
+                    </a>
+                  ))}
+                </div>
+                <p className="text-xs text-stone-500">If nothing opens, that app is not on this phone: try another, or copy the UPI ID below.</p>
+              </>
+            ) : (
+              <a href={link} className="brand-gradient flex min-h-12 items-center justify-center rounded-2xl px-4 text-base font-bold text-white shadow-md">
+                Pay {formatInr(chosen)} with a UPI app
+              </a>
+            )}
+            <div className="flex items-center justify-center gap-2 text-sm text-stone-600">
+              <span className="min-w-0 truncate">To <b>{settings.payeeName ?? 'inaivu IT'}</b> · <span className="select-all font-mono">{settings.upiId}</span></span>
+              <button type="button" onClick={copyUpiId} className="shrink-0 rounded-full border border-brand-200 px-3 py-1 text-xs font-bold text-brand-700">Copy</button>
             </div>
+            {onPhone ? (
+              <details className="rounded-2xl bg-stone-50 p-3 text-center text-sm">
+                <summary className="cursor-pointer font-semibold text-brand-700">Paying from another phone? Show the QR code</summary>
+                <div className="mt-3"><UpiQr link={link} amountInr={chosen} /></div>
+              </details>
+            ) : (
+              <div className="rounded-2xl bg-stone-50 p-3 text-center text-sm">
+                <p className="mb-2 font-bold">Or scan this QR with any UPI app</p>
+                <UpiQr link={link} amountInr={chosen} />
+              </div>
+            )}
             <p className="text-xs text-stone-500">Pay exactly {formatInr(chosen)}, then come back here for step 3.</p>
           </div>
         )}
       </Card>
 
+      <div ref={step3} className="scroll-mt-20">
       <Card title="3. Enter the UPI reference">
         <form onSubmit={submit} className="space-y-3">
           <p className="text-sm text-stone-600">After paying {formatInr(chosen)}, copy the <b>12-digit UPI reference (UTR)</b> from your payment app.</p>
-          <input inputMode="numeric" autoComplete="off" value={utr} placeholder="e.g. 629912345678" aria-label="UPI reference (UTR)"
-            onChange={event => setUtr(event.target.value.replace(/[^\d ]/g, '').slice(0, 15))}
-            className="min-h-12 w-full rounded-2xl border border-stone-300 px-4 text-center text-lg font-bold tracking-widest outline-none focus:border-brand-500" />
+          <div className="flex gap-2">
+            <input ref={utrInput} inputMode="numeric" autoComplete="off" value={utr} placeholder="e.g. 629912345678" aria-label="UPI reference (UTR)"
+              onChange={event => setUtr(event.target.value.replace(/[^\d ]/g, '').slice(0, 15))}
+              className="min-h-12 min-w-0 flex-1 rounded-2xl border border-stone-300 px-4 text-center text-lg font-bold tracking-widest outline-none focus:border-brand-500" />
+            {canPaste && <Button variant="secondary" onClick={pasteUtr} className="shrink-0 px-4">Paste</Button>}
+          </div>
           <details className="text-sm text-stone-600">
             <summary className="cursor-pointer font-semibold text-brand-700">Where do I find it?</summary>
             <ul className="mt-2 list-disc space-y-1 pl-5">
@@ -187,6 +258,7 @@ export default function Recharge({ active, account, settings, userCode, onAccoun
           <Button type="submit" busy={busy} disabled={!quote.ok || !settings.upiId} className="w-full">I have paid {formatInr(chosen)}</Button>
         </form>
       </Card>
+      </div>
 
       {recharges.length > 0 && (
         <Card title="Your recharges">
