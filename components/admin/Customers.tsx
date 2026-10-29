@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { downloadCsv, money, type CustomerDetail, type CustomerRow } from '@/components/admin/types'
 import { Button, formatWhen, Notice, Sheet, Spinner, useToast } from '@/components/ui'
 import { api, errorMessage } from '@/lib/client/api'
-import { categoryLabel, formatMobile } from '@/lib/rules'
+import { categoryLabel, formatMobile, isPhoneLoginEmail } from '@/lib/rules'
 import { customerCode } from '@/lib/upi'
 
 const SORTS = [
@@ -31,10 +31,17 @@ async function exportCustomers(search: string, sort: string) {
   downloadCsv('pottupaarkalaam-customers.csv',
     ['Name', 'Email', 'Mobile (+91)', 'Offers OK', 'Customer code', 'Joined', 'Last picture', 'Paid (Rs)', 'Pictures', 'Paid credits left'],
     users.map(user => [
-      user.name, user.email, user.phone ? formatMobile(user.phone) : '', user.phone ? (user.offersOk ? 'yes' : 'no') : '',
+      user.name, isPhoneLoginEmail(user.email) ? '' : user.email, user.phone ? formatMobile(user.phone) : '', user.phone ? (user.offersOk ? 'yes' : 'no') : '',
       customerCode(user.userId), user.joinedAt, user.lastPictureAt ?? '', user.paidInr, user.pictures, user.credits,
     ]))
   return users.length
+}
+
+// A person's name, else their mobile number for a mobile sign-in, else email.
+function customerName(user: { name: string | null; email: string | null; phone: string | null }) {
+  if (user.name) return user.name
+  if (isPhoneLoginEmail(user.email)) return user.phone ? `+91 ${formatMobile(user.phone)}` : 'Mobile sign-in'
+  return user.email ?? 'Customer'
 }
 
 function MobileLine({ phone, offersOk }: { phone: string | null; offersOk: boolean }) {
@@ -114,16 +121,16 @@ function CustomerSheet({ userId, onClose }: { userId: string | null; onClose: ()
   const earned = shown ? shown.totals.paidInr - shown.totals.aiCostInr : 0
 
   return (
-    <Sheet open={Boolean(userId)} title={shown?.user.name ?? shown?.user.email ?? 'Customer'} onClose={onClose}>
+    <Sheet open={Boolean(userId)} title={shown ? customerName(shown.user) : 'Customer'} onClose={onClose}>
       {error && <Notice tone="error">{error}</Notice>}
       {!shown && !error && <div className="flex justify-center py-10 text-brand-600"><Spinner className="h-6 w-6" /></div>}
       {shown && (
         <div className="space-y-5 text-sm">
           <div>
-            <p className="font-semibold">{shown.user.email}</p>
+            <p className="font-semibold">{isPhoneLoginEmail(shown.user.email) ? 'Signed in with mobile number' : shown.user.email}</p>
             <MobileLine phone={shown.user.phone} offersOk={shown.user.offersOk} />
             <p className="text-xs text-stone-500">
-              Code {customerCode(shown.user.userId)} · {shown.user.provider ?? 'email'} · joined {formatWhen(shown.user.joinedAt)}
+              Code {customerCode(shown.user.userId)} · {isPhoneLoginEmail(shown.user.email) ? 'mobile' : shown.user.provider ?? 'email'} · joined {formatWhen(shown.user.joinedAt)}
               {shown.user.lastSignInAt ? ` · last sign-in ${formatWhen(shown.user.lastSignInAt)}` : ''}
             </p>
           </div>
@@ -275,7 +282,7 @@ export default function Customers({ active }: { active: boolean }) {
             <button type="button" onClick={() => setOpenId(row.userId)} className="w-full rounded-2xl bg-white p-3 text-left ring-1 ring-stone-200 hover:ring-brand-200">
               <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                 <p className="min-w-0 truncate font-bold">
-                  {row.name ? `${row.name} · ` : ''}<span className="font-semibold text-stone-600">{row.email}</span>
+                  {row.name ? `${row.name} · ` : ''}<span className="font-semibold text-stone-600">{isPhoneLoginEmail(row.email) ? '📱 mobile sign-in' : row.email}</span>
                   {row.phone && <span className="font-semibold tabular-nums text-stone-600"> · {formatMobile(row.phone)}</span>}
                 </p>
                 <p className="text-xs text-stone-500">

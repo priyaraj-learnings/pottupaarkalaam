@@ -82,7 +82,7 @@ async function loadAiRates(): Promise<AiRates> {
 
 // Settings, recharges to check and bank credits nobody claimed.
 export async function adminOverview() {
-  const [settings, aiRates, pending, recent, alerts, lastAlert] = await Promise.all([
+  const [settings, aiRates, pending, recent, alerts, lastAlert, msg91] = await Promise.all([
     loadSettings(),
     loadAiRates(),
     supabaseAdmin.from('recharges').select(RECHARGE_COLUMNS).eq('status', 'PENDING').order('created_at', { ascending: true }).limit(100),
@@ -90,11 +90,14 @@ export async function adminOverview() {
     supabaseAdmin.from('payment_alerts').select('id, utr, amount_inr, sender, message, received_at')
       .is('recharge_id', null).order('received_at', { ascending: false }).limit(30),
     supabaseAdmin.from('payment_alerts').select('received_at').order('received_at', { ascending: false }).limit(1),
+    supabaseAdmin.from('app_settings').select('msg91_widget_id, msg91_token_auth, msg91_auth_key').eq('id', true).maybeSingle(),
   ])
   if (pending.error) throw dbError(pending.error, 'Unable to load recharges')
   if (recent.error) throw dbError(recent.error, 'Unable to load recharges')
   if (alerts.error) throw dbError(alerts.error, 'Unable to load bank alerts')
   if (lastAlert.error) throw dbError(lastAlert.error, 'Unable to load bank alerts')
+  if (msg91.error) throw dbError(msg91.error, 'Unable to load sign-in settings')
+  const msg91Row = msg91.data as { msg91_widget_id: string | null; msg91_token_auth: string | null; msg91_auth_key: string | null } | null
 
   // What the bank said for each waiting UTR, if its alert has arrived.
   const pendingRows = (pending.data ?? []) as RechargeRow[]
@@ -116,6 +119,12 @@ export async function adminOverview() {
       secretSet: Boolean(process.env.PAYMENT_WEBHOOK_SECRET?.trim()),
       senders: (process.env.PAYMENT_SMS_SENDERS ?? '').split(',').map(sender => sender.trim()).filter(Boolean),
       lastAlertAt: (lastAlert.data?.[0]?.received_at as string | undefined) ?? null,
+    },
+    // Mobile number sign-in (MSG91 OTP widget). The auth key is never sent back.
+    phoneLogin: {
+      widgetId: msg91Row?.msg91_widget_id ?? '',
+      tokenAuth: msg91Row?.msg91_token_auth ?? '',
+      authKeySet: Boolean(msg91Row?.msg91_auth_key),
     },
   }
 }
@@ -163,9 +172,14 @@ export async function updateSettings(adminId: string, body: unknown) {
     ai_text_input_usd_per_million: decimal(input.textInputUsdPerMillion, 'Text input price', 0, 10_000),
     ai_image_input_usd_per_million: decimal(input.imageInputUsdPerMillion, 'Image input price', 0, 10_000),
     ai_output_usd_per_million: decimal(input.outputUsdPerMillion, 'Image output price', 0, 10_000),
+    msg91_widget_id: text(input.msg91WidgetId, 100),
+    msg91_token_auth: text(input.msg91TokenAuth, 300),
     updated_at: new Date().toISOString(),
     updated_by: adminId,
-  }
+  } as Record<string, unknown>
+  // Write-only: an empty box keeps the saved key.
+  const authKey = text(input.msg91AuthKey, 300)
+  if (authKey) row.msg91_auth_key = authKey
   const { error } = await supabaseAdmin.from('app_settings').update(row).eq('id', true)
   if (error) throw dbError(error, 'Unable to save settings')
   return { settings: await loadSettings(), aiRates: await loadAiRates() }

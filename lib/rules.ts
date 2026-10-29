@@ -13,7 +13,7 @@ export const PHOTO_BUCKET = 'try-on-photos'
 
 // Bump when the consent card or /terms changes: everyone is asked to agree
 // again before their next try-on.
-export const TERMS_VERSION = '2026-10-29'
+export const TERMS_VERSION = '2026-10-29.2'
 
 export type GarmentSource = 'FABRIC' | 'STITCHED'
 
@@ -259,4 +259,16 @@ export function freeCreditsReturnDay(now: Date) {
   const india = new Date(now.getTime() + 5.5 * 3_600_000)
   const next = new Date(Date.UTC(india.getUTCFullYear(), india.getUTCMonth() + 1, 1))
   return next.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', timeZone: 'UTC' })
+}
+
+// People who sign in with their mobile number get a stand-in email address:
+// Supabase makes the session from an email sign-in link that only the server
+// creates (lib/server/phoneLogin.ts). Nothing is ever emailed to it, and the app
+// shows the mobile number instead.
+export function phoneLoginEmail(phone: string) {
+  return `pp-phone-${phone.replace(/\D/g, '')}@inaivuit.com`
+}
+
+export function isPhoneLoginEmail(email: string | null | undefined) {
+  return Boolean(email && /^pp-phone-\d{12}@inaivuit\.com$/.test(email))
 }

@@ -21,7 +21,8 @@ export type AppSettings = {
 }
 
 export type Me = {
-  user: { email: string | null; name: string | null }
+  // phone: set for a mobile number sign-in (email is then null).
+  user: { email: string | null; name: string | null; phone: string | null }
   account: Account
   settings: AppSettings
   isAdmin: boolean

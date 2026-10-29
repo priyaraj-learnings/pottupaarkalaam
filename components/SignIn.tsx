@@ -1,11 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 
 import { InstallApp } from '@/components/InstallApp'
 import { LogoMark, Wordmark } from '@/components/Logo'
 import { Button, Notice } from '@/components/ui'
+import { errorMessage } from '@/lib/client/api'
+import { openMsg91Widget } from '@/lib/client/msg91'
 import { supabase } from '@/lib/supabase/browser'
 
 function GoogleIcon() {
@@ -31,6 +33,48 @@ export default function SignIn() {
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  // The MSG91 widget's public settings, when mobile number sign-in is set up.
+  const [phoneWidget, setPhoneWidget] = useState<{ widgetId: string; tokenAuth: string } | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/sign-in-options', { cache: 'no-store' })
+      .then(response => (response.ok ? response.json() : null))
+      .then(options => { if (!cancelled && options?.phone) setPhoneWidget(options.phone) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
+  // The widget confirmed the code: swap its token for a session.
+  async function finishPhone(accessToken: string) {
+    setBusy(true)
+    setError('')
+    try {
+      const response = await fetch('/api/auth/phone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accessToken }),
+      })
+      const result = await response.json().catch(() => null) as { tokenHash?: string; type?: 'magiclink'; error?: { message?: string } } | null
+      if (!response.ok || !result?.tokenHash) throw new Error(result?.error?.message ?? 'Sign-in did not work. Please try again.')
+      const { error: verifyError } = await supabase.auth.verifyOtp({ token_hash: result.tokenHash, type: result.type ?? 'magiclink' })
+      if (verifyError) throw new Error('Sign-in did not work. Please try again.')
+      // Signed in: the app takes over from here.
+    } catch (phoneError) {
+      setError(errorMessage(phoneError))
+      setBusy(false)
+    }
+  }
+
+  async function mobile() {
+    if (!phoneWidget) return
+    setError('')
+    try {
+      await openMsg91Widget(phoneWidget, accessToken => void finishPhone(accessToken), setError)
+    } catch (widgetError) {
+      setError(errorMessage(widgetError))
+    }
+  }
 
   async function google() {
     setBusy(true)
@@ -97,6 +141,11 @@ export default function SignIn() {
             <Button variant="secondary" busy={busy} onClick={google} className="w-full text-base">
               <GoogleIcon /> Continue with Google
             </Button>
+            {phoneWidget && (
+              <Button variant="secondary" disabled={busy} onClick={mobile} className="w-full text-base">
+                <span aria-hidden="true">📱</span> Sign in with mobile number
+              </Button>
+            )}
             <Button variant="ghost" onClick={() => setMode('email')} className="w-full">Sign in with email instead</Button>
           </>
         )}

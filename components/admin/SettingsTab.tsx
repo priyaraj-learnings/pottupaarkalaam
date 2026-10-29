@@ -9,13 +9,16 @@ import { gmailForwarderScript } from '@/lib/gmailForwarder'
 
 function SettingsForm({ overview, onSaved }: { overview: Overview; onSaved: () => void }) {
   const toast = useToast()
-  const { settings, aiRates } = overview
+  const { settings, aiRates, phoneLogin } = overview
   const [form, setForm] = useState<Record<string, string>>({
     upiId: settings.upiId ?? '',
     payeeName: settings.payeeName ?? '',
     supportContact: settings.supportContact ?? '',
     ...Object.fromEntries(Object.entries(settings.pricing).map(([key, value]) => [key, String(value)])),
     ...Object.fromEntries(Object.entries(aiRates).map(([key, value]) => [key, String(value)])),
+    msg91WidgetId: phoneLogin.widgetId,
+    msg91TokenAuth: phoneLogin.tokenAuth,
+    msg91AuthKey: '',
   })
   const [busy, setBusy] = useState(false)
 
@@ -63,6 +66,28 @@ function SettingsForm({ overview, onSaved }: { overview: Overview; onSaved: () =
           {field('bulkMinRechargeInr', 'Bulk price from a recharge of (₹)', { inputMode: 'numeric' })}
           {field('minRechargeInr', 'Smallest recharge (₹)', { inputMode: 'numeric' })}
           {field('maxRechargeInr', 'Largest recharge (₹)', { inputMode: 'numeric' })}
+        </div>
+      </Card>
+
+      <Card title="Mobile number sign-in (MSG91)">
+        <div className="space-y-3">
+          <p className="text-sm text-stone-600">
+            Adds &ldquo;Sign in with mobile number&rdquo; to the sign-in screen, using your MSG91 OTP widget: MSG91 sends and
+            checks the code. In MSG91 → OTP → Widget, allow this site&rsquo;s address
+            {' '}(<code className="rounded bg-stone-100 px-1">{typeof window === 'undefined' ? '' : window.location.host}</code>).
+          </p>
+          <Notice tone={phoneLogin.widgetId && phoneLogin.tokenAuth && phoneLogin.authKeySet ? 'success' : 'info'}>
+            {phoneLogin.widgetId && phoneLogin.tokenAuth && phoneLogin.authKeySet
+              ? 'On: customers can sign in with their mobile number.'
+              : 'Off: fill in all three to turn it on. Clear the Widget ID to turn it off.'}
+          </Notice>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {field('msg91WidgetId', 'Widget ID', { autoComplete: 'off', autoCapitalize: 'none', spellCheck: 'false' })}
+            {field('msg91TokenAuth', 'Widget token (tokenAuth)', { autoComplete: 'off', autoCapitalize: 'none', spellCheck: 'false' })}
+            {field('msg91AuthKey', `Auth key${phoneLogin.authKeySet ? ' (saved; type a new one to replace it)' : ''}`, {
+              type: 'password', autoComplete: 'new-password', placeholder: phoneLogin.authKeySet ? '••••••••' : 'From MSG91 → Authkey',
+            })}
+          </div>
         </div>
       </Card>
 
@@ -166,7 +191,7 @@ export default function SettingsTab({ overview, onSaved }: { overview: Overview 
   if (!overview) return <div className="flex justify-center py-16 text-brand-600"><Spinner className="h-8 w-8" /></div>
   return (
     <div className="space-y-4">
-      <SettingsForm key={JSON.stringify(overview.settings) + JSON.stringify(overview.aiRates)} overview={overview} onSaved={onSaved} />
+      <SettingsForm key={JSON.stringify(overview.settings) + JSON.stringify(overview.aiRates) + JSON.stringify(overview.phoneLogin)} overview={overview} onSaved={onSaved} />
       <PaymentSmsCard status={overview.paymentSms} />
     </div>
   )

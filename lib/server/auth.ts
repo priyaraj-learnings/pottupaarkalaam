@@ -1,12 +1,16 @@
 import 'server-only'
 
+import { isPhoneLoginEmail } from '@/lib/rules'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { ApiError, bearerToken, dbError, handle } from '@/lib/server/http'
 
 export type SignedInUser = {
   id: string
+  // null for people who signed in with their mobile number.
   email: string | null
   name: string | null
+  // +91 number of a mobile number sign-in.
+  phone: string | null
 }
 
 // The person behind the Supabase access token the app sends.
@@ -17,7 +21,13 @@ export async function requireUser(request: Request): Promise<SignedInUser> {
   if (error || !data.user) throw new ApiError(401, 'SIGN_IN_REQUIRED', 'Please sign in again.')
   const meta = data.user.user_metadata ?? {}
   const name = typeof meta.full_name === 'string' ? meta.full_name : typeof meta.name === 'string' ? meta.name : null
-  return { id: data.user.id, email: data.user.email ?? null, name }
+  const phoneLogin = isPhoneLoginEmail(data.user.email)
+  return {
+    id: data.user.id,
+    email: phoneLogin ? null : data.user.email ?? null,
+    name,
+    phone: phoneLogin && data.user.phone ? `+${data.user.phone.replace(/^\+/, '')}` : null,
+  }
 }
 
 export async function isAdmin(userId: string) {

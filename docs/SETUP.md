@@ -53,7 +53,24 @@ signed in.
 3. **Authentication → Sign In / Providers → Email**: keep **Confirm email** on, and turn **off** sign-up with
    password if offered (the app never uses passwords).
 
-### 1.3 Make yourself an admin
+### 1.3 Sign-in with a mobile number (MSG91 OTP widget)
+
+Optional; for people who don't use Google or email. MSG91 sends and checks the code with its OTP widget (the same
+MSG91 account as salemtamilroots.in works; without your own DLT registration MSG91 uses its own sender).
+
+1. Run `supabase/migrations/20261029000300_phone_login.sql` (UAT first, then production).
+2. MSG91 → **OTP → Widget**: create a widget for PottuPaarkalaam (a separate one from salemtamilroots.in, so the
+   messages and settings stay apart) and allow the app's addresses: the UAT `run.app` address, the production
+   `run.app` address and `pp.inaivuit.com`.
+3. `/admin` → **Settings** → *Mobile number sign-in (MSG91)*: enter the **Widget ID**, the widget **token**
+   (tokenAuth) and the account's **Auth key** (MSG91 → Authkey; secret: it is saved but never shown again) →
+   **Save settings**. "Sign in with mobile number" then appears on the sign-in screen; clear the Widget ID to
+   turn it off.
+
+People who sign in this way get a stand-in email address in Supabase (`pp-phone-<number>@inaivuit.com`); the app
+never emails it and shows their mobile number instead.
+
+### 1.4 Make yourself an admin
 
 Sign in to the app once, then in Supabase → **SQL Editor**:
 

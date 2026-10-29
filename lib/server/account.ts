@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { DEFAULT_PRICING, normalizeMobile, normalizeUtr, TERMS_VERSION, type Pricing } from '@/lib/rules'
+import { DEFAULT_PRICING, formatMobile, normalizeMobile, normalizeUtr, TERMS_VERSION, type Pricing } from '@/lib/rules'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import type { SignedInUser } from '@/lib/server/auth'
 import { ApiError, dbError } from '@/lib/server/http'
@@ -157,7 +157,8 @@ export async function submitRecharge(user: SignedInUser, body: unknown) {
 
   const { data, error } = await supabaseAdmin.rpc('submit_recharge', {
     p_user_id: user.id,
-    p_email: user.email ?? '',
+    // Shown to the admin with the recharge: the email, or the mobile number.
+    p_email: user.email ?? (user.phone ? `+91 ${formatMobile(user.phone)}` : ''),
     p_amount_inr: amountInr,
     p_utr: utr,
   })

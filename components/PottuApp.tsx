@@ -178,7 +178,7 @@ export default function PottuApp() {
             </button>
             <button type="button" onClick={() => setMenuOpen(true)} aria-label="Account"
               className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-100 text-sm font-black text-brand-800">
-              {(current.user.name ?? current.user.email ?? '?').slice(0, 1).toUpperCase()}
+              {current.user.phone && !current.user.name ? '📱' : (current.user.name ?? current.user.email ?? '?').slice(0, 1).toUpperCase()}
             </button>
           </div>
         </header>
@@ -211,7 +211,7 @@ export default function PottuApp() {
 
         <Sheet open={menuOpen} title="Account" onClose={() => setMenuOpen(false)}>
           <div className="space-y-3">
-            <p className="text-sm text-stone-600">Signed in as <b>{current.user.email}</b></p>
+            <p className="text-sm text-stone-600">Signed in as <b>{current.user.email ?? (current.user.phone ? `+91 ${formatMobile(current.user.phone)}` : '')}</b></p>
             <p className="text-xs text-stone-500">Your customer code: <b>{customerCode(session.user.id)}</b></p>
             <MobileRow account={current.account} onAccount={setAccount} />
             <InstallApp />

@@ -15,7 +15,7 @@ export function PrivacyContent() {
         <h2>What we collect</h2>
         <ul>
           <li><b>Account:</b> your email address and name, from Google (see &ldquo;Signing in with Google&rdquo; below) or
-            the email you sign in with.</li>
+            the email you sign in with; or your mobile number, if you sign in with it.</li>
           <li><b>Mobile number (optional):</b> if you give it, and whether you agreed to hear about offers on it.</li>
           <li><b>Photos:</b> the photo of you and the photos of clothes you add, and the pictures we make from them.</li>
           <li><b>Payments:</b> the amount, date and UPI reference of your recharges, and the bank&rsquo;s credit message
@@ -85,6 +85,7 @@ export function PrivacyContent() {
         <ul>
           <li><b>OpenAI</b> (USA) makes the pictures from your photos. Under OpenAI&rsquo;s API terms it does not use
             them to train its models, and may keep them for up to 30 days to detect abuse.</li>
+          <li><b>MSG91</b> (India) sends the sign-in code by SMS when you sign in with your mobile number.</li>
           <li><b>Supabase</b> stores your account, photos and records; <b>Google Cloud</b> runs the app; Google
             signs you in if you choose Google.</li>
         </ul>
