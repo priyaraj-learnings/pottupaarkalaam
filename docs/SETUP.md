@@ -74,6 +74,11 @@ MSG91 account as salemtamilroots.in works; without your own DLT registration MSG
 People who sign in this way get a stand-in email address in Supabase (`pp-phone-<number>@inaivuit.com`); the app
 never emails it and shows their mobile number instead.
 
+### 1.3a Delete my account
+
+Run `supabase/migrations/20261029000600_delete_account.sql` (UAT first, then production). Customers can then delete
+their account from the account menu; admins cannot (remove the admin role first).
+
 ### 1.4 Couple pictures (optional, paid)
 
 One picture of two people, him and her, each in their own new garment: a **Couple** tab between *Try on* and

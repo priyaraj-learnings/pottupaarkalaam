@@ -9,7 +9,7 @@ export function TermsContent() {
         <p>
           PottuPaarkalaam (போட்டுப்பார்க்கலாம், at pp.inaivuit.com) is run by {COMPANY.name}, {COMPANY.description},
           {' '}{COMPANY.address}. It makes AI pictures that show you wearing a fabric or dress you photograph. By using it
-          you agree to these terms.
+          you agree to these terms. Customer care: {COMPANY.supportPhone}, {COMPANY.supportEmail}.
         </p>
       </section>
 
@@ -63,6 +63,8 @@ export function TermsContent() {
           <li>If you paid twice, paid the wrong amount, or paid but no credits were added, write to {COMPANY.supportEmail}{' '}
             with your UPI reference. We refund the money to the account it came from within 7 working days of confirming it.</li>
           <li>Unused paid credits are refunded on request if we close the service.</li>
+          <li>You can delete your account at any time from the account menu. Its unused credits end with it and are not
+            refunded.</li>
         </ul>
       </section>
 
@@ -116,7 +118,7 @@ export function TermsContent() {
       <section>
         <h2>10. Complaints</h2>
         <p>
-          Grievance Officer: {COMPANY.grievanceOfficer}, {COMPANY.grievanceEmail}. We acknowledge a complaint within
+          Grievance Officer: {COMPANY.grievanceOfficer}, {COMPANY.grievanceEmail}, {COMPANY.supportPhone}. We acknowledge a complaint within
           24 hours and resolve it within 7 days. A complaint about a picture that shows a person without their consent,
           in a sexual or intimate way, or pretending to be someone (for example a morphed or deepfake picture) is acted on
           within 2 hours.

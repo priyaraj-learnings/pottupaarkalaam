@@ -1,5 +1,6 @@
 import { isAdmin, requireUser } from '@/lib/server/auth'
 import { getAccount, loadSettings } from '@/lib/server/account'
+import { deleteAccount } from '@/lib/server/deleteAccount'
 import { handle, json } from '@/lib/server/http'
 import { TERMS_VERSION } from '@/lib/rules'
 
@@ -25,5 +26,13 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => null) as { acceptTerms?: unknown } | null
     const account = await getAccount(user, body?.acceptTerms === true)
     return json({ account })
+  })
+}
+
+// "Delete my account": photos, pictures, account, credits and sign-in.
+export async function DELETE(request: Request) {
+  return handle(async () => {
+    const user = await requireUser(request)
+    return json(await deleteAccount(user))
   })
 }

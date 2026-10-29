@@ -4,6 +4,7 @@ import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
+import { CONSENT_POINTS, CONSENT_POINTS_TA, CONSENT_SCREEN } from '@/lib/legal'
 import { termsDue, TERMS_VERSION } from '@/lib/rules'
 
 import agreed from './terms-fingerprint.json'
@@ -14,7 +15,7 @@ import agreed from './terms-fingerprint.json'
 //      to the day of the change, then
 //   2. put the new version and the fingerprint printed below in
 //      tests/terms-fingerprint.json.
-const AGREED_TEXT = ['components/legal/TermsContent.tsx', 'components/legal/PrivacyContent.tsx', 'lib/legal.ts']
+const AGREED_TEXT = ['components/legal/TermsContent.tsx', 'components/legal/PrivacyContent.tsx', 'components/legal/PrivacyContentTa.tsx', 'lib/legal.ts']
 
 function fingerprint() {
   const hash = createHash('sha256')
@@ -41,5 +42,21 @@ describe('asking for consent', () => {
     expect(termsDue({ termsVersion: 'older', termsAcceptedAt: days(1) }, TERMS_VERSION, now)).toBe('updated')
     expect(termsDue({ termsVersion: TERMS_VERSION, termsAcceptedAt: days(364) }, TERMS_VERSION, now)).toBeNull()
     expect(termsDue({ termsVersion: TERMS_VERSION, termsAcceptedAt: days(366) }, TERMS_VERSION, now)).toBe('yearly')
+  })
+})
+
+describe('the Tamil consent screen and Privacy Policy', () => {
+  it('has every consent point, in the same order, and every screen text', () => {
+    expect(CONSENT_POINTS_TA).toHaveLength(CONSENT_POINTS.length)
+    CONSENT_POINTS_TA.forEach(point => expect(point).toMatch(/[\u0B80-\u0BFF]/))
+    expect(Object.keys(CONSENT_SCREEN.ta).sort()).toEqual(Object.keys(CONSENT_SCREEN.en).sort())
+  })
+
+  it('has the same sections as the English Privacy Policy', () => {
+    const read = (file: string) => readFileSync(join(__dirname, '..', file), 'utf8')
+    const count = (text: string, tag: string) => text.split(tag).length - 1
+    const en = read('components/legal/PrivacyContent.tsx')
+    const ta = read('components/legal/PrivacyContentTa.tsx')
+    for (const tag of ['<section>', '<h2>', '<li>']) expect(count(ta, tag), tag).toBe(count(en, tag))
   })
 })

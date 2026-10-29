@@ -16,14 +16,14 @@ This is an engineering record, not legal advice: have a lawyer review it before 
 | Dark Patterns Guidelines 2023 | No false urgency, hidden charges, forced sign-ups | Prices and bulk saving are computed from Settings; couple price shown before making |
 | RBI Master Directions on PPIs | Credits usable only for the firm's own service are a closed system, not an RBI-regulated wallet | Terms §4: credits cannot be transferred, sold or cashed out |
 | DPDP Act 2023 (Board, breach basics) | Notice of what is collected and why; security; breach reporting | Privacy Policy; photos private and deleted after 3 days |
+| DPDP Act 2023, s.5(3) | Notice in English or a language of the Eighth Schedule | Consent screen and Privacy Policy in English or Tamil (`CONSENT_SCREEN`, `PrivacyContentTa.tsx`); switch remembered per phone. Have a native speaker review the Tamil |
+| DPDP Act 2023, s.6(4) and s.12 | Withdraw consent as easily as giving it; erasure | Account menu → Delete my account (`lib/server/deleteAccount.ts`, migration `20261029000600`): photos, account, credits, mobile number and sign-in deleted; recharges kept without the person; a one-way code of a verified number kept to month end to stop repeat free credits |
+| E-Commerce Rules 2020, rule 4(2) | Customer care phone number | `COMPANY.supportPhone` in Terms §1 and §10, Privacy Policy and the account menu |
 
 ## Coming into force on 13 May 2027 (DPDP Rules 2025, rules 3 and 5–16)
 
-- **Notice in Indian languages** (Act s.5(3)): the consent screen and Privacy Policy must be available in English or a
-  language of the Eighth Schedule on request. Add a Tamil version (have it checked by a native speaker).
-- **Withdraw consent as easily as giving it** (Act s.6(4)) and **erasure** (s.12): add "Delete my account" in the
-  account menu. It should delete the photos and the sign-in, and keep only the payment records tax law requires.
-  Today this is done by email to the privacy address.
+- Tamil consent and Privacy Policy, and in-app account deletion: done (see the table above).
+- The Terms of Use are in English only; a Tamil version would help but is not required for the DPDP notice.
 - **Breach reporting** within 72 hours to the Data Protection Board (rule 7): keep a short runbook.
 - **Grievance replies** within 90 days at most (rule 14): already within 7 days.
 
@@ -31,6 +31,5 @@ This is an engineering record, not legal advice: have a lawyer review it before 
 
 - **Offers on SMS or WhatsApp** need TRAI DLT registration (header and templates) or WhatsApp Business opt-in. The
   app records consent (`offers_ok`, `offers_ok_at`). Send nothing promotional until that is in place.
-- **Customer care phone number**: the E-Commerce Rules ask for one. Add it to `lib/legal.ts` (and the Terms) once chosen.
 - **GST**: if the firm becomes GST-registered, prices stay "full prices" (tax included) and invoices are needed for
   B2B buyers.

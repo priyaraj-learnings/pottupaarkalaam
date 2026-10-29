@@ -399,6 +399,52 @@ describe('mobile numbers', () => {
   })
 })
 
+describe('deleting an account', () => {
+  const verify = (userId: string, phone: string) => one<Result>('select public.verify_phone($1, $2) as r', [userId, phone])
+  const deleteAccount = async (userId: string) => {
+    await db.query('select public.prepare_account_deletion($1)', [userId])
+    await db.query('delete from auth.users where id = $1', [userId])
+  }
+
+  it('removes the account, credits and pictures but keeps payment records without the person', async () => {
+    const user = await newUser('leaving@example.com')
+    await one('select public.get_account($1, $2) as r', [user, TERMS])
+    expect((await createLooks(user, [single(0)])).looks).toHaveLength(1)
+    const { recharge } = await submit(user, 100, '600000000601')
+
+    await deleteAccount(user)
+
+    const left = await db.query<{ n: number }>(
+      `select (select count(*) from public.accounts where user_id = $1)
+            + (select count(*) from public.looks where user_id = $1)
+            + (select count(*) from public.try_on_batches where user_id = $1)
+            + (select count(*) from public.credit_ledger where user_id = $1) as n`, [user])
+    expect(Number(left.rows[0].n)).toBe(0)
+    const kept = await db.query('select user_id, user_email, amount_inr, utr from public.recharges where id = $1', [recharge.id])
+    expect(kept.rows[0]).toEqual({ user_id: null, user_email: null, amount_inr: 100, utr: '600000000601' })
+  })
+
+  it('does not give the same mobile number a second set of free credits in the month', async () => {
+    const first = await newUser('first-life@example.com')
+    await one('select public.get_account($1, $2) as r', [first, TERMS])
+    await verify(first, '+919000000611')
+    await createLooks(first, [single(0), single(1)])
+    expect(await account(first)).toMatchObject({ freeLeft: 3 })
+    await deleteAccount(first)
+
+    const again = await newUser('second-life@example.com')
+    await one('select public.get_account($1, $2) as r', [again, TERMS])
+    expect(await account(again)).toMatchObject({ freeLeft: 5 })
+    expect(await verify(again, '+919000000611')).toMatchObject({ account: { phoneVerified: true, freeLeft: 3 } })
+
+    // Only a one-way code of the number is kept, and only for this month.
+    const codes = await db.query<{ phone_hash: string }>('select phone_hash from public.free_use_carryover')
+    expect(codes.rows.map(row => row.phone_hash).join()).not.toContain('9000000611')
+    await db.query(`update public.free_use_carryover set free_month = free_month - interval '1 month'`)
+    expect(await one('select public.purge_free_use_carryover() as r')).toBeGreaterThan(0)
+  })
+})
+
 describe('database permissions', () => {
   it('lets only the server call the functions and read the tables', async () => {
     for (const role of ['anon', 'authenticated']) {
@@ -410,6 +456,8 @@ describe('database permissions', () => {
         await expect(db.query(`select public.save_phone(gen_random_uuid(), '+919876543210', true)`)).rejects.toThrow(/permission denied/)
         await expect(db.query(`select public.verify_phone(gen_random_uuid(), '+919876543210')`)).rejects.toThrow(/permission denied/)
         await expect(db.query(`select public.set_couple_opt_in(gen_random_uuid(), true)`)).rejects.toThrow(/permission denied/)
+        await expect(db.query(`select public.prepare_account_deletion(gen_random_uuid())`)).rejects.toThrow(/permission denied/)
+        await expect(db.query('select * from public.free_use_carryover')).rejects.toThrow(/permission denied/)
       } finally {
         await db.exec('reset role')
       }

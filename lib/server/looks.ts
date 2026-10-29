@@ -469,9 +469,13 @@ export async function purgeAllForUser(userId: string) {
   return removed
 }
 
-// Hourly job: photos older than 3 days, and pictures that never finished.
+// Hourly job: photos older than 3 days, pictures that never finished, and the
+// free-credit codes of deleted accounts from earlier months.
 export async function purgeExpired(now = new Date()) {
   const recovered = await recoverStaleLooks()
+  // Free-credit codes of deleted accounts from earlier months.
+  const { error: carryError } = await supabaseAdmin.rpc('purge_free_use_carryover')
+  if (carryError) console.error(JSON.stringify({ event: 'cleanup.carryover_failed', message: carryError.message }))
   const { data, error } = await supabaseAdmin.from('try_on_batches')
     .select('id, photo_path, partner_photo_path, garment_paths').is('purged_at', null).lte('expires_at', now.toISOString())
     .order('expires_at', { ascending: true }).limit(200)
