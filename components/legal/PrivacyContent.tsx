@@ -14,7 +14,8 @@ export function PrivacyContent() {
       <section>
         <h2>What we collect</h2>
         <ul>
-          <li><b>Account:</b> your email address and name, from Google or the email you sign in with.</li>
+          <li><b>Account:</b> your email address and name, from Google (see &ldquo;Signing in with Google&rdquo; below) or
+            the email you sign in with.</li>
           <li><b>Mobile number (optional):</b> if you give it, and whether you agreed to hear about offers on it.</li>
           <li><b>Photos:</b> the photo of you and the photos of clothes you add, and the pictures we make from them.</li>
           <li><b>Payments:</b> the amount, date and UPI reference of your recharges, and the bank&rsquo;s credit message
@@ -56,6 +57,27 @@ export function PrivacyContent() {
           them. If they are ever exposed
           through a break-in to our systems, we will tell you and the Data Protection Board of India as the law requires.
         </p>
+      </section>
+
+      <section>
+        <h2>Signing in with Google</h2>
+        <p>
+          If you choose &ldquo;Continue with Google&rdquo;, Google shares your name, email address, profile picture link and
+          a Google account ID with us, and nothing else: we do not ask for access to your Gmail, Drive, contacts, photos or
+          any other Google data.
+        </p>
+        <ul>
+          <li>We use your name and email only to create your account, sign you in, show who is signed in and contact you
+            about your account, payments and complaints. We do not use the profile picture.</li>
+          <li>They are stored with your account in our sign-in system (Supabase) and kept while your account is open.</li>
+          <li>We do not sell or share them, use them for advertising, or use them to train AI models. People at
+            {' '}{COMPANY.name} see them only to help you when you ask, for security, or when the law requires it.</li>
+          <li>PottuPaarkalaam&rsquo;s use and transfer of information received from Google APIs adheres to the{' '}
+            <a href="https://developers.google.com/terms/api-services-user-data-policy" className="underline" target="_blank" rel="noreferrer">Google
+            API Services User Data Policy</a>, including the Limited Use requirements.</li>
+          <li>You can remove PottuPaarkalaam&rsquo;s access at any time from your Google Account (Security → Your
+            connections to third-party apps and services), and ask us to delete your account as described below.</li>
+        </ul>
       </section>
 
       <section>
