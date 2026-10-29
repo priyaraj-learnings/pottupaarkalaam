@@ -76,7 +76,7 @@ describe('pairs', () => {
     expect(planLooks(shirtAndPants, [[0, 1], [0, 2]])).toMatchObject({ ok: false, message: /one pair/ })
     expect(planLooks(shirtAndPants, [[1, 2]])).toMatchObject({ ok: false, message: /cannot be worn together/ })
     expect(planLooks(shirtAndPants, [[0, 9]])).toMatchObject({ ok: false })
-    expect(planLooks(Array(6).fill(shirtAndPants[0]), [])).toMatchObject({ ok: false, message: /up to 5/ })
+    expect(planLooks(Array(4).fill(shirtAndPants[0]), [])).toMatchObject({ ok: false, message: /up to 3/ })
     expect(planLooks([{ category: 'EARRINGS', source: 'FABRIC' }], [])).toMatchObject({ ok: false })
   })
 })

@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 // The pictures are made after the reply (next/server after()).
 export const maxDuration = 300
 
-// Multipart form: photo (the customer), garment (up to 5 files), garments
+// Multipart form: photo (the customer), garment (up to MAX_GARMENTS files), garments
 // (JSON [{category, source}] in the same order) and pairs (JSON [[i, j]]).
 export async function POST(request: Request) {
   return handle(async () => {
