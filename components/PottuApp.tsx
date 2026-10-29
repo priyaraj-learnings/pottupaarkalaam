@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import Couple from '@/components/Couple'
+import { DeleteAccount } from '@/components/DeleteAccount'
 import History from '@/components/History'
 import { InstallApp } from '@/components/InstallApp'
 import { LegalOverlay, type LegalDoc } from '@/components/LegalOverlay'
@@ -16,8 +17,9 @@ import TermsConsent from '@/components/TermsConsent'
 import TryOn from '@/components/TryOn'
 import { Button, Notice, Sheet, Spinner, ToastProvider, useToast } from '@/components/ui'
 import { api, errorMessage } from '@/lib/client/api'
+import { COMPANY } from '@/lib/legal'
 import type { Account, AppSettings, Me } from '@/lib/client/types'
-import { formatMobile, TERMS_VERSION } from '@/lib/rules'
+import { formatMobile, termsDue, TERMS_VERSION } from '@/lib/rules'
 import { supabase } from '@/lib/supabase/browser'
 import { customerCode } from '@/lib/upi'
 
@@ -141,12 +143,14 @@ function Splash() {
 export default function PottuApp() {
   // undefined: still reading the saved sign-in.
   const [session, setSession] = useState<Session | null | undefined>(undefined)
-  const [me, setMe] = useState<(Me & { userId: string }) | null>(null)
+  const [me, setMe] = useState<(Me & { userId: string; loadedAt: number }) | null>(null)
   const [loadError, setLoadError] = useState('')
   const [tab, setTab] = useState<Tab>('tryon')
   const [menuOpen, setMenuOpen] = useState(false)
   const [legal, setLegal] = useState<LegalDoc | null>(null)
   const closeLegal = useCallback(() => setLegal(null), [])
+  // Shown on the sign-in screen after the account was deleted.
+  const [signInNotice, setSignInNotice] = useState('')
   // Worked out when the account loads, so "Not now" sticks for this visit.
   const [askMobile, setAskMobile] = useState(false)
 
@@ -168,7 +172,7 @@ export default function PottuApp() {
     try {
       const result = await api<Me>('/api/me')
       loadedAt.current = Date.now()
-      setMe({ ...result, userId: forUser })
+      setMe({ ...result, userId: forUser, loadedAt: loadedAt.current })
       setAskMobile(shouldAskForMobile(result.account, Date.now()))
       setLoadError('')
     } catch (error) {
@@ -205,7 +209,7 @@ export default function PottuApp() {
   }, [])
 
   if (session === undefined) return <Splash />
-  if (!session) return <SignIn />
+  if (!session) return <SignIn notice={signInNotice} />
 
   const current = me && me.userId === session.user.id ? me : null
   if (!current) {
@@ -219,10 +223,11 @@ export default function PottuApp() {
     )
   }
 
-  if (current.account.termsVersion !== (current.currentTermsVersion ?? TERMS_VERSION)) {
+  const termsReason = termsDue(current.account, current.currentTermsVersion ?? TERMS_VERSION, current.loadedAt)
+  if (termsReason) {
     return (
       <>
-        <TermsConsent updated={Boolean(current.account.termsVersion)} onAgreed={setAccount} onSignOut={signOut} onOpen={setLegal} />
+        <TermsConsent reason={termsReason} onAgreed={setAccount} onSignOut={signOut} onOpen={setLegal} />
         <LegalOverlay doc={legal} onClose={closeLegal} />
       </>
     )
@@ -315,9 +320,14 @@ export default function PottuApp() {
               {current.isAdmin && <Link href="/admin" className="px-4 py-3 font-semibold text-brand-700">Admin</Link>}
               <button type="button" onClick={() => setLegal('terms')} className="flex items-center justify-between px-4 py-3 text-left font-semibold">Terms of Use <span aria-hidden="true" className="text-stone-400">›</span></button>
               <button type="button" onClick={() => setLegal('privacy')} className="flex items-center justify-between px-4 py-3 text-left font-semibold">Privacy Policy <span aria-hidden="true" className="text-stone-400">›</span></button>
+              <a href={COMPANY.supportPhoneLink} className="px-4 py-3 text-sm">Customer care: <b>{COMPANY.supportPhone}</b></a>
               {current.settings.supportContact && <p className="px-4 py-3 text-sm">Help: {current.settings.supportContact}</p>}
             </nav>
             <Button variant="secondary" onClick={signOut} className="w-full">Sign out</Button>
+            <DeleteAccount account={current.account} isAdmin={current.isAdmin} onDeleted={() => {
+              setSignInNotice('Your account has been deleted. Thank you for trying PottuPaarkalaam.')
+              void signOut()
+            }} />
           </div>
         </Sheet>
         <LegalOverlay doc={legal} onClose={closeLegal} />

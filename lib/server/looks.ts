@@ -334,7 +334,7 @@ async function makeLook(id: string) {
     }
 
     const result = await generateTryOnImage({ images, prompt })
-    const output = await encodeForStorage(result.base64, result.mimeType)
+    const output = await encodeForStorage(result.base64, id)
     const imagePath = `${look.user_id}/${look.batch_id}/look-${id}.${output.extension}`
     await upload(imagePath, output.bytes, output.contentType)
 
@@ -435,7 +435,7 @@ export async function lookAsJpeg(userId: string, id: string) {
   if (error) throw dbError(error, 'Unable to load the picture')
   const path = data?.status === 'COMPLETED' ? data.image_path as string | null : null
   if (!path || !path.startsWith(`${userId}/`)) throw new ApiError(404, 'NOT_FOUND', 'This picture has been deleted.')
-  return toJpeg(await download(path))
+  return toJpeg(await download(path), id)
 }
 
 // ---------------------------------------------------------------------------
@@ -469,9 +469,13 @@ export async function purgeAllForUser(userId: string) {
   return removed
 }
 
-// Hourly job: photos older than 3 days, and pictures that never finished.
+// Hourly job: photos older than 3 days, pictures that never finished, and the
+// free-credit codes of deleted accounts from earlier months.
 export async function purgeExpired(now = new Date()) {
   const recovered = await recoverStaleLooks()
+  // Free-credit codes of deleted accounts from earlier months.
+  const { error: carryError } = await supabaseAdmin.rpc('purge_free_use_carryover')
+  if (carryError) console.error(JSON.stringify({ event: 'cleanup.carryover_failed', message: carryError.message }))
   const { data, error } = await supabaseAdmin.from('try_on_batches')
     .select('id, photo_path, partner_photo_path, garment_paths').is('purged_at', null).lte('expires_at', now.toISOString())
     .order('expires_at', { ascending: true }).limit(200)

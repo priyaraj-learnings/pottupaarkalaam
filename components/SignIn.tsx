@@ -27,7 +27,8 @@ const STEPS = [
   { icon: '✨', text: 'See yourself wearing it' },
 ]
 
-export default function SignIn() {
+// notice: shown above the sign-in buttons (for example after deleting an account).
+export default function SignIn({ notice }: { notice?: string }) {
   const [mode, setMode] = useState<'choose' | 'email' | 'code'>('choose')
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
@@ -141,6 +142,7 @@ export default function SignIn() {
       </section>
 
       <section className="flex flex-1 flex-col gap-3 px-6 py-8">
+        {notice && <Notice tone="success">{notice}</Notice>}
         {error && <Notice tone="error">{error}</Notice>}
 
         {mode === 'choose' && (

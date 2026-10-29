@@ -19,7 +19,9 @@ export function PrivacyContent() {
           <li><b>Mobile number:</b> if you give it or verify it with an SMS code (sent by MSG91), and whether you agreed to
             hear about offers on it. A verified number may be needed for free credits, and belongs to one account only.</li>
           <li><b>Photos:</b> the photo of you and the photos of clothes you add, and the pictures we make from them. For a
-            couple picture, also your partner&rsquo;s photo, which is kept and deleted exactly like yours.</li>
+            couple picture, also your partner&rsquo;s photo, which is kept and deleted exactly like yours. Each picture
+            carries an &ldquo;AI-generated&rdquo; label and, inside the file, a note that it is AI-generated with its own ID
+            (not your name, email or number), as Indian law requires.</li>
           <li><b>Payments:</b> the amount, date and UPI reference of your recharges, and the bank&rsquo;s credit message
             for that payment (which shows the payer&rsquo;s name or UPI ID).</li>
           <li><b>Usage:</b> your credits, try-ons and recharges, and basic technical logs (time, errors).</li>
@@ -46,8 +48,13 @@ export function PrivacyContent() {
             &ldquo;Delete all my photos now&rdquo; in My pictures.</li>
           <li><b>Pictures you save or share:</b> a picture you download or share is a copy outside our systems. We cannot
             delete it and are not responsible for what happens to it (Terms, section 7).</li>
-          <li><b>Account, credits and payments:</b> kept while your account is open and then as long as tax and
-            accounting law requires (usually 8 years for payment records).</li>
+          <li><b>Account and credits:</b> kept while your account is open, and deleted when you delete your account.</li>
+          <li><b>Payments:</b> the amount, date and UPI reference of your recharges and the bank&rsquo;s message for them
+            are kept as long as tax and accounting law requires (usually 8 years), without your name or email once you
+            delete your account.</li>
+          <li><b>After you delete your account:</b> if you used free credits this month with a verified mobile number, we
+            keep a one-way code made from that number (not the number itself) until the end of the month, so the same
+            number does not get that month&rsquo;s free credits twice. Then it is deleted.</li>
         </ul>
       </section>
 
@@ -95,12 +102,16 @@ export function PrivacyContent() {
 
       <section>
         <h2>Your rights</h2>
-        <p>
-          You can ask to see, correct or delete your personal data, or withdraw your consent, by writing to
-          {' '}{COMPANY.privacyEmail}. Deleting your account removes your photos at once; payment records we must keep by
-          law are kept without your photos. If you are not satisfied, contact our Grievance Officer,
-          {' '}{COMPANY.grievanceOfficer} ({COMPANY.grievanceEmail}), and then the Data Protection Board of India.
-        </p>
+        <ul>
+          <li><b>Delete your account yourself:</b> account menu → <b>Delete my account</b>. This withdraws your consent and
+            deletes at once your photos and pictures, your account, mobile number, offers choice and credits, and your
+            sign-in. Only what is described under &ldquo;How long we keep it&rdquo; stays.</li>
+          <li>You can also ask to see, correct or delete your personal data, or withdraw your consent, by writing to
+            {' '}{COMPANY.privacyEmail} or calling {COMPANY.supportPhone}.</li>
+          <li>If you are not satisfied, contact our Grievance Officer, {COMPANY.grievanceOfficer}
+            {' '}({COMPANY.grievanceEmail}), and then the Data Protection Board of India.</li>
+          <li>This policy and the consent screen can be read in English or Tamil (தமிழ்).</li>
+        </ul>
       </section>
     </>
   )

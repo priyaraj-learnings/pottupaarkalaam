@@ -111,7 +111,12 @@ export default function Recharge({ active, account, settings, userCode, onAccoun
           <li className="flex justify-between gap-2"><span>Recharge below {formatInr(pricing.bulkMinRechargeInr)}</span><b>{formatInr(pricing.standardRateInr)} a credit</b></li>
           <li className="flex justify-between gap-2"><span>Recharge {formatInr(pricing.bulkMinRechargeInr)} or more</span><b className="text-emerald-700">{formatInr(pricing.bulkRateInr)} a credit</b></li>
         </ul>
-        <p className="mt-3 text-sm text-stone-500">One garment = 1 credit. A pair (worn together) = 2 credits. {pricing.freeCreditsPerMonth} free credits every month. Paid credits never expire.</p>
+        <p className="mt-3 text-sm text-stone-500">
+          One garment = 1 credit. A pair (worn together) = 2 credits.
+          {settings.couple.enabled && <> A couple picture = {settings.couple.credits} paid credits.</>}
+          {' '}{pricing.freeCreditsPerMonth} free credits every month. Paid credits don&rsquo;t expire while the service runs.
+        </p>
+        <p className="mt-2 text-sm text-stone-500">These are the full prices: nothing is added when you pay.</p>
       </Card>
 
       <Card title="1. Choose an amount">
