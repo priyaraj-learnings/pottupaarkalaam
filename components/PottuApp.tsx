@@ -17,7 +17,7 @@ import TryOn from '@/components/TryOn'
 import { Button, Notice, Sheet, Spinner, ToastProvider, useToast } from '@/components/ui'
 import { api, errorMessage } from '@/lib/client/api'
 import type { Account, AppSettings, Me } from '@/lib/client/types'
-import { formatMobile, TERMS_VERSION } from '@/lib/rules'
+import { formatMobile, termsDue, TERMS_VERSION } from '@/lib/rules'
 import { supabase } from '@/lib/supabase/browser'
 import { customerCode } from '@/lib/upi'
 
@@ -141,7 +141,7 @@ function Splash() {
 export default function PottuApp() {
   // undefined: still reading the saved sign-in.
   const [session, setSession] = useState<Session | null | undefined>(undefined)
-  const [me, setMe] = useState<(Me & { userId: string }) | null>(null)
+  const [me, setMe] = useState<(Me & { userId: string; loadedAt: number }) | null>(null)
   const [loadError, setLoadError] = useState('')
   const [tab, setTab] = useState<Tab>('tryon')
   const [menuOpen, setMenuOpen] = useState(false)
@@ -168,7 +168,7 @@ export default function PottuApp() {
     try {
       const result = await api<Me>('/api/me')
       loadedAt.current = Date.now()
-      setMe({ ...result, userId: forUser })
+      setMe({ ...result, userId: forUser, loadedAt: loadedAt.current })
       setAskMobile(shouldAskForMobile(result.account, Date.now()))
       setLoadError('')
     } catch (error) {
@@ -219,10 +219,11 @@ export default function PottuApp() {
     )
   }
 
-  if (current.account.termsVersion !== (current.currentTermsVersion ?? TERMS_VERSION)) {
+  const termsReason = termsDue(current.account, current.currentTermsVersion ?? TERMS_VERSION, current.loadedAt)
+  if (termsReason) {
     return (
       <>
-        <TermsConsent updated={Boolean(current.account.termsVersion)} onAgreed={setAccount} onSignOut={signOut} onOpen={setLegal} />
+        <TermsConsent reason={termsReason} onAgreed={setAccount} onSignOut={signOut} onOpen={setLegal} />
         <LegalOverlay doc={legal} onClose={closeLegal} />
       </>
     )

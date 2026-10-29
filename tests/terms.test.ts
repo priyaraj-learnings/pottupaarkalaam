@@ -4,7 +4,7 @@ import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-import { TERMS_VERSION } from '@/lib/rules'
+import { termsDue, TERMS_VERSION } from '@/lib/rules'
 
 import agreed from './terms-fingerprint.json'
 
@@ -29,5 +29,17 @@ describe('terms version', () => {
       expect.fail(`The Terms, Privacy Policy or consent points changed. Bump TERMS_VERSION, then set tests/terms-fingerprint.json to ${JSON.stringify({ ...now, termsVersion: '<new version>' })}`)
     }
     expect(now.termsVersion, 'TERMS_VERSION changed: update tests/terms-fingerprint.json to match').toBe(agreed.termsVersion)
+  })
+})
+
+describe('asking for consent', () => {
+  const now = Date.parse('2026-10-29T10:00:00Z')
+  const days = (n: number) => new Date(now - n * 86_400_000).toISOString()
+
+  it('asks at first sign-in, after a change, and once a year', () => {
+    expect(termsDue({ termsVersion: null, termsAcceptedAt: null }, TERMS_VERSION, now)).toBe('first')
+    expect(termsDue({ termsVersion: 'older', termsAcceptedAt: days(1) }, TERMS_VERSION, now)).toBe('updated')
+    expect(termsDue({ termsVersion: TERMS_VERSION, termsAcceptedAt: days(364) }, TERMS_VERSION, now)).toBeNull()
+    expect(termsDue({ termsVersion: TERMS_VERSION, termsAcceptedAt: days(366) }, TERMS_VERSION, now)).toBe('yearly')
   })
 })

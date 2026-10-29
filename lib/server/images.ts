@@ -2,6 +2,7 @@ import 'server-only'
 
 import sharp from 'sharp'
 
+import { AI_LABEL_PNG_BASE64 } from '@/lib/server/aiLabel'
 import { ApiError } from '@/lib/server/http'
 
 // Photo checks and conversions, from UduthiPaar (lib/security/validateImage,
@@ -52,27 +53,83 @@ export async function photoForModel(input: Buffer | Blob, maxWidth: number, maxH
     .toBuffer()
 }
 
-// Try-on pictures are stored as WEBP (much smaller than PNG). A paid picture
-// must never be lost to encoding, so the original is kept if conversion fails.
-export async function encodeForStorage(base64: string, mimeType: string) {
+// =======================================================
+// AI LABEL (IT Rules 2021, rule 3(3), as amended in 2026)
+//
+// Every picture is AI-made ("synthetically generated
+// information"), so each one carries a visible label and,
+// inside the file, metadata saying so with its unique ID.
+// The label is in the stored pixels: no unlabelled copy
+// is ever served, saved or shared.
+// =======================================================
+
+const AI_LABEL = Buffer.from(AI_LABEL_PNG_BASE64, 'base64')
+// The IPTC term that photo apps and platforms read as "made by AI".
+const IPTC_AI_SOURCE = 'http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia'
+
+export function aiPictureId(lookId: string) {
+  return `pp-${lookId}`
+}
+
+function aiMetadata(lookId: string) {
+  const id = aiPictureId(lookId)
+  const description = `AI-generated image made with PottuPaarkalaam (inaivu IT). Not a real photograph. ID: ${id}`
+  const exif = {
+    IFD0: {
+      ImageDescription: description,
+      Software: 'PottuPaarkalaam AI try-on',
+      Artist: 'inaivu IT (PottuPaarkalaam)',
+      ImageUniqueID: id,
+    },
+  }
+  const xmp = `<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">`
+    + `<rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:Iptc4xmpExt="http://iptc.org/std/Iptc4xmpExt/2008-02-29/"`
+    + ` Iptc4xmpExt:DigitalSourceType="${IPTC_AI_SOURCE}">`
+    + `<dc:identifier>${id}</dc:identifier>`
+    + `<dc:description><rdf:Alt><rdf:li xml:lang="x-default">${description}</rdf:li></rdf:Alt></dc:description>`
+    + `</rdf:Description></rdf:RDF></x:xmpmeta>`
+  return { exif, xmp }
+}
+
+// The picture with the label at the bottom left, about 42% of its width.
+async function withAiLabel(original: Buffer) {
+  const { width, height } = await sharp(original, { limitInputPixels: 40_000_000 }).metadata()
+  if (!width || !height) throw new Error('picture has no size')
+  const labelWidth = Math.round(width * 0.42)
+  const label = await sharp(AI_LABEL).resize({ width: labelWidth }).toBuffer()
+  const { height: labelHeight = 0 } = await sharp(label).metadata()
+  const margin = Math.round(width * 0.025)
+  return sharp(original, { limitInputPixels: 40_000_000 })
+    .composite([{ input: label, left: margin, top: Math.max(0, height - labelHeight - margin) }])
+}
+
+// Try-on pictures are stored labelled, as WEBP (much smaller than PNG), or as
+// PNG if WEBP fails. If labelling itself fails the picture fails (and its
+// credits come back): an unlabelled AI picture is never kept.
+export async function encodeForStorage(base64: string, lookId: string) {
   const original = Buffer.from(base64, 'base64')
-  if (mimeType === 'image/webp') return { bytes: original, contentType: 'image/webp', extension: 'webp' }
+  const { exif, xmp } = aiMetadata(lookId)
   try {
-    const bytes = await sharp(original, { limitInputPixels: 40_000_000 }).webp({ quality: 90, effort: 4 }).toBuffer()
+    const bytes = await (await withAiLabel(original)).webp({ quality: 90, effort: 4 }).withExif(exif).withXmp(xmp).toBuffer()
     if (!bytes.length) throw new Error('empty WEBP')
     return { bytes, contentType: 'image/webp', extension: 'webp' }
   } catch (error) {
-    console.error('Unable to convert try-on picture to WEBP; storing PNG', error instanceof Error ? error.message : error)
-    return { bytes: original, contentType: 'image/png', extension: 'png' }
+    console.error('Unable to store the try-on picture as WEBP; storing PNG', error instanceof Error ? error.message : error)
+    const bytes = await (await withAiLabel(original)).png().withExif(exif).withXmp(xmp).toBuffer()
+    return { bytes, contentType: 'image/png', extension: 'png' }
   }
 }
 
 // Saved and shared pictures are JPEG: WhatsApp sends a .webp as a sticker and
 // some gallery apps cannot open it.
-export async function toJpeg(input: Blob) {
+// They keep the AI metadata (the label is already in the pixels).
+export async function toJpeg(input: Blob, lookId: string) {
+  const { exif, xmp } = aiMetadata(lookId)
   return sharp(Buffer.from(await input.arrayBuffer()), { limitInputPixels: 40_000_000 })
     .rotate()
     .flatten({ background: '#ffffff' })
     .jpeg({ quality: 92, chromaSubsampling: '4:4:4' })
+    .withExif(exif)
+    .withXmp(xmp)
     .toBuffer()
 }

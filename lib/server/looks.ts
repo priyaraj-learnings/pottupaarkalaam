@@ -334,7 +334,7 @@ async function makeLook(id: string) {
     }
 
     const result = await generateTryOnImage({ images, prompt })
-    const output = await encodeForStorage(result.base64, result.mimeType)
+    const output = await encodeForStorage(result.base64, id)
     const imagePath = `${look.user_id}/${look.batch_id}/look-${id}.${output.extension}`
     await upload(imagePath, output.bytes, output.contentType)
 
@@ -435,7 +435,7 @@ export async function lookAsJpeg(userId: string, id: string) {
   if (error) throw dbError(error, 'Unable to load the picture')
   const path = data?.status === 'COMPLETED' ? data.image_path as string | null : null
   if (!path || !path.startsWith(`${userId}/`)) throw new ApiError(404, 'NOT_FOUND', 'This picture has been deleted.')
-  return toJpeg(await download(path))
+  return toJpeg(await download(path), id)
 }
 
 // ---------------------------------------------------------------------------

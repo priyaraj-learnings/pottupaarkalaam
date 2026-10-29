@@ -21,6 +21,7 @@ export const CONSENT_POINTS = [
   'The photos I add are of me, or I have that person\'s permission.',
   'My photos and pictures are deleted after 3 days. I will save the ones I want to keep.',
   'Pictures are made by AI as a preview. Real clothes may look different.',
+  'Every picture is labelled "AI-generated". I will not remove the label or pass a picture off as a real photo.',
   'Pictures I save or share are my responsibility once they leave the app.',
   'Used credits are not refunded. If a picture fails, its credits come back automatically.',
 ]

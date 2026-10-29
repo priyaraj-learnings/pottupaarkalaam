@@ -19,7 +19,9 @@ export function PrivacyContent() {
           <li><b>Mobile number:</b> if you give it or verify it with an SMS code (sent by MSG91), and whether you agreed to
             hear about offers on it. A verified number may be needed for free credits, and belongs to one account only.</li>
           <li><b>Photos:</b> the photo of you and the photos of clothes you add, and the pictures we make from them. For a
-            couple picture, also your partner&rsquo;s photo, which is kept and deleted exactly like yours.</li>
+            couple picture, also your partner&rsquo;s photo, which is kept and deleted exactly like yours. Each picture
+            carries an &ldquo;AI-generated&rdquo; label and, inside the file, a note that it is AI-generated with its own ID
+            (not your name, email or number), as Indian law requires.</li>
           <li><b>Payments:</b> the amount, date and UPI reference of your recharges, and the bank&rsquo;s credit message
             for that payment (which shows the payer&rsquo;s name or UPI ID).</li>
           <li><b>Usage:</b> your credits, try-ons and recharges, and basic technical logs (time, errors).</li>

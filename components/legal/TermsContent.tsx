@@ -28,6 +28,9 @@ export function TermsContent() {
           <li>You must be 18 or older.</li>
           <li>Add only photos of yourself, or of an adult who has agreed to it. Never add photos of children.</li>
           <li>A couple picture uses photos of two people. Add it only when both of you are 18 or older and both agree.</li>
+          <li>Do not use PottuPaarkalaam to make a picture of someone who has not agreed (including famous people), to pass
+            a picture off as a real photo, or for anything that breaks Indian law. We may remove such pictures, block the
+            account and report it to the authorities where the law requires.</li>
           <li>Do not add nude, sexual, violent or hateful photos, or photos meant to embarrass, deceive or impersonate anyone.</li>
           <li>Add photos of clothes you have the right to use.</li>
           <li>We may block an account that breaks these rules, without refund of unused credits.</li>
@@ -46,7 +49,9 @@ export function TermsContent() {
           <li>You buy credits by paying {COMPANY.name} by UPI and entering the UPI reference (UTR). The price per credit
             depends on the recharge amount, as shown in the app before you pay. Credits are added when the payment is
             confirmed, usually within a few hours.</li>
-          <li>Paid credits do not expire while the service runs.</li>
+          <li>Paid credits do not expire while the service runs. Credits can be used only on PottuPaarkalaam: they cannot
+            be transferred to another account, sold, or exchanged for cash, except for the refunds in section 5.</li>
+          <li>The prices shown in the app are the full prices: nothing is added when you pay.</li>
           <li>If a picture cannot be made, its credits are returned automatically.</li>
         </ul>
       </section>
@@ -79,6 +84,9 @@ export function TermsContent() {
             with.</li>
           <li>Pictures can look real. Share only pictures of yourself, or of a person who has agreed to it, and never in a
             way that misleads, embarrasses or harms anyone.</li>
+          <li>Every picture is marked as made by AI: it carries a visible &ldquo;AI-generated · PottuPaarkalaam&rdquo; label
+            and, inside the file, a note that it is AI-generated with its own ID, as Indian law requires (IT Rules 2021,
+            rule 3(3)). Do not remove, cover or crop out the label, or present the picture as a real photo.</li>
         </ul>
       </section>
 
@@ -109,14 +117,18 @@ export function TermsContent() {
         <h2>10. Complaints</h2>
         <p>
           Grievance Officer: {COMPANY.grievanceOfficer}, {COMPANY.grievanceEmail}. We acknowledge a complaint within
-          24 hours and resolve it within 15 days. A request to remove a picture of a person made without their consent
-          is acted on within 24 hours.
+          24 hours and resolve it within 7 days. A complaint about a picture that shows a person without their consent,
+          in a sexual or intimate way, or pretending to be someone (for example a morphed or deepfake picture) is acted on
+          within 2 hours.
         </p>
       </section>
 
       <section>
         <h2>11. Changes</h2>
-        <p>If we change these terms, the app asks you to read and agree to them again before your next try-on.</p>
+        <p>
+          If we change these terms, the app asks you to read and agree to them again before your next try-on. It also asks
+          you to read them again once a year.
+        </p>
       </section>
     </>
   )

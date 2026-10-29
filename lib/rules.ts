@@ -13,7 +13,23 @@ export const PHOTO_BUCKET = 'try-on-photos'
 
 // Bump when the consent card or /terms changes: everyone is asked to agree
 // again before their next try-on.
-export const TERMS_VERSION = '2026-10-29.4'
+export const TERMS_VERSION = '2026-10-29.5'
+
+// Customers are asked to read the terms again at least once a year (IT Rules
+// 2021, rule 3(1)(c)), even when nothing changed.
+export const TERMS_REMINDER_DAYS = 365
+
+// Why the consent screen must be shown before the app, if it must.
+export function termsDue(
+  account: { termsVersion: string | null; termsAcceptedAt: string | null },
+  currentVersion: string,
+  now: number,
+): 'first' | 'updated' | 'yearly' | null {
+  if (!account.termsVersion) return 'first'
+  if (account.termsVersion !== currentVersion) return 'updated'
+  if (!account.termsAcceptedAt || now - Date.parse(account.termsAcceptedAt) > TERMS_REMINDER_DAYS * 86_400_000) return 'yearly'
+  return null
+}
 
 export type GarmentSource = 'FABRIC' | 'STITCHED'
 

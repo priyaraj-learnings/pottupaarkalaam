@@ -9,13 +9,12 @@ import { api, errorMessage } from '@/lib/client/api'
 import type { Account } from '@/lib/client/types'
 import { CONSENT_POINTS } from '@/lib/legal'
 
-// Asked at first sign-in, and once again whenever the terms change (the server's
-// TERMS_VERSION), before the next try-on. The person must tick that they read
-// the Terms and Privacy Policy.
+// Asked at first sign-in, once again whenever the terms change (the server's
+// TERMS_VERSION), and once a year (termsDue), before the next try-on. The
+// person must tick that they read the Terms and Privacy Policy.
 
-export default function TermsConsent({ updated = false, onAgreed, onSignOut, onOpen }: {
-  // The person agreed to an earlier version.
-  updated?: boolean
+export default function TermsConsent({ reason, onAgreed, onSignOut, onOpen }: {
+  reason: 'first' | 'updated' | 'yearly'
   onAgreed: (account: Account) => void
   onSignOut: () => void
   // Opens the Terms or Privacy Policy over this screen, keeping the tick.
@@ -43,7 +42,8 @@ export default function TermsConsent({ updated = false, onAgreed, onSignOut, onO
         <LogoMark size={44} />
         <Wordmark />
       </div>
-      {updated && <Notice tone="info">We have updated our Terms and Privacy Policy. Please read them and agree again.</Notice>}
+      {reason === 'updated' && <Notice tone="info">We have updated our Terms and Privacy Policy. Please read them and agree again.</Notice>}
+      {reason === 'yearly' && <Notice tone="info">Once a year we ask everyone to read our Terms and Privacy Policy again. Nothing has changed for you.</Notice>}
       <Card title="Before you start">
         <ul className="space-y-3">
           {CONSENT_POINTS.map(point => (
