@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState, type ChangeEvent } from 'react'
 
+import { CameraCapture, cameraAvailable } from '@/components/CameraCapture'
 import { CategoryChips, SourceToggle } from '@/components/CategoryPicker'
 import LookCard from '@/components/LookCard'
 import { Button, Card, Notice, Sheet, useToast } from '@/components/ui'
@@ -83,9 +84,21 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
   // Photos
   // ---------------------------------------------------------------------------
 
+  // The in-app camera (with timers) where the browser has one; otherwise the
+  // phone's camera app through the hidden capture inputs.
+  const [camera, setCamera] = useState<'clothes' | 'selfie' | null>(null)
+  function openCamera(which: 'clothes' | 'selfie') {
+    if (cameraAvailable()) setCamera(which)
+    else (which === 'clothes' ? clothesCamera : selfieCamera).current?.click()
+  }
+
   async function addClothes(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? [])
     event.target.value = ''
+    await addClothesFiles(files)
+  }
+
+  async function addClothesFiles(files: File[]) {
     if (!files.length || !category) return
     if (files.length > room) toast(`Only ${room} more photo${room === 1 ? '' : 's'} can be added (up to ${MAX_GARMENTS}).`)
     setPreparing(true)
@@ -106,7 +119,10 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
   async function addSelfie(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     event.target.value = ''
-    if (!file) return
+    if (file) await addSelfieFile(file)
+  }
+
+  async function addSelfieFile(file: File) {
     setPreparing(true)
     try {
       const blob = await shrinkPhoto(file, 2048, 0.9)
@@ -258,7 +274,7 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
           </p>
         )}
         <div className="grid grid-cols-2 gap-2">
-          <Button disabled={!category || room <= 0 || preparing} onClick={() => clothesCamera.current?.click()}>📷 Take photo</Button>
+          <Button disabled={!category || room <= 0 || preparing} onClick={() => openCamera('clothes')}>📷 Take photo</Button>
           <Button variant="secondary" disabled={!category || room <= 0 || preparing} onClick={() => clothesGallery.current?.click()}>🖼️ Gallery</Button>
         </div>
         <input ref={clothesCamera} type="file" accept="image/*" capture="environment" className="hidden" onChange={addClothes} />
@@ -302,14 +318,14 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
       </Card>
 
       <Card title={<StepTitle number={3} done={Boolean(photo)}>Your photo</StepTitle>}>
-        <p className="mb-3 text-sm text-stone-600">Stand straight, full length (head to feet), in good light. Fitted clothes work best.</p>
+        <p className="mb-3 text-sm text-stone-600">Any clear photo works: full length or from the waist up, facing the camera, in good light. Full length shows the whole outfit best.</p>
         <div className="flex gap-3">
           {photo && (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={photo.url} alt="Your photo" className="h-28 w-20 shrink-0 rounded-2xl object-cover ring-1 ring-stone-200" />
           )}
           <div className="grid flex-1 grid-cols-1 gap-2">
-            <Button disabled={preparing} onClick={() => selfieCamera.current?.click()}>🤳 {photo ? 'Take again' : 'Take selfie'}</Button>
+            <Button disabled={preparing} onClick={() => openCamera('selfie')}>🤳 {photo ? 'Take again' : 'Take selfie'}</Button>
             <Button variant="secondary" disabled={preparing} onClick={() => selfieGallery.current?.click()}>🖼️ From gallery</Button>
           </div>
         </div>
@@ -345,6 +361,13 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
           )}
         </div>
       </div>
+
+      <CameraCapture open={camera === 'clothes'} title={category ? `Photo of the ${categoryLabel(category).toLowerCase()}` : 'Photo of the clothes'} facing="environment"
+        onCapture={file => { setCamera(null); void addClothesFiles([file]) }} onClose={() => setCamera(null)}
+        onFallback={() => { setCamera(null); clothesCamera.current?.click() }} />
+      <CameraCapture open={camera === 'selfie'} title="Your photo" facing="user"
+        onCapture={file => { setCamera(null); void addSelfieFile(file) }} onClose={() => setCamera(null)}
+        onFallback={() => { setCamera(null); selfieCamera.current?.click() }} />
 
       <Sheet open={Boolean(pairingItem)} title="Wear together in one picture" onClose={() => setPairingFrom(null)}>
         {pairingItem && (

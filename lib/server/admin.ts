@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { DEFAULT_COUPLE_CREDITS } from '@/lib/rules'
+import { parseUpiQr } from '@/lib/upi'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { loadSettings } from '@/lib/server/account'
 import { ApiError, dbError, UUID } from '@/lib/server/http'
@@ -159,9 +160,20 @@ export async function updateSettings(adminId: string, body: unknown) {
   if (upiId && !/^[A-Za-z0-9._-]{2,}@[A-Za-z0-9.-]{2,64}$/.test(upiId)) {
     throw new ApiError(400, 'INVALID_INPUT', 'Enter a UPI ID like inaivuit@okaxis.')
   }
+  // The business's QR text must be a UPI QR for this same UPI ID.
+  const upiQrText = text(input.upiQrText, 600)
+  if (upiQrText) {
+    const qr = parseUpiQr(upiQrText)
+    if (!qr) throw new ApiError(400, 'INVALID_INPUT', 'The QR text must start with upi://pay?pa= (the text inside your UPI QR).')
+    if (!upiId || qr.pa.toLowerCase() !== upiId.toLowerCase()) {
+      throw new ApiError(400, 'INVALID_INPUT', `That QR is for ${qr.pa}, but the UPI ID above is ${upiId ?? 'empty'}. Use the same UPI ID.`)
+    }
+  }
   const minRecharge = whole(input.minRechargeInr, 'Smallest recharge', 1, 1_000_000)
   const row = {
     upi_id: upiId,
+    upi_qr_text: upiQrText,
+    upi_app_buttons: input.upiAppButtons === true || input.upiAppButtons === 'true',
     payee_name: text(input.payeeName, 100),
     support_contact: text(input.supportContact, 200),
     free_credits_per_month: whole(input.freeCreditsPerMonth, 'Free credits', 0, 100),

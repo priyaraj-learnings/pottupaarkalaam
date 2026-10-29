@@ -1,11 +1,88 @@
 'use client'
 
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 
 import type { Overview } from '@/components/admin/types'
 import { Button, Card, formatWhen, Notice, Spinner, useToast } from '@/components/ui'
 import { api, errorMessage } from '@/lib/client/api'
 import { gmailForwarderScript } from '@/lib/gmailForwarder'
+import { parseUpiQr } from '@/lib/upi'
+
+// Reads the text inside a photo or screenshot of a QR code, in the browser.
+async function readQrPhoto(file: File) {
+  const { default: jsQR } = await import('jsqr')
+  const bitmap = await createImageBitmap(file)
+  for (const size of [1200, 800, 1600]) {
+    const scale = Math.min(1, size / Math.max(bitmap.width, bitmap.height))
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.round(bitmap.width * scale)
+    canvas.height = Math.round(bitmap.height * scale)
+    const context = canvas.getContext('2d')
+    if (!context) break
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+    const image = context.getImageData(0, 0, canvas.width, canvas.height)
+    const code = jsQR(image.data, image.width, image.height, { inversionAttempts: 'attemptBoth' })
+    if (code?.data) return code.data
+  }
+  return null
+}
+
+// The business's own UPI QR: its text gives the pay links the same merchant
+// details (lib/upi.ts upiLink).
+function UpiQrField({ value, upiId, onChange }: { value: string; upiId: string; onChange: (value: string) => void }) {
+  const toast = useToast()
+  const photo = useRef<HTMLInputElement>(null)
+  const [reading, setReading] = useState(false)
+  const qr = parseUpiQr(value)
+  const matches = qr && upiId.trim() && qr.pa.toLowerCase() === upiId.trim().toLowerCase()
+
+  async function picked(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    setReading(true)
+    try {
+      const text = await readQrPhoto(file)
+      if (!text || !parseUpiQr(text)) {
+        toast('No UPI QR found in that photo. Take it straight on, close up, and try again.', 'error')
+        return
+      }
+      onChange(text)
+      toast('QR read. Check the UPI ID matches, then Save settings.')
+    } catch {
+      toast('That photo could not be read. Try a screenshot of the QR.', 'error')
+    } finally {
+      setReading(false)
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <label className="block text-sm font-bold text-stone-700">
+        Your business UPI QR (recommended)
+        <textarea value={value} onChange={event => onChange(event.target.value)} rows={3} spellCheck={false}
+          placeholder="upi://pay?pa=…&pn=…&mc=…" className="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2 font-mono text-xs font-normal" />
+      </label>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" variant="secondary" busy={reading} onClick={() => photo.current?.click()} className="min-h-10 text-sm">📷 Read it from a photo of the QR</Button>
+        {value && <button type="button" onClick={() => onChange('')} className="text-sm font-semibold text-stone-500 underline">Clear</button>}
+      </div>
+      <input ref={photo} type="file" accept="image/*" className="hidden" onChange={picked} />
+      {value && !qr && <Notice tone="warning">This is not UPI QR text: it must start with upi://pay?pa=</Notice>}
+      {qr && !matches && <Notice tone="warning">This QR is for <b>{qr.pa}</b>. Put the same UPI ID in the box above.</Notice>}
+      {qr && matches && (
+        <Notice tone="success">
+          Business QR for <b>{qr.payeeName ?? qr.pa}</b>{qr.merchantCode ? <> (merchant category {qr.merchantCode})</> : null}. The pay
+          buttons and QR will carry its merchant details.
+        </Notice>
+      )}
+      <p className="text-xs text-stone-500">
+        A photo or screenshot of the QR your bank or Google Pay for Business gave you. Its merchant details make UPI apps
+        treat a recharge as a payment to your business, not a plain link (fewer &ldquo;risky payment&rdquo; warnings).
+      </p>
+    </div>
+  )
+}
 
 // MSG91 widget IDs are long codes such as 34686b716a33363035353831, never a
 // name with spaces or without digits.
@@ -16,6 +93,8 @@ function SettingsForm({ overview, onSaved }: { overview: Overview; onSaved: () =
   const { settings, aiRates, phoneLogin } = overview
   const [form, setForm] = useState<Record<string, string>>({
     upiId: settings.upiId ?? '',
+    upiQrText: settings.upiQrText ?? '',
+    upiAppButtons: String(settings.upiAppButtons),
     payeeName: settings.payeeName ?? '',
     supportContact: settings.supportContact ?? '',
     ...Object.fromEntries(Object.entries(settings.pricing).map(([key, value]) => [key, String(value)])),
@@ -62,6 +141,23 @@ function SettingsForm({ overview, onSaved }: { overview: Overview; onSaved: () =
             {field('payeeName', 'Payee name (shown in the UPI app)', { placeholder: 'inaivu IT' })}
             {field('supportContact', 'Help contact shown to customers', { placeholder: 'WhatsApp 9xxxxxxxxx or email' })}
           </div>
+          <UpiQrField value={form.upiQrText ?? ''} upiId={form.upiId ?? ''} onChange={value => setForm(current => ({
+            ...current,
+            upiQrText: value,
+            // Fill the UPI ID and name from the QR when they are empty.
+            upiId: current.upiId || parseUpiQr(value)?.pa || '',
+            payeeName: current.payeeName || parseUpiQr(value)?.payeeName || '',
+          }))} />
+          <label className="flex items-start gap-3 rounded-xl bg-stone-50 p-3 text-sm text-stone-700">
+            <input type="checkbox" checked={form.upiAppButtons === 'true'} onChange={event => setForm(current => ({ ...current, upiAppButtons: String(event.target.checked) }))}
+              className="mt-0.5 h-5 w-5 shrink-0 accent-brand-600" />
+            <span>
+              <b>Show &ldquo;pay with PhonePe / Paytm / Google Pay&rdquo; buttons on phones.</b> Leave this off until your
+              business UPI ID is verified: UPI declines button (link) payments to an unverified business (&ldquo;Payment
+              failed as per UPI risk policy&rdquo;) but accepts a scan of its QR. While it is off, phones show &ldquo;Save QR
+              to gallery&rdquo; and how to scan it from the UPI app.
+            </span>
+          </label>
         </div>
       </Card>
 

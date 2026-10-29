@@ -22,6 +22,11 @@ export type Account = {
 
 export type AppSettings = {
   upiId: string | null
+  // The business's own UPI QR text (merchant details for the pay links).
+  upiQrText: string | null
+  // Phones show "pay with <app>" link buttons (off while the business UPI ID
+  // is not verified: UPI declines link payments to it, but not QR scans).
+  upiAppButtons: boolean
   payeeName: string | null
   supportContact: string | null
   pricing: Pricing
@@ -37,6 +42,8 @@ export type AppSettings = {
 type SettingsRow = {
   upi_id: string | null
   payee_name: string | null
+  upi_qr_text?: string | null
+  upi_app_buttons?: boolean
   support_contact: string | null
   free_needs_mobile?: boolean
   msg91_widget_id?: string | null
@@ -54,7 +61,7 @@ type SettingsRow = {
 
 export function settingsFromRow(row: SettingsRow | null): AppSettings {
   if (!row) {
-    return { upiId: null, payeeName: null, supportContact: null, pricing: DEFAULT_PRICING, mobileRequired: false, phoneWidget: null,
+    return { upiId: null, upiQrText: null, upiAppButtons: false, payeeName: null, supportContact: null, pricing: DEFAULT_PRICING, mobileRequired: false, phoneWidget: null,
       couple: { enabled: false, credits: DEFAULT_COUPLE_CREDITS } }
   }
   // Never the auth key: these settings go to the browser.
@@ -63,6 +70,8 @@ export function settingsFromRow(row: SettingsRow | null): AppSettings {
   const phoneWidget = widgetId && tokenAuth && row.msg91_auth_key?.trim() ? { widgetId, tokenAuth } : null
   return {
     upiId: row.upi_id,
+    upiQrText: row.upi_qr_text ?? null,
+    upiAppButtons: row.upi_app_buttons ?? true,
     payeeName: row.payee_name,
     supportContact: row.support_contact,
     mobileRequired: Boolean(row.free_needs_mobile && phoneWidget),

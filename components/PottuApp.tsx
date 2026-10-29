@@ -287,7 +287,7 @@ export default function PottuApp() {
             <History active={shownTab === 'history'} onTryOn={() => setTab('tryon')} />
           </div>
           <div className={shownTab === 'recharge' ? '' : 'hidden'}>
-            <Recharge active={shownTab === 'recharge'} account={current.account} settings={current.settings}
+            <Recharge active={shownTab === 'recharge'} account={current.account} settings={current.settings} onTryOn={() => setTab('tryon')}
               userCode={customerCode(session.user.id)} onAccount={setAccount} />
           </div>
         </main>
