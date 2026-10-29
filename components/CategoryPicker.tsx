@@ -2,9 +2,9 @@
 
 import { useState } from 'react'
 
-import { GARMENT_CATEGORIES, SOURCE_LABELS, type GarmentSource } from '@/lib/rules'
+import { GARMENT_CATEGORIES, OFFERED_CATEGORIES, SOURCE_LABELS, type GarmentSource } from '@/lib/rules'
 
-type Group = 'WOMEN' | 'MEN'
+export type Group = 'WOMEN' | 'MEN'
 
 const GROUPS: Array<{ group: Group; label: string }> = [
   { group: 'WOMEN', label: 'For women' },
@@ -30,8 +30,10 @@ function savedGroup(): Group {
 
 // Women's or men's clothes (remembered on this phone), then one tap on the
 // garment: quicker than a dropdown when adding several garments in a row.
-export function CategoryChips({ value, onChange }: { value: string | null; onChange: (code: string) => void }) {
-  const [group, setGroup] = useState<Group>(() => groupOf(value) ?? savedGroup())
+// onlyGroup shows one group's garments without the toggle (couple pictures).
+export function CategoryChips({ value, onChange, onlyGroup }: { value: string | null; onChange: (code: string) => void; onlyGroup?: Group }) {
+  const [chosenGroup, setGroup] = useState<Group>(() => groupOf(value) ?? savedGroup())
+  const group = onlyGroup ?? chosenGroup
 
   function pickGroup(next: Group) {
     setGroup(next)
@@ -44,7 +46,7 @@ export function CategoryChips({ value, onChange }: { value: string | null; onCha
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-1 rounded-full bg-stone-100 p-1" role="radiogroup" aria-label="Women's or men's clothes">
+      {!onlyGroup && <div className="grid grid-cols-2 gap-1 rounded-full bg-stone-100 p-1" role="radiogroup" aria-label="Women's or men's clothes">
         {GROUPS.map(option => (
           <button
             key={option.group}
@@ -57,9 +59,9 @@ export function CategoryChips({ value, onChange }: { value: string | null; onCha
             {option.label}
           </button>
         ))}
-      </div>
+      </div>}
       <div className="flex flex-wrap gap-2">
-        {GARMENT_CATEGORIES.filter(category => category.group === group).map(category => {
+        {OFFERED_CATEGORIES.filter(category => category.group === group).map(category => {
           const selected = category.code === value
           return (
             <button

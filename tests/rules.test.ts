@@ -1,15 +1,19 @@
 import { describe, expect, it } from 'vitest'
 
 import { hasGarmentProfile } from '@/lib/garments'
-import { buildPairPrompt, buildSinglePrompt } from '@/lib/prompts'
+import { buildCouplePrompt, buildPairPrompt, buildSinglePrompt } from '@/lib/prompts'
 import {
   canPair,
+  categoryLabel,
+  coupleGarmentAllowed,
   DEFAULT_PRICING,
   formatMobile,
   freeCreditsReturnDay,
   GARMENT_CATEGORIES,
+  isGarmentCategory,
   normalizeMobile,
   normalizeUtr,
+  OFFERED_CATEGORIES,
   planLooks,
   quoteRecharge,
   rechargeChoices,
@@ -100,17 +104,57 @@ describe('prompts', () => {
     const layer = buildPairPrompt({ category: 'WAISTCOAT', source: 'FABRIC' }, { category: 'KURTA', source: 'FABRIC' }, 'INNER')
     expect(layer).toMatch(/outer layer over the kurta/)
   })
+
+  it('dresses each person of a couple in their own garment', () => {
+    const couple = buildCouplePrompt({ category: 'KURTA', source: 'FABRIC' }, { category: 'SAREE', source: 'STITCHED' })
+    expect(couple).toMatch(/IMAGE 1 is the man and IMAGE 3 is the woman/)
+    expect(couple).toMatch(/THE MAN \(IMAGE 1\) wears a .*kurta.*, made only from IMAGE 2/i)
+    expect(couple).toMatch(/THE WOMAN \(IMAGE 3\) wears a .*saree.*, made only from IMAGE 4/i)
+    expect(couple).toMatch(/IMAGE 4 is a photo of a READY-MADE, STITCHED saree/)
+    expect(couple).toMatch(/onto the woman/)
+    expect(couple).toMatch(/never dress one person in the other person's garment/)
+    expect(couple).toMatch(/SAREE-SPECIFIC DRAPING RULES/)
+  })
+})
+
+describe('couple pictures', () => {
+  it("take a men's garment for him and a women's garment for her, from those still offered", () => {
+    expect(coupleGarmentAllowed('HIS', 'KURTA')).toBe(true)
+    expect(coupleGarmentAllowed('HER', 'SAREE')).toBe(true)
+    expect(coupleGarmentAllowed('HIS', 'SAREE')).toBe(false)
+    expect(coupleGarmentAllowed('HER', 'SHERWANI')).toBe(false)
+    expect(coupleGarmentAllowed('HER', 'BLOUSE')).toBe(false)
+    expect(coupleGarmentAllowed('HIS', 'NOT_A_GARMENT')).toBe(false)
+  })
 })
 
 describe('recharges', () => {
   it('quotes credits at the standard and bulk rates', () => {
-    expect(quoteRecharge(500, DEFAULT_PRICING)).toEqual({ ok: true, rateInr: 10, credits: 50 })
-    expect(quoteRecharge(999, DEFAULT_PRICING)).toMatchObject({ ok: false, message: /multiples of ₹10/ })
+    expect(quoteRecharge(400, DEFAULT_PRICING)).toEqual({ ok: true, rateInr: 8, credits: 50 })
+    expect(quoteRecharge(50, DEFAULT_PRICING)).toMatchObject({ ok: false, message: /multiples of ₹8/ })
+    expect(quoteRecharge(999, DEFAULT_PRICING)).toMatchObject({ ok: false, message: /multiples of ₹8/ })
     expect(quoteRecharge(1000, DEFAULT_PRICING)).toEqual({ ok: true, rateInr: 5, credits: 200 })
     expect(quoteRecharge(1005, DEFAULT_PRICING)).toEqual({ ok: true, rateInr: 5, credits: 201 })
-    expect(quoteRecharge(40, DEFAULT_PRICING)).toMatchObject({ ok: false, message: /smallest/ })
+    expect(quoteRecharge(32, DEFAULT_PRICING)).toMatchObject({ ok: false, message: /smallest/ })
     expect(quoteRecharge(10010, DEFAULT_PRICING)).toMatchObject({ ok: false, message: /largest/ })
-    expect(rechargeChoices(DEFAULT_PRICING)).toEqual([100, 200, 500, 1000, 2000])
+  })
+
+  it('offers one-tap amounts that buy whole credits at the current price', () => {
+    expect(rechargeChoices(DEFAULT_PRICING)).toEqual([80, 160, 400, 1000, 2000])
+    expect(rechargeChoices({ ...DEFAULT_PRICING, standardRateInr: 10, minRechargeInr: 50 })).toEqual([100, 200, 500, 1000, 2000])
+  })
+
+  it('offers only the garments still in the app, and keeps names for earlier pictures', () => {
+    const offered = OFFERED_CATEGORIES.map(category => category.code)
+    for (const gone of ['BLOUSE', 'SALWAR_SUIT', 'ANARKALI', 'KURTI', 'TROUSER', 'PYJAMA', 'WAISTCOAT']) {
+      expect(offered, gone).not.toContain(gone)
+      expect(isGarmentCategory(gone), gone).toBe(true)
+    }
+    expect(categoryLabel('TROUSER')).toBe('Pant')
+    expect(offered).toEqual(expect.arrayContaining(['SAREE', 'CHUDIDHAR', 'LEHENGA', 'GOWN', 'FORMAL_SHIRT', 'KURTA', 'DHOTI', 'SHERWANI']))
+    // Pairs still possible with what is offered: shirt or kurta with veshti, coat with shirt.
+    expect(canPair('FORMAL_SHIRT', 'DHOTI')).toBe(true)
+    expect(canPair('COAT', 'KURTA')).toBe(true)
   })
 
   it('accepts only a 12-digit UPI reference', () => {

@@ -53,7 +53,40 @@ signed in.
 3. **Authentication → Sign In / Providers → Email**: keep **Confirm email** on, and turn **off** sign-up with
    password if offered (the app never uses passwords).
 
-### 1.3 Make yourself an admin
+### 1.3 Sign-in with a mobile number (MSG91 OTP widget)
+
+Optional; for people who don't use Google or email. MSG91 sends and checks the code with its OTP widget (the same
+MSG91 account as salemtamilroots.in works; without your own DLT registration MSG91 uses its own sender).
+
+1. Run `supabase/migrations/20261029000300_phone_login.sql` and `20261029000400_mobile_required.sql` (UAT first,
+   then production).
+2. MSG91 → **OTP → Widgets**: create a widget for PottuPaarkalaam (a separate one from salemtamilroots.in, so the
+   messages and settings stay apart), with India allowed. Turn **Demo Credentials** off once testing is done:
+   anyone who knows the demo number and code could sign in as that number without an SMS.
+3. `/admin` → **Settings** → *Mobile number sign-in (MSG91)*: enter the **Widget ID**, the widget **token**
+   (tokenAuth) and the account's **Auth key** (MSG91 → Authkey; secret: it is saved but never shown again) →
+   **Save settings**. "Sign in with mobile number" then appears on the sign-in screen; clear the Widget ID to
+   turn it off.
+4. Optional, once a test sign-in works: tick **Free credits only for a verified mobile number**. Everyone who
+   signs in with Google or email must then verify a number with an SMS code before using the app; a verified number
+   belongs to one account only, so free credits go to one number a month.
+
+People who sign in this way get a stand-in email address in Supabase (`pp-phone-<number>@inaivuit.com`); the app
+never emails it and shows their mobile number instead.
+
+### 1.4 Couple pictures (optional, paid)
+
+One picture of two people, him and her, each in their own new garment: a **Couple** tab between *Try on* and
+*My pictures*.
+
+1. Run `supabase/migrations/20261029000500_couple_pictures.sql` (UAT first, then production).
+2. `/admin` → **Settings** → *Couple pictures*: tick **Offer couple pictures**, set **Credits per couple picture**
+   (3 by default: ₹24 at ₹8 a credit) → **Save settings**.
+3. Each customer then sees **Couple pictures** in their account menu; turning it on adds the Couple tab. A couple
+   picture uses paid credits only (never the free ones), the customer confirms that both people agreed, and the
+   credits come back if the picture fails. Untick *Offer couple pictures* to hide the tab from everyone.
+
+### 1.4 Make yourself an admin
 
 Sign in to the app once, then in Supabase → **SQL Editor**:
 
@@ -204,7 +237,8 @@ anything older than 3 days, even between runs.)
 ### 6.1 Payee
 
 `/admin` → **Settings** tab: inaivu IT's **business** UPI ID and payee name, the help contact customers see, and the prices
-(defaults: 5 free credits a month; ₹10 a credit, ₹5 a credit from a ₹1,000 recharge; recharges from ₹50 to ₹10,000).
+(suggested: 3 free credits a month; ₹8 a credit, ₹5 a credit from a ₹1,000 recharge; recharges from ₹40 to ₹10,000. The
+smallest recharge must be a multiple of the price per credit, so every recharge buys whole credits).
 
 Use a business / merchant UPI ID (from the bank's merchant QR, PhonePe Business, Paytm Business or similar).
 Many incoming payments to a personal UPI ID can get the account flagged, and some UPI apps refuse pay links to

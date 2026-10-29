@@ -1,9 +1,10 @@
 import 'server-only'
 
-import { DEFAULT_PRICING, normalizeMobile, normalizeUtr, TERMS_VERSION, type Pricing } from '@/lib/rules'
+import { DEFAULT_COUPLE_CREDITS, DEFAULT_PRICING, formatMobile, normalizeMobile, normalizeUtr, TERMS_VERSION, type Pricing } from '@/lib/rules'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import type { SignedInUser } from '@/lib/server/auth'
 import { ApiError, dbError } from '@/lib/server/http'
+import { msg91Settings, verifyMsg91Token } from '@/lib/server/phoneLogin'
 
 export type Account = {
   credits: number
@@ -12,8 +13,11 @@ export type Account = {
   termsVersion: string | null
   termsAcceptedAt: string | null
   phone: string | null
+  phoneVerified: boolean
   offersOk: boolean
   phoneAskedAt: string | null
+  // The customer chose to show couple pictures.
+  coupleOptIn: boolean
 }
 
 export type AppSettings = {
@@ -21,12 +25,25 @@ export type AppSettings = {
   payeeName: string | null
   supportContact: string | null
   pricing: Pricing
+  // Free credits only with a verified mobile number (the app asks every
+  // Google or email account to verify one). Only on while MSG91 is set up.
+  mobileRequired: boolean
+  // The MSG91 OTP widget's public values, when mobile verification is set up.
+  phoneWidget: { widgetId: string; tokenAuth: string } | null
+  // Couple pictures: on for the whole app, and their price in paid credits.
+  couple: { enabled: boolean; credits: number }
 }
 
 type SettingsRow = {
   upi_id: string | null
   payee_name: string | null
   support_contact: string | null
+  free_needs_mobile?: boolean
+  msg91_widget_id?: string | null
+  msg91_token_auth?: string | null
+  msg91_auth_key?: string | null
+  couple_enabled?: boolean
+  couple_credits?: number
   free_credits_per_month: number
   standard_rate_inr: number
   bulk_rate_inr: number
@@ -36,11 +53,21 @@ type SettingsRow = {
 }
 
 export function settingsFromRow(row: SettingsRow | null): AppSettings {
-  if (!row) return { upiId: null, payeeName: null, supportContact: null, pricing: DEFAULT_PRICING }
+  if (!row) {
+    return { upiId: null, payeeName: null, supportContact: null, pricing: DEFAULT_PRICING, mobileRequired: false, phoneWidget: null,
+      couple: { enabled: false, credits: DEFAULT_COUPLE_CREDITS } }
+  }
+  // Never the auth key: these settings go to the browser.
+  const widgetId = row.msg91_widget_id?.trim()
+  const tokenAuth = row.msg91_token_auth?.trim()
+  const phoneWidget = widgetId && tokenAuth && row.msg91_auth_key?.trim() ? { widgetId, tokenAuth } : null
   return {
     upiId: row.upi_id,
     payeeName: row.payee_name,
     supportContact: row.support_contact,
+    mobileRequired: Boolean(row.free_needs_mobile && phoneWidget),
+    phoneWidget,
+    couple: { enabled: Boolean(row.couple_enabled), credits: row.couple_credits ?? DEFAULT_COUPLE_CREDITS },
     pricing: {
       freeCreditsPerMonth: row.free_credits_per_month,
       standardRateInr: row.standard_rate_inr,
@@ -69,10 +96,15 @@ export async function getAccount(user: SignedInUser, acceptTerms = false): Promi
   return data as Account
 }
 
-// {"phone": "98765 43210", "offersOk": true} saves the mobile number,
-// {"phone": null} removes it and {"skip": true} is "Not now".
+// {"phone": "98765 43210", "offersOk": true} saves a typed mobile number,
+// {"phone": null} removes it, {"skip": true} is "Not now", and
+// {"accessToken": "<from the MSG91 widget>", "offersOk": true} saves the number
+// MSG91 verified by an SMS code.
 export async function updatePhone(user: SignedInUser, body: unknown): Promise<Account> {
-  const input = (body ?? {}) as { phone?: unknown; offersOk?: unknown; skip?: unknown }
+  const input = (body ?? {}) as { phone?: unknown; offersOk?: unknown; skip?: unknown; accessToken?: unknown }
+  if (typeof input.accessToken === 'string') {
+    return verifyMobile(user.id, input.accessToken, typeof input.offersOk === 'boolean' ? input.offersOk : null)
+  }
   if (input.skip === true) {
     const { data, error } = await supabaseAdmin.rpc('skip_phone', { p_user_id: user.id })
     if (error) throw dbError(error, 'Unable to update your account')
@@ -88,7 +120,33 @@ export async function updatePhone(user: SignedInUser, body: unknown): Promise<Ac
     p_phone: phone,
     p_offers_ok: input.offersOk === true,
   })
+  if (error && /PHONE_VERIFIED/.test(error.message)) {
+    throw new ApiError(400, 'PHONE_VERIFIED', 'Your number is verified. To change it, verify the new number with an SMS code.')
+  }
   if (error) throw dbError(error, 'Unable to save your mobile number')
+  return data as Account
+}
+
+export const PHONE_TAKEN_MESSAGE = 'This mobile number already belongs to another PottuPaarkalaam account. '
+  + 'Sign in to that account instead (with Google, email or "Sign in with mobile number").'
+
+// Saves the number MSG91 verified for this widget token to the account.
+export async function verifyMobile(userId: string, accessToken: string, offersOk: boolean | null): Promise<Account> {
+  const { authKey } = await msg91Settings()
+  if (!authKey) throw new ApiError(503, 'NOT_CONFIGURED', 'Mobile number verification is not available yet.')
+  const phone = await verifyMsg91Token(accessToken.trim(), authKey)
+  const { data, error } = await supabaseAdmin.rpc('verify_phone', { p_user_id: userId, p_phone: phone, p_offers_ok: offersOk })
+  if (error) throw dbError(error, 'Unable to save your mobile number')
+  const result = data as { account?: Account; error?: string }
+  if (result.error === 'PHONE_TAKEN') throw new ApiError(409, 'PHONE_TAKEN', PHONE_TAKEN_MESSAGE)
+  return result.account as Account
+}
+
+// The customer's "Couple pictures" switch.
+export async function setCoupleOptIn(user: SignedInUser, body: unknown): Promise<Account> {
+  const on = (body as { on?: unknown } | null)?.on === true
+  const { data, error } = await supabaseAdmin.rpc('set_couple_opt_in', { p_user_id: user.id, p_on: on })
+  if (error) throw dbError(error, 'Unable to update your account')
   return data as Account
 }
 
@@ -157,7 +215,8 @@ export async function submitRecharge(user: SignedInUser, body: unknown) {
 
   const { data, error } = await supabaseAdmin.rpc('submit_recharge', {
     p_user_id: user.id,
-    p_email: user.email ?? '',
+    // Shown to the admin with the recharge: the email, or the mobile number.
+    p_email: user.email ?? (user.phone ? `+91 ${formatMobile(user.phone)}` : ''),
     p_amount_inr: amountInr,
     p_utr: utr,
   })

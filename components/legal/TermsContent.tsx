@@ -27,6 +27,7 @@ export function TermsContent() {
         <ul>
           <li>You must be 18 or older.</li>
           <li>Add only photos of yourself, or of an adult who has agreed to it. Never add photos of children.</li>
+          <li>A couple picture uses photos of two people. Add it only when both of you are 18 or older and both agree.</li>
           <li>Do not add nude, sexual, violent or hateful photos, or photos meant to embarrass, deceive or impersonate anyone.</li>
           <li>Add photos of clothes you have the right to use.</li>
           <li>We may block an account that breaks these rules, without refund of unused credits.</li>
@@ -37,7 +38,11 @@ export function TermsContent() {
         <h2>4. Credits, prices and recharges</h2>
         <ul>
           <li>Every account gets free credits each calendar month (shown in the app). Unused free credits do not carry over.</li>
+          <li>Free credits may need a mobile number verified by an SMS code. One mobile number can belong to one account only,
+            so free credits go to one number a month. Making extra accounts to get more free credits is not allowed.</li>
           <li>One garment makes one picture for 1 credit. Two garments worn together (a pair) make one picture for 2 credits.</li>
+          <li>A couple picture (two people, each in their own garment), when offered and turned on in the account menu, uses
+            the number of credits shown in the app, from paid credits only: free credits cannot be used for it.</li>
           <li>You buy credits by paying {COMPANY.name} by UPI and entering the UPI reference (UTR). The price per credit
             depends on the recharge amount, as shown in the app before you pay. Credits are added when the payment is
             confirmed, usually within a few hours.</li>

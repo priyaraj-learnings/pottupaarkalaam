@@ -85,6 +85,7 @@ export type Overview = {
   recent: Recharge[]
   unmatchedAlerts: Array<{ id: string; utr: string; amount_inr: number; sender: string | null; message: string | null; received_at: string }>
   paymentSms: { secretSet: boolean; senders: string[]; lastAlertAt: string | null }
+  phoneLogin: { widgetId: string; tokenAuth: string; authKeySet: boolean; freeNeedsMobile: boolean }
 }
 
 export type CustomerRow = {
@@ -139,7 +140,7 @@ export type CustomerDetail = {
   pictures: Array<{
     id: string
     createdAt: string
-    kind: 'SINGLE' | 'PAIR'
+    kind: 'SINGLE' | 'PAIR' | 'COUPLE'
     garments: Array<{ category: string; source: 'FABRIC' | 'STITCHED' }>
     credits: number
     freeCreditsUsed: number

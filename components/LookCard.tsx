@@ -9,6 +9,9 @@ import type { LookView } from '@/lib/client/types'
 import { categoryLabel, SOURCE_LABELS } from '@/lib/rules'
 
 export function lookTitle(look: Pick<LookView, 'garments'>) {
+  if (look.garments.some(garment => garment.role === 'HIS' || garment.role === 'HER')) {
+    return look.garments.map(garment => `${garment.role === 'HIS' ? 'His' : 'Her'}: ${categoryLabel(garment.category)}`).join(' · ')
+  }
   return look.garments.map(garment => categoryLabel(garment.category)).join(' + ')
 }
 
@@ -58,7 +61,7 @@ export default function LookCard({ look, showDate = false, onRetry }: { look: Lo
         {look.status === 'COMPLETED' && look.imageUrl ? (
           // Signed storage links change every hour, so next/image caching does not help here.
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={look.imageUrl} alt={`You wearing the ${lookTitle(look).toLowerCase()}`} className="h-full w-full object-cover" />
+          <img src={look.imageUrl} alt={look.kind === 'COUPLE' ? `Couple picture (${lookTitle(look)})` : `You wearing the ${lookTitle(look).toLowerCase()}`} className="h-full w-full object-cover" />
         ) : look.status === 'FAILED' ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-center">
             <span className="text-3xl" aria-hidden="true">😕</span>
@@ -71,13 +74,13 @@ export default function LookCard({ look, showDate = false, onRetry }: { look: Lo
             <p className="text-xs text-stone-600">Usually 30 to 90 seconds. You can wait here or check My pictures later.</p>
           </div>
         )}
-        {look.kind === 'PAIR' && (
-          <span className="absolute left-2 top-2 rounded-full bg-white/90 px-2 py-0.5 text-xs font-bold text-brand-700">Pair</span>
+        {look.kind !== 'SINGLE' && (
+          <span className="absolute left-2 top-2 rounded-full bg-white/90 px-2 py-0.5 text-xs font-bold text-brand-700">{look.kind === 'COUPLE' ? '💑 Couple' : 'Pair'}</span>
         )}
       </div>
       <div className="space-y-2 p-3">
         <div>
-          <p className="truncate text-sm font-extrabold">{lookTitle(look)}</p>
+          <p className="line-clamp-2 text-sm font-extrabold">{lookTitle(look)}</p>
           <p className="truncate text-xs text-stone-500">
             {subtitle} · {look.credits} credit{look.credits === 1 ? '' : 's'}
             {look.status === 'FAILED' && look.refunded ? ' · returned' : ''}

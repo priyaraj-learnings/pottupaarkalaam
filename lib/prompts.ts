@@ -35,7 +35,7 @@ other people. Do not add embroidery, prints or colours that are not in the
 supplied garment photos.
 `.trim()
 
-function sourceText(image: number, garment: PromptGarment) {
+function sourceText(image: number, garment: PromptGarment, wearer = 'the customer') {
   const label = categoryLabel(garment.category).toLowerCase()
   const { description } = garmentProfile(garment.category)
   if (garment.source === 'STITCHED') {
@@ -43,7 +43,7 @@ function sourceText(image: number, garment: PromptGarment) {
 IMAGE ${image} is a photo of a READY-MADE, STITCHED ${label}. It may be on a
 hanger or mannequin, laid flat, or worn by another person. Copy that garment
 faithfully - cut, neckline, sleeves, length, colour, print, border and
-embellishment - onto the customer. Never copy the face, body, hair, skin or
+embellishment - onto ${wearer}. Never copy the face, body, hair, skin or
 pose of anyone shown in IMAGE ${image}.
 `.trim()
   }
@@ -129,5 +129,49 @@ to the other. ${pairRule(main.category, companion.category, role)}`,
     `MAIN GARMENT RULES:\n${mainProfile.rules || 'Tailor it naturally to the customer.'}`,
     `${roleName} RULES:\n${companionRules || 'Tailor it naturally to the customer.'}`,
     OUTPUT,
+  ].join('\n\n')
+}
+
+// =======================================================
+// COUPLE PICTURES: two people, each in their own garment
+//
+// IMAGE 1 is the man and IMAGE 2 his garment; IMAGE 3 is
+// the woman and IMAGE 4 her garment.
+// =======================================================
+
+const COUPLE_PEOPLE = `
+IMAGE 1 is the man and IMAGE 3 is the woman: a couple. Keep each of them exactly
+the same person: face, facial features, skin tone, hair, age, body shape and
+proportions. Do not beautify, slim or lighten the skin, never mix or swap their
+features, and never replace either of them with a model. If a photo shows only
+the face or upper body, extend that person naturally so the whole outfit shows,
+keeping the face and features unchanged.
+`.trim()
+
+const COUPLE_OUTPUT = `
+Make one photorealistic, full-length photo (head to feet) of the two of them
+together: standing side by side, close to each other as a couple, both facing
+the camera, the man on the left and the woman on the right. Natural light,
+natural anatomy, a realistic fit and physically plausible drape and folds, and a
+simple, pleasant background. Do not add text, logos, watermarks or other people.
+Do not add embroidery, prints or colours that are not in the garment photos.
+`.trim()
+
+export function buildCouplePrompt(his: PromptGarment, her: PromptGarment): string {
+  const hisProfile = garmentProfile(his.category)
+  const herProfile = garmentProfile(her.category)
+  return [
+    'Create a photorealistic photo of a couple, each wearing new clothes.',
+    COUPLE_PEOPLE,
+    sourceText(2, his, 'the man'),
+    sourceText(4, her, 'the woman'),
+    `Dress each of them in their own garment, in one picture:
+- THE MAN (IMAGE 1) wears a ${hisProfile.description}, made only from IMAGE 2.
+- THE WOMAN (IMAGE 3) wears a ${herProfile.description}, made only from IMAGE 4.
+Keep the two outfits separate: never move colours, motifs or borders from one
+garment to the other, and never dress one person in the other person's garment.`,
+    `THE MAN'S GARMENT RULES:\n${hisProfile.rules || 'Tailor it naturally to him.'}`,
+    `THE WOMAN'S GARMENT RULES:\n${herProfile.rules || 'Tailor it naturally to her.'}`,
+    COUPLE_OUTPUT,
   ].join('\n\n')
 }

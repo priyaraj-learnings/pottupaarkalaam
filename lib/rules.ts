@@ -13,7 +13,7 @@ export const PHOTO_BUCKET = 'try-on-photos'
 
 // Bump when the consent card or /terms changes: everyone is asked to agree
 // again before their next try-on.
-export const TERMS_VERSION = '2026-10-28'
+export const TERMS_VERSION = '2026-10-29.4'
 
 export type GarmentSource = 'FABRIC' | 'STITCHED'
 
@@ -21,33 +21,39 @@ export type GarmentCategory = {
   code: string
   label: string
   group: 'WOMEN' | 'MEN'
+  // false: no longer offered in the app (kept so earlier pictures still show
+  // their name, and pairs that use them still work for earlier photos).
+  offered?: false
 }
 
 // Codes are UduthiPaar's garment profile codes (lib/garments.ts), so its AI
 // instructions for each garment (saree draping, lehenga flare...) apply.
 export const GARMENT_CATEGORIES: GarmentCategory[] = [
   { code: 'SAREE', label: 'Saree', group: 'WOMEN' },
-  { code: 'BLOUSE', label: 'Blouse', group: 'WOMEN' },
+  { code: 'BLOUSE', label: 'Blouse', group: 'WOMEN', offered: false },
   { code: 'CHUDIDHAR', label: 'Chudidhar', group: 'WOMEN' },
-  { code: 'SALWAR_SUIT', label: 'Salwar suit', group: 'WOMEN' },
-  { code: 'KURTI', label: 'Kurti', group: 'WOMEN' },
-  { code: 'ANARKALI', label: 'Anarkali', group: 'WOMEN' },
+  { code: 'SALWAR_SUIT', label: 'Salwar suit', group: 'WOMEN', offered: false },
+  { code: 'KURTI', label: 'Kurti', group: 'WOMEN', offered: false },
+  { code: 'ANARKALI', label: 'Anarkali', group: 'WOMEN', offered: false },
   { code: 'LEHENGA', label: 'Lehenga', group: 'WOMEN' },
   { code: 'GOWN', label: 'Gown', group: 'WOMEN' },
   { code: 'FORMAL_SHIRT', label: 'Shirt', group: 'MEN' },
   { code: 'CASUAL_SHIRT', label: 'Casual shirt', group: 'MEN' },
-  { code: 'TROUSER', label: 'Pant', group: 'MEN' },
+  { code: 'TROUSER', label: 'Pant', group: 'MEN', offered: false },
   { code: 'KURTA', label: 'Kurta', group: 'MEN' },
-  { code: 'PYJAMA', label: 'Pyjama / bottom', group: 'MEN' },
+  { code: 'PYJAMA', label: 'Pyjama / bottom', group: 'MEN', offered: false },
   { code: 'DHOTI', label: 'Dhoti / Veshti', group: 'MEN' },
   { code: 'SHERWANI', label: 'Sherwani', group: 'MEN' },
   { code: 'COAT', label: 'Coat / Blazer', group: 'MEN' },
-  { code: 'WAISTCOAT', label: 'Nehru jacket', group: 'MEN' },
+  { code: 'WAISTCOAT', label: 'Nehru jacket', group: 'MEN', offered: false },
   { code: 'JACKET', label: 'Jacket', group: 'MEN' },
   { code: 'SAFARI', label: 'Safari suit', group: 'MEN' },
 ]
 
 const CATEGORY_CODES = new Set(GARMENT_CATEGORIES.map(category => category.code))
+
+// What a customer can pick today.
+export const OFFERED_CATEGORIES = GARMENT_CATEGORIES.filter(category => category.offered !== false)
 
 export function isGarmentCategory(code: unknown): code is string {
   return typeof code === 'string' && CATEGORY_CODES.has(code)
@@ -128,7 +134,27 @@ export type LookGarment = {
   index: number
   category: string
   source: GarmentSource
-  role: 'MAIN' | PairRole
+  // HIS / HER: the two garments of a couple picture.
+  role: 'MAIN' | PairRole | CoupleRole
+}
+
+// =======================================================
+// COUPLE PICTURES
+//
+// One picture of two people, him and her, each in their
+// own new garment. Paid credits only, at the price the
+// admin sets.
+// =======================================================
+
+export type CoupleRole = 'HIS' | 'HER'
+
+export type LookKind = 'SINGLE' | 'PAIR' | 'COUPLE'
+
+// Whose garment it can be: men's garments for him, women's for her, from
+// what the app offers today.
+export function coupleGarmentAllowed(role: CoupleRole, category: string) {
+  const garment = OFFERED_CATEGORIES.find(item => item.code === category)
+  return Boolean(garment && garment.group === (role === 'HIS' ? 'MEN' : 'WOMEN'))
 }
 
 export type PlannedLook = {
@@ -180,6 +206,8 @@ export function planLooks(
 // PRICES
 // =======================================================
 
+export const DEFAULT_COUPLE_CREDITS = 3
+
 export type Pricing = {
   freeCreditsPerMonth: number
   standardRateInr: number
@@ -189,12 +217,13 @@ export type Pricing = {
   maxRechargeInr: number
 }
 
+// Until the admin sets prices in /admin Settings.
 export const DEFAULT_PRICING: Pricing = {
-  freeCreditsPerMonth: 5,
-  standardRateInr: 10,
+  freeCreditsPerMonth: 3,
+  standardRateInr: 8,
   bulkRateInr: 5,
   bulkMinRechargeInr: 1000,
-  minRechargeInr: 50,
+  minRechargeInr: 40,
   maxRechargeInr: 10000,
 }
 
@@ -224,9 +253,11 @@ export function quoteRecharge(amountInr: number, pricing: Pricing): RechargeQuot
   return { ok: true, rateInr, credits: amountInr / rateInr }
 }
 
-// Amounts offered as one tap on the recharge screen.
+// Amounts offered as one tap on the recharge screen: 10, 20 and 50 credits at
+// the standard price (₹80, ₹160, ₹400 at ₹8), then the bulk amounts.
 export function rechargeChoices(pricing: Pricing) {
-  const amounts = [100, 200, 500, pricing.bulkMinRechargeInr, pricing.bulkMinRechargeInr * 2]
+  const standard = [10, 20, 50].map(credits => credits * pricing.standardRateInr).filter(amount => amount < pricing.bulkMinRechargeInr)
+  const amounts = [...standard, pricing.bulkMinRechargeInr, pricing.bulkMinRechargeInr * 2]
   return [...new Set(amounts)]
     .filter(amount => quoteRecharge(amount, pricing).ok)
     .sort((a, b) => a - b)
@@ -259,4 +290,16 @@ export function freeCreditsReturnDay(now: Date) {
   const india = new Date(now.getTime() + 5.5 * 3_600_000)
   const next = new Date(Date.UTC(india.getUTCFullYear(), india.getUTCMonth() + 1, 1))
   return next.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', timeZone: 'UTC' })
+}
+
+// People who sign in with their mobile number get a stand-in email address:
+// Supabase makes the session from an email sign-in link that only the server
+// creates (lib/server/phoneLogin.ts). Nothing is ever emailed to it, and the app
+// shows the mobile number instead.
+export function phoneLoginEmail(phone: string) {
+  return `pp-phone-${phone.replace(/\D/g, '')}@inaivuit.com`
+}
+
+export function isPhoneLoginEmail(email: string | null | undefined) {
+  return Boolean(email && /^pp-phone-\d{12}@inaivuit\.com$/.test(email))
 }

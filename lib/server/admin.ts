@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { DEFAULT_COUPLE_CREDITS } from '@/lib/rules'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { loadSettings } from '@/lib/server/account'
 import { ApiError, dbError, UUID } from '@/lib/server/http'
@@ -82,7 +83,7 @@ async function loadAiRates(): Promise<AiRates> {
 
 // Settings, recharges to check and bank credits nobody claimed.
 export async function adminOverview() {
-  const [settings, aiRates, pending, recent, alerts, lastAlert] = await Promise.all([
+  const [settings, aiRates, pending, recent, alerts, lastAlert, msg91] = await Promise.all([
     loadSettings(),
     loadAiRates(),
     supabaseAdmin.from('recharges').select(RECHARGE_COLUMNS).eq('status', 'PENDING').order('created_at', { ascending: true }).limit(100),
@@ -90,11 +91,14 @@ export async function adminOverview() {
     supabaseAdmin.from('payment_alerts').select('id, utr, amount_inr, sender, message, received_at')
       .is('recharge_id', null).order('received_at', { ascending: false }).limit(30),
     supabaseAdmin.from('payment_alerts').select('received_at').order('received_at', { ascending: false }).limit(1),
+    supabaseAdmin.from('app_settings').select('msg91_widget_id, msg91_token_auth, msg91_auth_key, free_needs_mobile').eq('id', true).maybeSingle(),
   ])
   if (pending.error) throw dbError(pending.error, 'Unable to load recharges')
   if (recent.error) throw dbError(recent.error, 'Unable to load recharges')
   if (alerts.error) throw dbError(alerts.error, 'Unable to load bank alerts')
   if (lastAlert.error) throw dbError(lastAlert.error, 'Unable to load bank alerts')
+  if (msg91.error) throw dbError(msg91.error, 'Unable to load sign-in settings')
+  const msg91Row = msg91.data as { msg91_widget_id: string | null; msg91_token_auth: string | null; msg91_auth_key: string | null; free_needs_mobile: boolean } | null
 
   // What the bank said for each waiting UTR, if its alert has arrived.
   const pendingRows = (pending.data ?? []) as RechargeRow[]
@@ -116,6 +120,13 @@ export async function adminOverview() {
       secretSet: Boolean(process.env.PAYMENT_WEBHOOK_SECRET?.trim()),
       senders: (process.env.PAYMENT_SMS_SENDERS ?? '').split(',').map(sender => sender.trim()).filter(Boolean),
       lastAlertAt: (lastAlert.data?.[0]?.received_at as string | undefined) ?? null,
+    },
+    // Mobile number sign-in (MSG91 OTP widget). The auth key is never sent back.
+    phoneLogin: {
+      widgetId: msg91Row?.msg91_widget_id ?? '',
+      tokenAuth: msg91Row?.msg91_token_auth ?? '',
+      authKeySet: Boolean(msg91Row?.msg91_auth_key),
+      freeNeedsMobile: Boolean(msg91Row?.free_needs_mobile),
     },
   }
 }
@@ -163,9 +174,37 @@ export async function updateSettings(adminId: string, body: unknown) {
     ai_text_input_usd_per_million: decimal(input.textInputUsdPerMillion, 'Text input price', 0, 10_000),
     ai_image_input_usd_per_million: decimal(input.imageInputUsdPerMillion, 'Image input price', 0, 10_000),
     ai_output_usd_per_million: decimal(input.outputUsdPerMillion, 'Image output price', 0, 10_000),
+    msg91_widget_id: text(input.msg91WidgetId, 100),
+    msg91_token_auth: text(input.msg91TokenAuth, 300),
     updated_at: new Date().toISOString(),
     updated_by: adminId,
+  } as Record<string, unknown>
+  // Recharges buy whole credits, so these amounts must divide by their price.
+  const standardRate = row.standard_rate_inr as number
+  const bulkRate = row.bulk_rate_inr as number
+  const bulkMin = row.bulk_min_recharge_inr as number
+  if (minRecharge % standardRate !== 0) {
+    throw new ApiError(400, 'INVALID_INPUT', `The smallest recharge must buy whole credits: use a multiple of ₹${standardRate}, e.g. ₹${Math.ceil(minRecharge / standardRate) * standardRate}.`)
   }
+  if (bulkMin % bulkRate !== 0) {
+    throw new ApiError(400, 'INVALID_INPUT', `"Bulk price from" must buy whole credits: use a multiple of ₹${bulkRate}.`)
+  }
+  // Write-only: an empty box keeps the saved key.
+  const authKey = text(input.msg91AuthKey, 300)
+  if (authKey) row.msg91_auth_key = authKey
+  // Free credits only for a verified mobile number: needs the MSG91 widget,
+  // or nobody could verify a number and nobody would get free credits.
+  const freeNeedsMobile = input.freeNeedsMobile === true || input.freeNeedsMobile === 'true'
+  if (freeNeedsMobile) {
+    const { data: saved, error: savedError } = await supabaseAdmin.from('app_settings').select('msg91_auth_key').eq('id', true).maybeSingle()
+    if (savedError) throw dbError(savedError, 'Unable to load sign-in settings')
+    if (!row.msg91_widget_id || !row.msg91_token_auth || !(authKey || (saved as { msg91_auth_key: string | null } | null)?.msg91_auth_key)) {
+      throw new ApiError(400, 'INVALID_INPUT', 'Set up mobile number sign-in (MSG91) first: free credits for verified numbers need it.')
+    }
+  }
+  row.free_needs_mobile = freeNeedsMobile
+  row.couple_enabled = input.coupleEnabled === true || input.coupleEnabled === 'true'
+  row.couple_credits = whole(input.coupleCredits ?? DEFAULT_COUPLE_CREDITS, 'Credits per couple picture', 1, 50)
   const { error } = await supabaseAdmin.from('app_settings').update(row).eq('id', true)
   if (error) throw dbError(error, 'Unable to save settings')
   return { settings: await loadSettings(), aiRates: await loadAiRates() }

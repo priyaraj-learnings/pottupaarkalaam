@@ -7,15 +7,25 @@ import { Button, Card, formatWhen, Notice, Spinner, useToast } from '@/component
 import { api, errorMessage } from '@/lib/client/api'
 import { gmailForwarderScript } from '@/lib/gmailForwarder'
 
+// MSG91 widget IDs are long codes such as 34686b716a33363035353831, never a
+// name with spaces or without digits.
+const looksLikeWidgetId = (value: string) => /^[A-Za-z0-9]{12,}$/.test(value.trim()) && /\d/.test(value)
+
 function SettingsForm({ overview, onSaved }: { overview: Overview; onSaved: () => void }) {
   const toast = useToast()
-  const { settings, aiRates } = overview
+  const { settings, aiRates, phoneLogin } = overview
   const [form, setForm] = useState<Record<string, string>>({
     upiId: settings.upiId ?? '',
     payeeName: settings.payeeName ?? '',
     supportContact: settings.supportContact ?? '',
     ...Object.fromEntries(Object.entries(settings.pricing).map(([key, value]) => [key, String(value)])),
     ...Object.fromEntries(Object.entries(aiRates).map(([key, value]) => [key, String(value)])),
+    msg91WidgetId: phoneLogin.widgetId,
+    msg91TokenAuth: phoneLogin.tokenAuth,
+    msg91AuthKey: '',
+    freeNeedsMobile: String(phoneLogin.freeNeedsMobile),
+    coupleEnabled: String(settings.couple.enabled),
+    coupleCredits: String(settings.couple.credits),
   })
   const [busy, setBusy] = useState(false)
 
@@ -63,6 +73,71 @@ function SettingsForm({ overview, onSaved }: { overview: Overview; onSaved: () =
           {field('bulkMinRechargeInr', 'Bulk price from a recharge of (₹)', { inputMode: 'numeric' })}
           {field('minRechargeInr', 'Smallest recharge (₹)', { inputMode: 'numeric' })}
           {field('maxRechargeInr', 'Largest recharge (₹)', { inputMode: 'numeric' })}
+        </div>
+      </Card>
+
+      <Card title="Couple pictures">
+        <div className="space-y-3">
+          <p className="text-sm text-stone-600">
+            A &ldquo;Couple&rdquo; tab: his garment and photo, her garment and photo, and one picture of the two of them.
+            Customers see it after turning on &ldquo;Couple pictures&rdquo; in their account menu. It uses paid credits only
+            (never the free ones), and the credits come back if the picture fails.
+          </p>
+          <label className="flex items-start gap-3 rounded-xl bg-stone-50 p-3 text-sm text-stone-700">
+            <input type="checkbox" checked={form.coupleEnabled === 'true'} onChange={event => setForm(current => ({ ...current, coupleEnabled: String(event.target.checked) }))}
+              className="mt-0.5 h-5 w-5 shrink-0 accent-brand-600" />
+            <span><b>Offer couple pictures</b></span>
+          </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {field('coupleCredits', 'Credits per couple picture', { inputMode: 'numeric' })}
+          </div>
+          {Number(form.coupleCredits) > 0 && Number(form.standardRateInr) > 0 && (
+            <p className="text-xs text-stone-500">
+              = ₹{Number(form.coupleCredits) * Number(form.standardRateInr)} a picture at the standard price
+              {Number(form.bulkRateInr) > 0 && Number(form.bulkRateInr) !== Number(form.standardRateInr) && <>, ₹{Number(form.coupleCredits) * Number(form.bulkRateInr)} at the bulk price</>}.
+              It sends 4 photos to the AI instead of 2, so it costs a little more to make than a single picture (see the cost reports).
+            </p>
+          )}
+        </div>
+      </Card>
+
+      <Card title="Mobile number sign-in (MSG91)">
+        <div className="space-y-3">
+          <p className="text-sm text-stone-600">
+            Adds &ldquo;Sign in with mobile number&rdquo; to the sign-in screen, using your MSG91 OTP widget (MSG91 → OTP →
+            Widgets): MSG91 sends and checks the code. The same widget verifies the numbers of Google and email accounts.
+          </p>
+          <Notice tone={phoneLogin.widgetId && phoneLogin.tokenAuth && phoneLogin.authKeySet ? 'success' : 'info'}>
+            {phoneLogin.widgetId && phoneLogin.tokenAuth && phoneLogin.authKeySet
+              ? 'On: customers can sign in with their mobile number.'
+              : 'Off: fill in all three to turn it on. Clear the Widget ID to turn it off.'}
+          </Notice>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {field('msg91WidgetId', 'Widget ID', { autoComplete: 'off', autoCapitalize: 'none', spellCheck: 'false', placeholder: 'e.g. 34686b716a33363035353831' })}
+            {field('msg91TokenAuth', 'Widget token (tokenAuth)', { autoComplete: 'off', autoCapitalize: 'none', spellCheck: 'false' })}
+            {field('msg91AuthKey', `Auth key${phoneLogin.authKeySet ? ' (saved; type a new one to replace it)' : ''}`, {
+              type: 'password', autoComplete: 'new-password', placeholder: phoneLogin.authKeySet ? '••••••••' : 'From MSG91 → Authkey',
+            })}
+          </div>
+          <p className="text-xs text-stone-500">
+            Copy the Widget ID and token from MSG91 → OTP Widget/SDK → Widgets → your widget → <b>Client Side Integration</b>:
+            the values in quotes after <code>widgetId:</code> and <code>tokenAuth:</code>. The Auth key is under MSG91 → Authkey.
+          </p>
+          {form.msg91WidgetId.trim() && !looksLikeWidgetId(form.msg91WidgetId) && (
+            <Notice tone="warning">
+              That looks like the widget&rsquo;s name. The Widget ID is a long code (letters and numbers, no spaces) from
+              Client Side Integration; MSG91 answers &ldquo;Widget not found&rdquo; to a name.
+            </Notice>
+          )}
+          <label className="flex items-start gap-3 rounded-xl bg-stone-50 p-3 text-sm text-stone-700">
+            <input type="checkbox" checked={form.freeNeedsMobile === 'true'} onChange={event => setForm(current => ({ ...current, freeNeedsMobile: String(event.target.checked) }))}
+              className="mt-0.5 h-5 w-5 shrink-0 accent-brand-600" />
+            <span>
+              <b>Free credits only for a verified mobile number.</b> Everyone who signs in with Google or email must verify a
+              number with an SMS code, and one number can belong to one account only, so the free credits go to one number
+              a month. Needs the three boxes above.
+            </span>
+          </label>
         </div>
       </Card>
 
@@ -166,7 +241,7 @@ export default function SettingsTab({ overview, onSaved }: { overview: Overview 
   if (!overview) return <div className="flex justify-center py-16 text-brand-600"><Spinner className="h-8 w-8" /></div>
   return (
     <div className="space-y-4">
-      <SettingsForm key={JSON.stringify(overview.settings) + JSON.stringify(overview.aiRates)} overview={overview} onSaved={onSaved} />
+      <SettingsForm key={JSON.stringify(overview.settings) + JSON.stringify(overview.aiRates) + JSON.stringify(overview.phoneLogin)} overview={overview} onSaved={onSaved} />
       <PaymentSmsCard status={overview.paymentSms} />
     </div>
   )

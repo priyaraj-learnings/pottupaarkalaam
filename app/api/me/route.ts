@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   return handle(async () => {
     const user = await requireUser(request)
     const [account, settings, admin] = await Promise.all([getAccount(user), loadSettings(), isAdmin(user.id)])
-    return json({ user: { email: user.email, name: user.name }, account, settings, isAdmin: admin, currentTermsVersion: TERMS_VERSION })
+    return json({ user: { email: user.email, name: user.name, phone: user.phone }, account, settings, isAdmin: admin, currentTermsVersion: TERMS_VERSION })
   })
 }
 

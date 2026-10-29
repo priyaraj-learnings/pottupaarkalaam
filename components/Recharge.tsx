@@ -6,7 +6,7 @@ import UpiQr from '@/components/UpiQr'
 import { Button, Card, formatInr, formatWhen, Notice, useToast } from '@/components/ui'
 import { api, errorMessage } from '@/lib/client/api'
 import type { Account, AppSettings, RechargeView } from '@/lib/client/types'
-import { normalizeUtr, quoteRecharge, rechargeChoices } from '@/lib/rules'
+import { normalizeUtr, quoteRecharge, rechargeChoices, type Pricing } from '@/lib/rules'
 import { upiLink } from '@/lib/upi'
 
 const STATUS = {
@@ -14,6 +14,12 @@ const STATUS = {
   PENDING: { label: 'Checking', className: 'bg-amber-100 text-amber-900' },
   REJECTED: { label: 'Not found', className: 'bg-red-100 text-red-800' },
 } as const
+
+// The bulk saving in words: "Half price" at ₹5 vs ₹10, "37% off" at ₹5 vs ₹8.
+function bulkSaving(pricing: Pricing) {
+  const off = Math.floor((1 - pricing.bulkRateInr / pricing.standardRateInr) * 100)
+  return off === 50 ? 'Half price' : `${off}% off`
+}
 
 export default function Recharge({ active, account, settings, userCode, onAccount }: {
   active: boolean
@@ -119,7 +125,9 @@ export default function Recharge({ active, account, settings, userCode, onAccoun
                 className={`rounded-2xl border-2 p-2 text-center ${selected ? 'border-brand-500 bg-brand-50' : 'border-stone-200 bg-white'}`}>
                 <span className="block text-lg font-black">{formatInr(choice)}</span>
                 <span className="block text-xs text-stone-500">{credits.ok ? `${credits.credits} credits` : ''}</span>
-                {choice >= pricing.bulkMinRechargeInr && <span className="block text-[11px] font-bold text-emerald-700">Half price</span>}
+                {choice >= pricing.bulkMinRechargeInr && pricing.bulkRateInr < pricing.standardRateInr && (
+                  <span className="block text-[11px] font-bold text-emerald-700">{bulkSaving(pricing)}</span>
+                )}
               </button>
             )
           })}

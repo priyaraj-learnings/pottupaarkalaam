@@ -1,10 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 
+import { InstallApp } from '@/components/InstallApp'
 import { LogoMark, Wordmark } from '@/components/Logo'
 import { Button, Notice } from '@/components/ui'
+import { errorMessage } from '@/lib/client/api'
+import { openMsg91Widget } from '@/lib/client/msg91'
 import { supabase } from '@/lib/supabase/browser'
 
 function GoogleIcon() {
@@ -30,6 +33,53 @@ export default function SignIn() {
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  // The MSG91 widget's public settings, when mobile number sign-in is set up.
+  const [phoneWidget, setPhoneWidget] = useState<{ widgetId: string; tokenAuth: string } | null>(null)
+  const [freeTryOns, setFreeTryOns] = useState<number | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/sign-in-options', { cache: 'no-store' })
+      .then(response => (response.ok ? response.json() : null))
+      .then(options => {
+        if (cancelled || !options) return
+        if (options.phone) setPhoneWidget(options.phone)
+        if (Number.isInteger(options.freeCreditsPerMonth)) setFreeTryOns(options.freeCreditsPerMonth)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
+  // The widget confirmed the code: swap its token for a session.
+  async function finishPhone(accessToken: string) {
+    setBusy(true)
+    setError('')
+    try {
+      const response = await fetch('/api/auth/phone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accessToken }),
+      })
+      const result = await response.json().catch(() => null) as { tokenHash?: string; type?: 'magiclink'; error?: { message?: string } } | null
+      if (!response.ok || !result?.tokenHash) throw new Error(result?.error?.message ?? 'Sign-in did not work. Please try again.')
+      const { error: verifyError } = await supabase.auth.verifyOtp({ token_hash: result.tokenHash, type: result.type ?? 'magiclink' })
+      if (verifyError) throw new Error('Sign-in did not work. Please try again.')
+      // Signed in: the app takes over from here.
+    } catch (phoneError) {
+      setError(errorMessage(phoneError))
+      setBusy(false)
+    }
+  }
+
+  async function mobile() {
+    if (!phoneWidget) return
+    setError('')
+    try {
+      await openMsg91Widget(phoneWidget, accessToken => void finishPhone(accessToken), setError)
+    } catch (widgetError) {
+      setError(errorMessage(widgetError))
+    }
+  }
 
   async function google() {
     setBusy(true)
@@ -85,7 +135,9 @@ export default function SignIn() {
             </li>
           ))}
         </ol>
-        <p className="mt-5 inline-block rounded-full bg-white px-4 py-1.5 text-sm font-extrabold text-brand-700">5 free try-ons every month</p>
+        <p className="mt-5 inline-block rounded-full bg-white px-4 py-1.5 text-sm font-extrabold text-brand-700">
+          {freeTryOns ? `${freeTryOns} free try-on${freeTryOns === 1 ? '' : 's'} every month` : 'Free try-ons every month'}
+        </p>
       </section>
 
       <section className="flex flex-1 flex-col gap-3 px-6 py-8">
@@ -96,6 +148,11 @@ export default function SignIn() {
             <Button variant="secondary" busy={busy} onClick={google} className="w-full text-base">
               <GoogleIcon /> Continue with Google
             </Button>
+            {phoneWidget && (
+              <Button variant="secondary" disabled={busy} onClick={mobile} className="w-full text-base">
+                <span aria-hidden="true">📱</span> Sign in with mobile number
+              </Button>
+            )}
             <Button variant="ghost" onClick={() => setMode('email')} className="w-full">Sign in with email instead</Button>
           </>
         )}
@@ -127,6 +184,8 @@ export default function SignIn() {
             <Button variant="ghost" onClick={() => { setMode('email'); setCode('') }}>Use a different email</Button>
           </form>
         )}
+
+        <InstallApp className="mt-4" />
 
         <p className="mt-auto pt-6 text-center text-xs text-stone-500">
           By continuing you agree to our <Link href="/terms" className="font-semibold underline">Terms</Link> and{' '}

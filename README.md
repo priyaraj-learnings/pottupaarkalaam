@@ -24,8 +24,8 @@ Setting it up for the first time: **[docs/SETUP.md](docs/SETUP.md)**. Cheaper tr
 | --- | --- |
 | Signs in | Google (one tap with the account on the phone) or a 6-digit code by email. Agrees to the terms once. |
 | Try on | Picks a category (saree, kurti, lehenga, shirt, pant…) and *unstitched fabric* or *stitched dress*, adds up to 5 clothes photos and their own photo. Two clothes can be **paired** into one picture (shirt + pant, kurti + bottom, saree + blouse, lehenga + blouse, Nehru jacket or coat over a kurta or shirt). |
-| Credits | 1 picture of one garment = 1 credit; a pair = 2 credits. 5 free credits every month (used first, not carried over). Credits are taken when the picture is queued and given back automatically if it fails. |
-| Recharge | Pays inaivu IT by UPI (button opens the UPI app; QR for another phone), then enters the 12-digit UPI reference (UTR). Below ₹1,000: ₹10 a credit; ₹1,000 or more: ₹5 a credit. Paid credits never expire. |
+| Credits | 1 picture of one garment = 1 credit; a pair = 2 credits. Free credits every month (3 by default, set in /admin; used first, not carried over). Credits are taken when the picture is queued and given back automatically if it fails. |
+| Recharge | Pays inaivu IT by UPI (button opens the UPI app; QR for another phone), then enters the 12-digit UPI reference (UTR). Below ₹1,000: ₹8 a credit; ₹1,000 or more: ₹5 a credit (both set in /admin). Paid credits never expire. |
 | Verification | Automatic when the bank's credit SMS (forwarded to `/api/payments/notify`) has the same UTR and amount; otherwise an admin approves it in `/admin`. A UTR is credited only once. |
 | My pictures | The last 3 days, with Save (to gallery) and Share. "Delete all my photos now" removes everything at once. |
 

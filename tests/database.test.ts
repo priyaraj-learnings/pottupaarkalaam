@@ -222,6 +222,114 @@ describe('admin credit adjustments', () => {
   })
 })
 
+describe('free credits for one mobile number', () => {
+  const verify = (userId: string, phone: string) => one<Result>('select public.verify_phone($1, $2) as r', [userId, phone])
+  const requireMobile = (on: boolean) => db.query('update public.app_settings set free_needs_mobile = $1 where id', [on])
+
+  it('gives free credits only to accounts with a verified number, when the admin requires it', async () => {
+    const user = await newUser('needs-mobile@example.com')
+    await one('select public.get_account($1, $2) as r', [user, TERMS])
+    await requireMobile(true)
+    try {
+      expect(await account(user)).toMatchObject({ freeLeft: 0, phoneVerified: false })
+      expect(await createLooks(user, [single(0)])).toMatchObject({ error: 'INSUFFICIENT_CREDITS', available: 0 })
+
+      expect(await verify(user, '+919000000001')).toMatchObject({ account: { phone: '+919000000001', phoneVerified: true, freeLeft: 5 } })
+      expect((await createLooks(user, [single(0)])).looks).toHaveLength(1)
+      expect(await account(user)).toMatchObject({ freeLeft: 4 })
+    } finally {
+      await requireMobile(false)
+    }
+  })
+
+  it('lets a verified number belong to one account only', async () => {
+    const first = await newUser('first-phone@example.com')
+    const second = await newUser('second-phone@example.com')
+    await verify(first, '+919000000002')
+    expect(await verify(second, '+919000000002')).toEqual({ error: 'PHONE_TAKEN' })
+    // The same account can verify it again, or move to a new number.
+    expect(await verify(first, '+919000000002')).toHaveProperty('account')
+    expect(await verify(first, '+919000000003')).toMatchObject({ account: { phone: '+919000000003' } })
+    // The old number is free again for someone else.
+    expect(await verify(second, '+919000000002')).toMatchObject({ account: { phoneVerified: true } })
+  })
+
+  it('never lets a typed number replace or remove a verified one', async () => {
+    const user = await newUser('typed-over@example.com')
+    await verify(user, '+919000000004')
+    await expect(one('select public.save_phone($1, $2, false) as r', [user, '+919000000005'])).rejects.toThrow(/PHONE_VERIFIED/)
+    await expect(one('select public.save_phone($1, null, false) as r', [user])).rejects.toThrow(/PHONE_VERIFIED/)
+    // Changing only the offers choice for the same number is fine.
+    expect(await one('select public.save_phone($1, $2, true) as r', [user, '+919000000004'])).toMatchObject({ offersOk: true, phoneVerified: true })
+  })
+})
+
+describe('couple pictures', () => {
+  const couple = (userId: string, terms = TERMS) => one<Result>(
+    `select public.create_couple_look($1, gen_random_uuid(), 'his.jpg', 'her.jpg', array['his-fabric.jpg','her-fabric.jpg'], now() + interval '3 days', $2, $3::jsonb) as r`,
+    [userId, terms, JSON.stringify([
+      { index: 0, category: 'FORMAL_SHIRT', source: 'FABRIC', role: 'HIS' },
+      { index: 1, category: 'SAREE', source: 'FABRIC', role: 'HER' },
+    ])],
+  )
+  const settings = (enabled: boolean, credits = 3) =>
+    db.query('update public.app_settings set couple_enabled = $1, couple_credits = $2 where id', [enabled, credits])
+  const optIn = (userId: string, on: boolean) => one<Result>('select public.set_couple_opt_in($1, $2) as r', [userId, on])
+
+  it('is off until the admin turns it on and the customer chooses it', async () => {
+    const user = await newUser('couple-off@example.com')
+    await one('select public.get_account($1, $2) as r', [user, TERMS])
+    await db.query(`update public.accounts set credits = 10 where user_id = $1`, [user])
+    expect(await couple(user)).toEqual({ error: 'COUPLE_OFF' })
+    await settings(true)
+    try {
+      expect(await couple(user)).toEqual({ error: 'COUPLE_OFF' })
+      expect(await optIn(user, true)).toMatchObject({ coupleOptIn: true })
+      expect(await couple(user)).toHaveProperty('look')
+    } finally {
+      await settings(false)
+    }
+  })
+
+  it('uses paid credits only, at the admin price, and gives them back if it fails', async () => {
+    const user = await newUser('couple-paid@example.com')
+    await one('select public.get_account($1, $2) as r', [user, TERMS])
+    await optIn(user, true)
+    await settings(true, 4)
+    try {
+      // 5 free credits are no use for a couple picture.
+      expect(await couple(user)).toMatchObject({ error: 'INSUFFICIENT_CREDITS', needed: 4, available: 0 })
+      await db.query(`update public.accounts set credits = 6 where user_id = $1`, [user])
+      const made = await couple(user)
+      expect(made).toMatchObject({ look: { kind: 'COUPLE', credits: 4 }, account: { credits: 2, freeLeft: 5 } })
+
+      const lookId = (made as unknown as { look: { id: string } }).look.id
+      const row = await one<Record<string, unknown>>(`select row_to_json(l) as r from public.looks l where id = $1`, [lookId])
+      expect(row).toMatchObject({ kind: 'COUPLE', credits: 4, free_credits_used: 0, paid_credits_used: 4 })
+      const batch = await one<Record<string, unknown>>(
+        `select row_to_json(b) as r from public.try_on_batches b join public.looks l on l.batch_id = b.id where l.id = $1`, [lookId])
+      expect(batch).toMatchObject({ photo_path: 'his.jpg', partner_photo_path: 'her.jpg' })
+
+      await one('select public.fail_look($1, $2) as r', [lookId, 'The picture could not be made.'])
+      expect(await account(user)).toMatchObject({ credits: 6, freeLeft: 5 })
+    } finally {
+      await settings(false)
+    }
+  })
+
+  it('still asks for the current terms first', async () => {
+    const user = await newUser('couple-terms@example.com')
+    await optIn(user, true)
+    await db.query(`update public.accounts set credits = 10 where user_id = $1`, [user])
+    await settings(true)
+    try {
+      expect(await couple(user)).toEqual({ error: 'TERMS_REQUIRED' })
+    } finally {
+      await settings(false)
+    }
+  })
+})
+
 describe('settings', () => {
   it('saves the UPI ID and refuses one that is not a UPI ID', async () => {
     const save = (upiId: string | null) => db.query('update public.app_settings set upi_id = $1 where id', [upiId])
@@ -300,6 +408,8 @@ describe('database permissions', () => {
         await expect(db.query('select * from public.accounts')).rejects.toThrow(/permission denied/)
         await expect(db.query(`select public.adjust_credits('a@b.c', null, 5, 'Free')`)).rejects.toThrow(/permission denied/)
         await expect(db.query(`select public.save_phone(gen_random_uuid(), '+919876543210', true)`)).rejects.toThrow(/permission denied/)
+        await expect(db.query(`select public.verify_phone(gen_random_uuid(), '+919876543210')`)).rejects.toThrow(/permission denied/)
+        await expect(db.query(`select public.set_couple_opt_in(gen_random_uuid(), true)`)).rejects.toThrow(/permission denied/)
       } finally {
         await db.exec('reset role')
       }

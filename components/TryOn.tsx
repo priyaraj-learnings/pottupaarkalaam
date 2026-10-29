@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { useMemo, useRef, useState, type ChangeEvent } from 'react'
 
 import { CategoryChips, SourceToggle } from '@/components/CategoryPicker'
 import LookCard from '@/components/LookCard'
@@ -8,6 +8,7 @@ import { Button, Card, Notice, Sheet, useToast } from '@/components/ui'
 import { api, ApiFailure, errorMessage } from '@/lib/client/api'
 import { shrinkPhoto } from '@/lib/client/photos'
 import { isFinished, type Account, type LookView } from '@/lib/client/types'
+import { useLookPolling } from '@/lib/client/useLookPolling'
 import { canPair, categoryLabel, freeCreditsReturnDay, MAX_GARMENTS, planLooks, SOURCE_LABELS, type GarmentSource } from '@/lib/rules'
 
 type Item = { id: string; blob: Blob; url: string; category: string; source: GarmentSource }
@@ -50,7 +51,6 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
   const [error, setError] = useState<{ message: string; recharge?: boolean } | null>(null)
   const [results, setResults] = useState<LookView[]>([])
   const [showResults, setShowResults] = useState(false)
-  const [pollTick, setPollTick] = useState(0)
   // What each look was made from, for "Try again".
   const [retryFrom, setRetryFrom] = useState<Record<string, { items: Item[]; paired: boolean }>>({})
 
@@ -197,32 +197,7 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
     void submit(from.items, chosenPairs, look.id)
   }
 
-  // Poll until every picture is made or has failed.
-  const waitingIds = results.filter(look => !isFinished(look)).map(look => look.id).join(',')
-  useEffect(() => {
-    if (!waitingIds) return
-    let cancelled = false
-    const timer = setTimeout(async () => {
-      try {
-        const { looks } = await api<{ looks: LookView[] }>(`/api/try-ons?ids=${waitingIds}`)
-        if (cancelled) return
-        const byId = new Map(looks.map(look => [look.id, look]))
-        setResults(current => current.map(look => byId.get(look.id) ?? look))
-        if (looks.length && looks.every(isFinished)) {
-          const me = await api<{ account: Account }>('/api/me')
-          if (!cancelled) onAccount(me.account)
-        }
-      } catch {
-        // Asked again on the next tick.
-      } finally {
-        if (!cancelled) setPollTick(tick => tick + 1)
-      }
-    }, 3000)
-    return () => {
-      cancelled = true
-      clearTimeout(timer)
-    }
-  }, [waitingIds, pollTick, onAccount])
+  useLookPolling(results, setResults, onAccount)
 
   function tryMore() {
     setPairs([])
