@@ -11,7 +11,7 @@ import { categoryLabel, type GarmentSource, type PairRole } from '@/lib/rules'
 // packing, the person wearing a dress) and what to keep.
 // =======================================================
 
-export const PROMPT_VERSION = 'pp-try-on-v1'
+export const PROMPT_VERSION = 'pp-try-on-v2'
 
 export type PromptGarment = {
   category: string
@@ -25,6 +25,10 @@ not beautify, slim or lighten the skin, and never replace the customer with a
 model. Keep their pose and background where possible. If IMAGE 1 shows only the
 face or upper body, extend the picture naturally so the whole outfit shows,
 keeping the face and features unchanged.
+
+Replace everything the customer is wearing in IMAGE 1 with the new outfit. Do
+not keep any of their current clothes, and do not let the type of garment they
+are wearing now (for example a saree) decide the type of the new garment.
 `.trim()
 
 const OUTPUT = `
@@ -34,6 +38,16 @@ physically plausible drape and folds. Do not add text, logos, watermarks or
 other people. Do not add embroidery, prints or colours that are not in the
 supplied garment photos.
 `.trim()
+
+// "a" or "an" before a garment name.
+const withArticle = (text: string) => `${/^[aeiou]/i.test(text) ? 'an' : 'a'} ${text}`
+
+// The last instruction of every prompt: the garment type the customer chose.
+function typeCheck(garment: PromptGarment, who = 'The customer') {
+  const label = categoryLabel(garment.category).toLowerCase()
+  const { shape, never } = garmentProfile(garment.category)
+  return `${who} chose ${withArticle(label)}. It must look like ${shape}. It must not look like any of these: ${never.join(', ')}.`
+}
 
 function sourceText(image: number, garment: PromptGarment, wearer = 'the customer') {
   const label = categoryLabel(garment.category).toLowerCase()
@@ -52,7 +66,9 @@ IMAGE ${image} is a phone photo of UNSTITCHED FABRIC for the ${label}. It may be
 folded, rolled, held in hands, on a table or still in its packing. Ignore the
 hands, background, packing, tags and folds. Use only the material itself - its
 colour, weave, texture, motifs, checks, stripes, borders, pattern direction and
-repeat scale - and tailor a new ${description} from it.
+repeat scale - and tailor a new ${description} from it. The length of the
+fabric, a border or a decorated end does not decide the garment type: it is
+${withArticle(label)}, as the customer chose.
 `.trim()
 }
 
@@ -62,9 +78,10 @@ export function buildSinglePrompt(garment: PromptGarment): string {
     'Create a photorealistic virtual try-on photo.',
     CUSTOMER,
     sourceText(2, garment),
-    `Dress the customer in a ${profile.description}. Do not turn it into a different kind of garment.`,
+    `Dress the customer in ${withArticle(profile.description)}. Do not turn it into a different kind of garment.`,
     profile.rules,
     OUTPUT,
+    `GARMENT TYPE CHECK: ${typeCheck(garment)}`,
   ].filter(Boolean).join('\n\n')
 }
 
@@ -122,13 +139,14 @@ export function buildPairPrompt(main: PromptGarment, companion: PromptGarment, r
     sourceText(2, main),
     sourceText(3, companion),
     `Dress the customer in BOTH garments at the same time, in one picture:
-- MAIN GARMENT: a ${mainProfile.description}, made only from IMAGE 2.
-- ${roleName}: a ${companionProfile.description}, made only from IMAGE 3.
+- MAIN GARMENT: ${withArticle(mainProfile.description)}, made only from IMAGE 2.
+- ${roleName}: ${withArticle(companionProfile.description)}, made only from IMAGE 3.
 Keep the two garments separate: never move colours, motifs or borders from one
 to the other. ${pairRule(main.category, companion.category, role)}`,
     `MAIN GARMENT RULES:\n${mainProfile.rules || 'Tailor it naturally to the customer.'}`,
     `${roleName} RULES:\n${companionRules || 'Tailor it naturally to the customer.'}`,
     OUTPUT,
+    `GARMENT TYPE CHECK: ${typeCheck(main, 'For the main garment, the customer')} ${typeCheck(companion, `For the ${roleName.toLowerCase()}, the customer`)}`,
   ].join('\n\n')
 }
 
@@ -145,7 +163,8 @@ the same person: face, facial features, skin tone, hair, age, body shape and
 proportions. Do not beautify, slim or lighten the skin, never mix or swap their
 features, and never replace either of them with a model. If a photo shows only
 the face or upper body, extend that person naturally so the whole outfit shows,
-keeping the face and features unchanged.
+keeping the face and features unchanged. Replace everything each of them is
+wearing now with their new garment; keep none of their current clothes.
 `.trim()
 
 const COUPLE_OUTPUT = `
@@ -166,12 +185,13 @@ export function buildCouplePrompt(his: PromptGarment, her: PromptGarment): strin
     sourceText(2, his, 'the man'),
     sourceText(4, her, 'the woman'),
     `Dress each of them in their own garment, in one picture:
-- THE MAN (IMAGE 1) wears a ${hisProfile.description}, made only from IMAGE 2.
-- THE WOMAN (IMAGE 3) wears a ${herProfile.description}, made only from IMAGE 4.
+- THE MAN (IMAGE 1) wears ${withArticle(hisProfile.description)}, made only from IMAGE 2.
+- THE WOMAN (IMAGE 3) wears ${withArticle(herProfile.description)}, made only from IMAGE 4.
 Keep the two outfits separate: never move colours, motifs or borders from one
 garment to the other, and never dress one person in the other person's garment.`,
     `THE MAN'S GARMENT RULES:\n${hisProfile.rules || 'Tailor it naturally to him.'}`,
     `THE WOMAN'S GARMENT RULES:\n${herProfile.rules || 'Tailor it naturally to her.'}`,
     COUPLE_OUTPUT,
+    `GARMENT TYPE CHECK: ${typeCheck(his, 'For the man, the customer')} ${typeCheck(her, 'For the woman, the customer')}`,
   ].join('\n\n')
 }

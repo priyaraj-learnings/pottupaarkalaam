@@ -12,6 +12,11 @@ export type GarmentProfile = {
   // "Dress the customer in a <description>."
   description: string
   rules: string
+  // What the finished garment must look like, and what it must never become:
+  // repeated as the last check of every prompt, so a long fabric with a border
+  // does not turn a chudidhar into a saree.
+  shape: string
+  never: string[]
 }
 
 const COAT_RULES = `
@@ -42,17 +47,19 @@ the saree into a kurta, salwar suit, gown, skirt, dress, dhoti, shirt or coat.
 const SALWAR_RULES = `
 SALWAR-SUIT-SPECIFIC RULES:
 Create a coordinated Indian salwar suit with a kameez/top, lower garment and
-dupatta. Respect every role-labelled reference: never use the dupatta design
-for the kameez or bottom, never use the bottom fabric for the top, and place
-neck, sleeve and hem panels only in their designated areas. Do not transform
-the outfit into a saree, gown or western dress.
+dupatta. If the fabric photo shows separate pieces for the top, the bottom and
+the dupatta (unstitched suit material often comes as three pieces), use each
+piece only for its own part; if it shows one fabric, use it for the kameez and
+make the salwar and dupatta in a plain colour taken from that fabric. Do not
+transform the outfit into a saree, gown or western dress.
 `.trim()
 
 const LEHENGA_RULES = `
 LEHENGA-SPECIFIC RULES:
 Create an authentic Indian lehenga choli: a full, floor-length flared skirt
 (lehenga), a fitted short blouse (choli) and a dupatta. Use the supplied fabric
-for the lehenga skirt unless role-labelled references say otherwise, keep
+for the lehenga skirt (if the photo shows separate blouse or dupatta pieces,
+use those for the blouse and dupatta), keep
 borders, embroidery and motifs at their natural scale and placement, and show
 the full flare down to the hem. Do not transform the outfit into a saree,
 gown, western skirt or salwar suit.
@@ -60,11 +67,21 @@ gown, western skirt or salwar suit.
 
 const CHUDIDHAR_RULES = `
 CHUDIDHAR-SPECIFIC RULES:
-Create an authentic Indian chudidhar set: a knee-length or longer kameez/kurta,
-fitted churidar bottoms gathered in soft folds at the ankles, and a dupatta.
-Respect every role-labelled reference: use the dupatta design only for the
-dupatta and the bottom fabric only for the churidar. Do not transform the
-outfit into a saree, lehenga, gown or loose salwar.
+Create an authentic Indian chudidhar set made of three separate parts:
+1. A stitched kameez (tunic) with sleeves, reaching the knees or a little
+   below, with side slits from the hip down.
+2. Separate, close-fitting churidar trousers covering both legs, gathered in
+   many small folds (bangles) at the ankles and clearly visible below the
+   kameez hem.
+3. A dupatta (long stole) worn over the shoulders or around the neck, falling
+   loosely; never wrapped around the waist or pleated.
+Unstitched chudidhar material often comes as three pieces (top, bottom,
+dupatta); if the photo shows them, use each piece only for its own part. If it
+shows one fabric, use it for the kameez and make the churidar and dupatta in a
+plain colour taken from that fabric. A border on the fabric goes on the kameez
+hem, sleeves or neckline, or on the dupatta edge. There are no waist pleats, no
+wrapped skirt and no pallu. Do not transform the outfit into a saree,
+half-saree, lehenga, gown or loose salwar.
 `.trim()
 
 const JACKET_RULES = `
@@ -121,7 +138,8 @@ const DHOTI_RULES = `
 DHOTI-SPECIFIC RULES:
 Create an authentic South Indian veshti/dhoti (or mundu) worn with a plain
 shirt or kurta. Use the supplied fabric for the dhoti, including its border at
-the hem, and keep the upper garment neutral. Do not turn it into trousers,
+the hem, and keep the upper garment neutral (a plain white shirt unless the
+customer chose a shirt to wear with it). Do not turn it into trousers,
 a lungi with a western cut, or a skirt.
 `.trim()
 
@@ -141,25 +159,101 @@ shirt, coat, gown or saree.
 `.trim()
 
 const PROFILES: Record<string, GarmentProfile> = {
-  SAREE: { description: 'authentically draped Indian saree', rules: SAREE_RULES },
-  BLOUSE: { description: 'fitted Indian saree blouse', rules: BLOUSE_RULES },
-  CHUDIDHAR: { description: 'authentic Indian chudidhar set with churidar bottoms and dupatta', rules: CHUDIDHAR_RULES },
-  SALWAR_SUIT: { description: 'coordinated Indian salwar suit set', rules: SALWAR_RULES },
-  KURTI: { description: "authentic tailored Indian women's kurti", rules: KURTA_RULES },
-  ANARKALI: { description: 'authentic Indian anarkali suit with churidar and dupatta', rules: ANARKALI_RULES },
-  LEHENGA: { description: 'authentic Indian lehenga choli with dupatta', rules: LEHENGA_RULES },
-  GOWN: { description: 'elegant floor-length gown', rules: GOWN_RULES },
-  FORMAL_SHIRT: { description: 'formal long-sleeve shirt', rules: '' },
-  CASUAL_SHIRT: { description: 'casual shirt', rules: '' },
-  TROUSER: { description: 'formal trousers', rules: '' },
-  KURTA: { description: 'authentic tailored Indian kurta', rules: KURTA_RULES },
-  PYJAMA: { description: 'traditional Indian pyjama', rules: PYJAMA_RULES },
-  DHOTI: { description: 'authentic South Indian veshti / dhoti', rules: DHOTI_RULES },
-  SHERWANI: { description: 'authentic Indian sherwani', rules: SHERWANI_RULES },
-  COAT: { description: 'formal tailored coat or blazer', rules: COAT_RULES },
-  WAISTCOAT: { description: 'sleeveless waistcoat (Nehru jacket)', rules: WAISTCOAT_RULES },
-  JACKET: { description: 'well-made outer jacket', rules: JACKET_RULES },
-  SAFARI: { description: 'professionally tailored safari suit', rules: '' },
+  SAREE: {
+    description: 'authentically draped Indian saree', rules: SAREE_RULES,
+    shape: 'one long unstitched length of fabric draped around the body: pleats at the waist, a floor-length wrap and the pallu over one shoulder, worn with a blouse',
+    never: ['chudidhar', 'salwar suit', 'kurta', 'lehenga', 'gown', 'dress'],
+  },
+  BLOUSE: {
+    description: 'fitted Indian saree blouse', rules: BLOUSE_RULES,
+    shape: 'a short, fitted blouse (choli) ending above the waist',
+    never: ['kurta', 'shirt', 'crop top', 'dress'],
+  },
+  CHUDIDHAR: {
+    description: 'authentic Indian chudidhar set (kameez, churidar trousers and dupatta)', rules: CHUDIDHAR_RULES,
+    shape: 'a stitched knee-length kameez (tunic) over separate fitted churidar trousers that bunch in folds at the ankles, with a dupatta over the shoulders; the legs are covered by the churidar, visible below the kameez',
+    never: ['saree', 'half-saree', 'lehenga', 'gown', 'anarkali', 'loose salwar'],
+  },
+  SALWAR_SUIT: {
+    description: 'coordinated Indian salwar suit set', rules: SALWAR_RULES,
+    shape: 'a stitched kameez (tunic) over loose salwar trousers gathered at the ankles, with a dupatta over the shoulders',
+    never: ['saree', 'lehenga', 'gown', 'western dress'],
+  },
+  KURTI: {
+    description: "authentic tailored Indian women's kurti", rules: KURTA_RULES,
+    shape: "a women's tunic (kurti) reaching the hips or knees, worn over trousers or leggings",
+    never: ['saree', 'gown', 'shirt', 'dress'],
+  },
+  ANARKALI: {
+    description: 'authentic Indian anarkali suit with churidar and dupatta', rules: ANARKALI_RULES,
+    shape: 'a fitted bodice flowing into a long, flared kameez to the ankles, over fitted churidar trousers, with a dupatta',
+    never: ['saree', 'lehenga', 'gown', 'straight salwar suit'],
+  },
+  LEHENGA: {
+    description: 'authentic Indian lehenga choli with dupatta', rules: LEHENGA_RULES,
+    shape: 'a full, flared, floor-length skirt with a separate short fitted blouse (choli) and a dupatta',
+    never: ['saree', 'gown', 'chudidhar', 'salwar suit'],
+  },
+  GOWN: {
+    description: 'elegant floor-length gown', rules: GOWN_RULES,
+    shape: 'a one-piece floor-length dress with a fitted bodice and a long skirt',
+    never: ['saree', 'lehenga', 'anarkali', 'chudidhar', 'short dress'],
+  },
+  FORMAL_SHIRT: {
+    description: 'formal long-sleeve shirt', rules: '',
+    shape: 'a long-sleeve collared shirt buttoned down the front, with cuffs',
+    never: ['kurta', 'T-shirt', 'jacket', 'coat'],
+  },
+  CASUAL_SHIRT: {
+    description: 'casual shirt', rules: '',
+    shape: 'a collared shirt buttoned down the front, with half or full sleeves, worn casually',
+    never: ['kurta', 'T-shirt', 'jacket'],
+  },
+  TROUSER: {
+    description: 'formal trousers', rules: '',
+    shape: 'full-length tailored trousers with a waistband and front creases',
+    never: ['dhoti', 'pyjama', 'jeans', 'shorts'],
+  },
+  KURTA: {
+    description: 'authentic tailored Indian kurta', rules: KURTA_RULES,
+    shape: 'a long tunic reaching the knees, with a band collar or no collar and side slits, worn over pyjama or trousers',
+    never: ['shirt', 'sherwani', 'coat', 'saree'],
+  },
+  PYJAMA: {
+    description: 'traditional Indian pyjama', rules: PYJAMA_RULES,
+    shape: 'loose or churidar-style trousers with a drawstring waist, worn under a kurta',
+    never: ['formal trousers', 'dhoti', 'skirt'],
+  },
+  DHOTI: {
+    description: 'authentic South Indian veshti / dhoti', rules: DHOTI_RULES,
+    shape: 'an unstitched cloth wrapped around the waist and falling to the ankles, with its border at the hem',
+    never: ['trousers', 'pyjama', 'skirt', 'saree'],
+  },
+  SHERWANI: {
+    description: 'authentic Indian sherwani', rules: SHERWANI_RULES,
+    shape: 'a long, fitted, knee-length coat with a band collar and buttons down the front, over churidar or straight trousers',
+    never: ['suit coat', 'kurta', 'western long coat'],
+  },
+  COAT: {
+    description: 'formal tailored coat or blazer', rules: COAT_RULES,
+    shape: 'a tailored blazer or suit coat with lapels and front buttons, over a shirt',
+    never: ['kurta', 'sherwani', 'shirt', 'jacket'],
+  },
+  WAISTCOAT: {
+    description: 'sleeveless waistcoat (Nehru jacket)', rules: WAISTCOAT_RULES,
+    shape: 'a sleeveless, hip-length waistcoat with a band collar and front buttons, over a kurta or shirt',
+    never: ['coat with sleeves', 'shirt', 'kurta'],
+  },
+  JACKET: {
+    description: 'well-made outer jacket', rules: JACKET_RULES,
+    shape: 'a waist- or hip-length outer jacket with sleeves and a front closure, over a plain top',
+    never: ['blazer', 'suit coat', 'shirt', 'long coat'],
+  },
+  SAFARI: {
+    description: 'professionally tailored safari suit', rules: '',
+    shape: 'a matching safari suit: a belted bush jacket with patch pockets and shoulder straps, and matching trousers',
+    never: ['blazer suit', 'kurta', 'shirt'],
+  },
 }
 
 export function garmentProfile(category: string): GarmentProfile {
