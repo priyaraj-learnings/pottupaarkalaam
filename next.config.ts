@@ -20,7 +20,15 @@ const nextConfig: NextConfig = {
   async headers() {
     const headers = [...securityHeaders]
     if (isUat) headers.push({ key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive, noimageindex' })
-    return [{ source: '/:path*', headers }]
+    return [
+      { source: '/:path*', headers },
+      // Pages are prerendered, so Next.js marks them cacheable for a year
+      // (s-maxage). Firebase Hosting's CDN in front of production would then
+      // keep serving the old pages after every release. Browsers and the CDN
+      // check for a new version instead; /_next/static files keep their
+      // long cache (their names change with every build).
+      { source: '/((?!_next/static|_next/image|api/).*)', headers: [{ key: 'Cache-Control', value: 'no-cache' }] },
+    ]
   },
 }
 
