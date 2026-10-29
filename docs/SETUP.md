@@ -217,6 +217,10 @@ Cloud Run cannot take a custom domain in Mumbai, so Firebase Hosting carries it 
 Firebase Hosting ends a request after 60 seconds; that is why pictures are made through Cloud Tasks, which calls the
 service's own address directly.
 
+Firebase Hosting also keeps a copy of pages it may cache. The app marks its pages `no-cache`, so a new release shows
+straight away. If pp.inaivuit.com ever shows older screens than the service's own run.app address, clear that copy
+by running step 1 again (it publishes the same Hosting settings, which empties Firebase's cache).
+
 ---
 
 ## 5. Hourly cleanup (photos are deleted after 3 days)
