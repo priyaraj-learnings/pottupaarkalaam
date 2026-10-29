@@ -2,6 +2,7 @@
 
 import { useRef, useState, type ChangeEvent } from 'react'
 
+import { CameraCapture, cameraAvailable, type Facing } from '@/components/CameraCapture'
 import { CategoryChips, SourceToggle, type Group } from '@/components/CategoryPicker'
 import LookCard from '@/components/LookCard'
 import { Button, Card, formatInr, Notice, useToast } from '@/components/ui'
@@ -40,13 +41,15 @@ function StepTitle({ number, children, done }: { number: number; children: React
 }
 
 // A photo with "Take photo" and "Gallery" buttons.
-function PhotoSlot({ label, help, photo, disabled, onPick }: {
+function PhotoSlot({ label, help, photo, disabled, facing, onPick }: {
   label: string
   help: string
   photo: Photo | null
   disabled: boolean
+  facing: Facing
   onPick: (file: File) => void
 }) {
+  const [cameraOpen, setCameraOpen] = useState(false)
   const camera = useRef<HTMLInputElement>(null)
   const gallery = useRef<HTMLInputElement>(null)
   const picked = (event: ChangeEvent<HTMLInputElement>) => {
@@ -64,12 +67,15 @@ function PhotoSlot({ label, help, photo, disabled, onPick }: {
           <img src={photo.url} alt={label} className="h-28 w-20 shrink-0 rounded-2xl object-cover ring-1 ring-stone-200" />
         )}
         <div className="grid flex-1 grid-cols-1 gap-2">
-          <Button disabled={disabled} onClick={() => camera.current?.click()}>📷 {photo ? 'Take again' : 'Take photo'}</Button>
+          <Button disabled={disabled} onClick={() => (cameraAvailable() ? setCameraOpen(true) : camera.current?.click())}>📷 {photo ? 'Take again' : 'Take photo'}</Button>
           <Button variant="secondary" disabled={disabled} onClick={() => gallery.current?.click()}>🖼️ Gallery</Button>
         </div>
       </div>
       <input ref={camera} type="file" accept="image/*" capture="environment" className="hidden" onChange={picked} />
       <input ref={gallery} type="file" accept="image/*" className="hidden" onChange={picked} />
+      <CameraCapture open={cameraOpen} title={label} facing={facing}
+        onCapture={file => { setCameraOpen(false); onPick(file) }} onClose={() => setCameraOpen(false)}
+        onFallback={() => { setCameraOpen(false); camera.current?.click() }} />
     </div>
   )
 }
@@ -202,6 +208,7 @@ export default function Couple({ account, settings, onAccount, onRecharge, onRef
             help={!person.category ? `Choose what ${words.him} is trying first.`
               : `${categoryLabel(person.category)}: ${person.source === 'FABRIC' ? 'spread the cloth flat' : 'the whole dress, on a hanger or laid flat'}, in good light.`}
             photo={person.garment}
+            facing="environment"
             disabled={!person.category || preparing}
             onPick={file => void pick(side, 'garment', file)}
           />
@@ -209,6 +216,7 @@ export default function Couple({ account, settings, onAccount, onRecharge, onRef
             label={`Photo of ${words.him}`}
             help="Full length or from the waist up, facing the camera, in good light."
             photo={person.photo}
+            facing="environment"
             disabled={preparing}
             onPick={file => void pick(side, 'photo', file)}
           />
