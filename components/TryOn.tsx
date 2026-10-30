@@ -78,6 +78,14 @@ export default function TryOn({ account, settings, onAccount, onRecharge, onTerm
   ), [items, pairs, planOptions])
   const available = account.freeLeft + account.credits
   const [freeCreditsBack] = useState(() => freeCreditsReturnDay(new Date()))
+  // What is still missing before "Try on" can start, in plain words.
+  const clothesWord = source === 'STITCHED' ? 'dress' : 'fabric'
+  const missing = !items.length && !photo ? `Upload a ${clothesWord} photo and a selfie (your photo) to try on.`
+    : !items.length ? `Upload a ${clothesWord} photo to try on.`
+      : !photo ? 'Upload a selfie or your photo to try on.'
+        : null
+  // "Try on" was tapped with something missing: say what, until it is added.
+  const [showMissing, setShowMissing] = useState(false)
   const needed = plan.ok ? plan.credits : 0
   const short = plan.ok && (needed > available || paidCreditsNeeded(plan, account.freeLeft) > account.credits)
   const room = limit - items.length
@@ -257,6 +265,22 @@ export default function TryOn({ account, settings, onAccount, onRecharge, onTerm
     }
   }
 
+  // Never starts without clothes and the customer's photo: says what is missing
+  // and scrolls to that step instead.
+  function tryOn() {
+    if (missing) {
+      setShowMissing(true)
+      document.getElementById(items.length ? 'tryon-photo' : 'tryon-clothes')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      return
+    }
+    if (!plan.ok) {
+      setError({ message: plan.message })
+      return
+    }
+    setShowMissing(false)
+    void submit(items, pairs)
+  }
+
   function retry(look: LookView) {
     const from = retryFrom[look.id]
     if (!from) return
@@ -325,7 +349,7 @@ export default function TryOn({ account, settings, onAccount, onRecharge, onTerm
         </div>
       </Card>
 
-      <Card title={<StepTitle number={2} done={items.length > 0}>Photos of the clothes <span className="font-semibold text-stone-500">({items.length}/{limit})</span></StepTitle>}>
+      <Card id="tryon-clothes" title={<StepTitle number={2} done={items.length > 0}>Photos of the clothes <span className="font-semibold text-stone-500">({items.length}/{limit})</span></StepTitle>}>
         {extraAllowed ? (
           <div className="mb-3 space-y-1.5">
             <p className="text-sm font-bold text-stone-700">Photos in this try</p>
@@ -399,7 +423,7 @@ export default function TryOn({ account, settings, onAccount, onRecharge, onTerm
         )}
       </Card>
 
-      <Card title={<StepTitle number={3} done={Boolean(photo)}>Your photo</StepTitle>}>
+      <Card id="tryon-photo" title={<StepTitle number={3} done={Boolean(photo)}>Your photo</StepTitle>}>
         <p className="mb-3 text-sm text-stone-600">Any clear photo works: full length or from the waist up, facing the camera, in good light. Full length shows the whole outfit best.</p>
         <div className="flex gap-3">
           {photo && (
@@ -422,6 +446,7 @@ export default function TryOn({ account, settings, onAccount, onRecharge, onTerm
       {/* Summary and the Try on button, above the tab bar. */}
       <div className="fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-30 px-3">
         <div className="mx-auto max-w-md space-y-2 rounded-3xl bg-white/95 p-3 shadow-xl ring-1 ring-stone-200 backdrop-blur">
+          {showMissing && missing && <Notice tone="error">{missing}</Notice>}
           {error && (
             <Notice tone="error">
               {error.message}
@@ -432,14 +457,14 @@ export default function TryOn({ account, settings, onAccount, onRecharge, onTerm
             <span className="font-semibold text-stone-700">
               {plan.ok
                 ? `${plan.looks.length} picture${plan.looks.length === 1 ? '' : 's'} · ${needed} credit${needed === 1 ? '' : 's'}${plan.extraCredits ? ` (${plan.extraCredits} extra, paid)` : ''}`
-                : 'Add clothes and your photo'}
+                : missing ? 'Add clothes and your photo' : plan.message}
             </span>
             <span className={`font-bold ${short ? 'text-red-700' : 'text-stone-500'}`}>You have {available}</span>
           </div>
           {short ? (
             <Button onClick={onRecharge} className="w-full">Recharge to try on</Button>
           ) : (
-            <Button busy={submitting} disabled={!plan.ok || !photo || preparing} onClick={() => submit(items, pairs)} className="w-full text-base">
+            <Button busy={submitting} disabled={preparing} onClick={tryOn} className="w-full text-base">
               ✨ Try on
             </Button>
           )}
