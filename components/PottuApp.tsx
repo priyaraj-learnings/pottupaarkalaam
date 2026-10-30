@@ -95,8 +95,9 @@ function MobileRow({ account, widget, onAccount }: {
     toast(next.phone ? 'Mobile number saved.' : 'Mobile number removed.')
   }
 
-  // Verified numbers change only by verifying the new one.
-  const verifyNew = Boolean(widget && (account.phoneVerified || !account.phone))
+  // Where MSG91 is set up, numbers are only added or changed by verifying them
+  // (free credits need a verified one).
+  const verifyNew = Boolean(widget)
 
   return (
     <div className="rounded-2xl p-4 ring-1 ring-stone-200">
@@ -115,7 +116,9 @@ function MobileRow({ account, widget, onAccount }: {
               </p>
             </div>
             {(widget || !account.phoneVerified) && (
-              <Button variant="secondary" onClick={() => setEditing(true)} className="min-h-10 shrink-0 text-sm">{account.phone ? 'Change' : 'Add'}</Button>
+              <Button variant="secondary" onClick={() => setEditing(true)} className="min-h-10 shrink-0 text-sm">
+                {account.phone ? (widget && !account.phoneVerified ? 'Verify' : 'Change') : 'Add'}
+              </Button>
             )}
           </div>
           {account.phone && (
@@ -151,8 +154,9 @@ export default function PottuApp() {
   const closeLegal = useCallback(() => setLegal(null), [])
   // Shown on the sign-in screen after the account was deleted.
   const [signInNotice, setSignInNotice] = useState('')
-  // Worked out when the account loads, so "Not now" sticks for this visit.
+  // Worked out when the account first loads, so "Not now" sticks for this visit.
   const [askMobile, setAskMobile] = useState(false)
+  const askedMobileFor = useRef<string | null>(null)
 
   useEffect(() => {
     // Also fires once at start with the saved session (INITIAL_SESSION).
@@ -173,7 +177,10 @@ export default function PottuApp() {
       const result = await api<Me>('/api/me')
       loadedAt.current = Date.now()
       setMe({ ...result, userId: forUser, loadedAt: loadedAt.current })
-      setAskMobile(shouldAskForMobile(result.account, Date.now()))
+      if (askedMobileFor.current !== forUser) {
+        askedMobileFor.current = forUser
+        setAskMobile(shouldAskForMobile(result.account, Date.now(), Boolean(result.settings.phoneWidget)))
+      }
       setLoadError('')
     } catch (error) {
       setLoadError(errorMessage(error))
@@ -233,15 +240,16 @@ export default function PottuApp() {
     )
   }
 
-  // Free credits go to one verified mobile number a month: no app without one.
-  if (current.settings.mobileRequired && current.settings.phoneWidget && !current.account.phoneVerified) {
+  // Free credits go to one verified mobile number a month. Without one the app
+  // still opens, with paid credits only.
+  if (askMobile && current.settings.phoneWidget && !current.account.phoneVerified) {
     return <VerifyMobile account={current.account} widget={current.settings.phoneWidget} onDone={account => {
       setAccount(account)
       setAskMobile(false)
-    }} onSignOut={signOut} />
+    }} onSkip={() => setAskMobile(false)} />
   }
 
-  if (askMobile && !current.settings.mobileRequired) {
+  if (askMobile && !current.settings.phoneWidget) {
     return <MobileAsk account={current.account} onDone={account => {
       setAccount(account)
       setAskMobile(false)
@@ -274,8 +282,9 @@ export default function PottuApp() {
 
         <main className="px-4 pb-28 pt-2">
           <div className={shownTab === 'tryon' ? '' : 'hidden'}>
-            <TryOn account={current.account} onAccount={setAccount} onRecharge={() => setTab('recharge')}
-              onTermsNeeded={() => loadMe(session.user.id)} />
+            <TryOn account={current.account} settings={current.settings} onAccount={setAccount} onRecharge={() => setTab('recharge')}
+              onTermsNeeded={() => loadMe(session.user.id)}
+              onVerifyMobile={current.settings.phoneWidget ? () => setAskMobile(true) : undefined} />
           </div>
           {coupleOn && (
             <div className={shownTab === 'couple' ? '' : 'hidden'}>

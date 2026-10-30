@@ -19,8 +19,12 @@ async function one<T = Record<string, unknown>>(sql: string, params: unknown[] =
   return result.rows[0].r
 }
 
-async function newUser(email: string) {
+// Free credits need a verified mobile number, so new accounts get one of their
+// own unless the test is about accounts without one.
+let nextPhone = 8000000001
+async function newUser(email: string, { verified = true } = {}) {
   const { rows } = await db.query<{ id: string }>('insert into auth.users (email) values ($1) returning id', [email])
+  if (verified) await db.query('select public.verify_phone($1, $2)', [rows[0].id, `+91${nextPhone++}`])
   return rows[0].id
 }
 
@@ -110,20 +114,21 @@ describe('failed try-ons', () => {
   it('gives the credits back once', async () => {
     const user = await newUser('refund@example.com')
     await one('select public.get_account($1, $2) as r', [user, TERMS])
-    const free = await createLooks(user, [pair(0, 1), pair(2, 3), single(4)])
-    expect(free.account).toMatchObject({ credits: 0, freeLeft: 0 })
-    await db.query(`select public.adjust_credits('refund@example.com', null, 4, 'Test credits')`)
-    const paid = await createLooks(user, [pair(0, 1), pair(2, 3)])
+    const free = await createLooks(user, [pair(0, 1), single(2)])
+    await createLooks(user, [pair(0, 1)])
+    expect(await account(user)).toMatchObject({ credits: 0, freeLeft: 0 })
+    await db.query(`select public.adjust_credits('refund@example.com', null, 2, 'Test credits')`)
+    const paid = await createLooks(user, [pair(0, 1)])
     expect(paid.account).toMatchObject({ credits: 0, freeLeft: 0 })
 
-    const pairLook = paid.looks[1].id
+    const pairLook = paid.looks[0].id
     expect(await one(`select public.fail_look($1, 'Provider error') as r`, [pairLook])).toEqual({ status: 'FAILED', refunded: true })
     expect(await account(user)).toMatchObject({ credits: 2, freeLeft: 0 })
     expect(await one(`select public.fail_look($1, 'Again') as r`, [pairLook])).toEqual({ status: 'FAILED', refunded: true })
     expect(await account(user)).toMatchObject({ credits: 2 })
 
     // Free credits come back as free credits in the same month.
-    await one(`select public.fail_look($1, 'Provider error') as r`, [free.looks[2].id])
+    await one(`select public.fail_look($1, 'Provider error') as r`, [free.looks[1].id])
     expect(await account(user)).toMatchObject({ credits: 2, freeLeft: 1 })
   })
 
@@ -224,22 +229,26 @@ describe('admin credit adjustments', () => {
 
 describe('free credits for one mobile number', () => {
   const verify = (userId: string, phone: string) => one<Result>('select public.verify_phone($1, $2) as r', [userId, phone])
-  const requireMobile = (on: boolean) => db.query('update public.app_settings set free_needs_mobile = $1 where id', [on])
 
-  it('gives free credits only to accounts with a verified number, when the admin requires it', async () => {
-    const user = await newUser('needs-mobile@example.com')
+  it('gives free credits only to accounts with a verified number', async () => {
+    const user = await newUser('needs-mobile@example.com', { verified: false })
     await one('select public.get_account($1, $2) as r', [user, TERMS])
-    await requireMobile(true)
+    expect(await account(user)).toMatchObject({ freeLeft: 0, phoneVerified: false })
+    expect(await createLooks(user, [single(0)])).toMatchObject({ error: 'INSUFFICIENT_CREDITS', available: 0 })
+    // Even with the old admin switch off.
+    await db.query('update public.app_settings set free_needs_mobile = false where id')
     try {
-      expect(await account(user)).toMatchObject({ freeLeft: 0, phoneVerified: false })
-      expect(await createLooks(user, [single(0)])).toMatchObject({ error: 'INSUFFICIENT_CREDITS', available: 0 })
-
-      expect(await verify(user, '+919000000001')).toMatchObject({ account: { phone: '+919000000001', phoneVerified: true, freeLeft: 5 } })
-      expect((await createLooks(user, [single(0)])).looks).toHaveLength(1)
-      expect(await account(user)).toMatchObject({ freeLeft: 4 })
+      expect(await account(user)).toMatchObject({ freeLeft: 0 })
     } finally {
-      await requireMobile(false)
+      await db.query('update public.app_settings set free_needs_mobile = true where id')
     }
+    // Paid credits work without a number.
+    await db.query(`select public.adjust_credits('needs-mobile@example.com', null, 1, 'Gift')`)
+    expect((await createLooks(user, [single(0)])).looks).toHaveLength(1)
+
+    expect(await verify(user, '+919000000001')).toMatchObject({ account: { phone: '+919000000001', phoneVerified: true, freeLeft: 5 } })
+    expect((await createLooks(user, [single(0)])).looks).toHaveLength(1)
+    expect(await account(user)).toMatchObject({ freeLeft: 4 })
   })
 
   it('lets a verified number belong to one account only', async () => {
@@ -252,6 +261,16 @@ describe('free credits for one mobile number', () => {
     expect(await verify(first, '+919000000003')).toMatchObject({ account: { phone: '+919000000003' } })
     // The old number is free again for someone else.
     expect(await verify(second, '+919000000002')).toMatchObject({ account: { phoneVerified: true } })
+  })
+
+  it('does not give free credits again to a number an account moved away from', async () => {
+    const first = await newUser('mover@example.com', { verified: false })
+    const second = await newUser('taker@example.com', { verified: false })
+    await one('select public.get_account($1, $2) as r', [first, TERMS])
+    await verify(first, '+919000000006')
+    await createLooks(first, [single(0), single(1)])
+    expect(await verify(first, '+919000000007')).toMatchObject({ account: { freeLeft: 3 } })
+    expect(await verify(second, '+919000000006')).toMatchObject({ account: { phoneVerified: true, freeLeft: 3 } })
   })
 
   it('never lets a typed number replace or remove a verified one', async () => {
@@ -358,7 +377,7 @@ describe('mobile numbers', () => {
     one<Result>('select public.save_phone($1, $2, $3) as r', [userId, phone, offers])
 
   it('saves, changes and removes the number, with offers only when there is one', async () => {
-    const user = await newUser('mobile@example.com')
+    const user = await newUser('mobile@example.com', { verified: false })
     expect(await account(user)).toMatchObject({ phone: null, offersOk: false, phoneAskedAt: null })
 
     expect(await savePhone(user, '+919876543210', true)).toMatchObject({ phone: '+919876543210', offersOk: true })
@@ -372,14 +391,14 @@ describe('mobile numbers', () => {
   })
 
   it('remembers "Not now" without touching the number', async () => {
-    const user = await newUser('later@example.com')
+    const user = await newUser('later@example.com', { verified: false })
     const skipped = await one<Result>('select public.skip_phone($1) as r', [user])
     expect(skipped).toMatchObject({ phone: null })
     expect(skipped.phoneAskedAt).toBeTruthy()
   })
 
   it('shows the number to the admin and finds customers by it', async () => {
-    const user = await newUser('findme@example.com')
+    const user = await newUser('findme@example.com', { verified: false })
     await savePhone(user, '+919988776655', true)
     const search = (text: string) => one<{ total: number; users: Array<Record<string, unknown>> }>(
       `select public.admin_users($1, 'recent', 50, 0) as r`, [text])
@@ -396,6 +415,65 @@ describe('mobile numbers', () => {
     const detail = await one<{ user: Record<string, unknown> }>('select public.admin_user_detail($1) as r', [user])
     expect(detail.user).toMatchObject({ phone: '+919988776655', offersOk: true })
     expect(detail.user.phoneUpdatedAt).toBeTruthy()
+  })
+})
+
+describe('extra photos for paying customers', () => {
+  // Five singles: the 4th and 5th photo (index 3 and 4) are extra.
+  const fiveSingles = [single(0), single(1), single(2), single(3), single(4)]
+
+  it('are allowed only after a recharge this month, and cost one more paid credit each', async () => {
+    const user = await newUser('extra-photos@example.com')
+    await one('select public.get_account($1, $2) as r', [user, TERMS])
+    expect(await account(user)).toMatchObject({ paidThisMonth: false })
+    expect(await createLooks(user, fiveSingles)).toEqual({ error: 'EXTRA_PHOTOS_NOT_ALLOWED' })
+    // Three photos are fine without paying.
+    expect((await createLooks(user, [single(0)])).looks).toHaveLength(1)
+
+    await submit(user, 100, '600000000901')
+    await alert('600000000901', 100)
+    expect(await account(user)).toMatchObject({ paidThisMonth: true, credits: 10, freeLeft: 4 })
+
+    const made = await createLooks(user, fiveSingles)
+    expect(made.looks.map(look => (look as unknown as { credits: number }).credits)).toEqual([1, 1, 1, 2, 2])
+    // 4 free credits pay for four normal parts, 1 paid credit for the fifth,
+    // and the two extras are paid: 3 paid credits in all.
+    expect(await account(user)).toMatchObject({ freeLeft: 0, credits: 7 })
+    const fifth = await db.query<{ credits: number; extra_credits: number; free_credits_used: number; paid_credits_used: number }>(
+      'select credits, extra_credits, free_credits_used, paid_credits_used from public.looks where id = $1', [made.looks[4].id])
+    expect(fifth.rows[0]).toEqual({ credits: 2, extra_credits: 1, free_credits_used: 0, paid_credits_used: 2 })
+
+    // A failed extra picture gives back both its credits.
+    await one(`select public.fail_look($1, 'test') as r`, [made.looks[4].id])
+    expect(await account(user)).toMatchObject({ credits: 9 })
+  })
+
+  it('need paid credits for the extra even when free credits are left', async () => {
+    const user = await newUser('extra-free-only@example.com')
+    await one('select public.get_account($1, $2) as r', [user, TERMS])
+    await submit(user, 50, '600000000902')
+    await alert('600000000902', 50)
+    expect(await account(user)).toMatchObject({ credits: 5, freeLeft: 5 })
+    // 4 photos: 4 normal parts from free credits, 1 extra from paid credits.
+    expect((await createLooks(user, [single(0), single(1), single(2), single(3)])).looks).toHaveLength(4)
+    expect(await account(user)).toMatchObject({ credits: 4, freeLeft: 1 })
+    // With no paid credits the 4th photo is refused, although a free credit is left.
+    await db.query('update public.accounts set credits = 0 where user_id = $1', [user])
+    expect(await createLooks(user, [single(0), single(1), single(2), single(3)]))
+      .toMatchObject({ error: 'INSUFFICIENT_CREDITS', paidNeeded: 4 })
+  })
+
+  it('can be turned off by the admin', async () => {
+    const user = await newUser('extra-off@example.com')
+    await one('select public.get_account($1, $2) as r', [user, TERMS])
+    await submit(user, 100, '600000000903')
+    await alert('600000000903', 100)
+    await db.query('update public.app_settings set extra_photos_enabled = false where id')
+    try {
+      expect(await createLooks(user, fiveSingles)).toEqual({ error: 'EXTRA_PHOTOS_NOT_ALLOWED' })
+    } finally {
+      await db.query('update public.app_settings set extra_photos_enabled = true where id')
+    }
   })
 })
 
@@ -457,6 +535,7 @@ describe('database permissions', () => {
         await expect(db.query(`select public.verify_phone(gen_random_uuid(), '+919876543210')`)).rejects.toThrow(/permission denied/)
         await expect(db.query(`select public.set_couple_opt_in(gen_random_uuid(), true)`)).rejects.toThrow(/permission denied/)
         await expect(db.query(`select public.prepare_account_deletion(gen_random_uuid())`)).rejects.toThrow(/permission denied/)
+        await expect(db.query(`select public.paid_this_month(gen_random_uuid())`)).rejects.toThrow(/permission denied/)
         await expect(db.query('select * from public.free_use_carryover')).rejects.toThrow(/permission denied/)
       } finally {
         await db.exec('reset role')

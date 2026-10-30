@@ -44,6 +44,9 @@ export function TermsContent() {
           <li>Free credits may need a mobile number verified by an SMS code. One mobile number can belong to one account only,
             so free credits go to one number a month. Making extra accounts to get more free credits is not allowed.</li>
           <li>One garment makes one picture for 1 credit. Two garments worn together (a pair) make one picture for 2 credits.</li>
+          <li>A try takes up to 3 photos of clothes. If you have made a recharge in the same calendar month (and the service
+            offers it), you can add a 4th and 5th photo; each of those pictures uses the extra credits shown in the app, from
+            paid credits only.</li>
           <li>A couple picture (two people, each in their own garment), when offered and turned on in the account menu, uses
             the number of credits shown in the app, from paid credits only: free credits cannot be used for it.</li>
           <li>You buy credits by paying {COMPANY.name} by UPI and entering the UPI reference (UTR). The price per credit

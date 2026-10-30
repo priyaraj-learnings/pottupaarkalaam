@@ -67,9 +67,10 @@ MSG91 account as salemtamilroots.in works; without your own DLT registration MSG
    (tokenAuth) and the account's **Auth key** (MSG91 → Authkey; secret: it is saved but never shown again) →
    **Save settings**. "Sign in with mobile number" then appears on the sign-in screen; clear the Widget ID to
    turn it off.
-4. Optional, once a test sign-in works: tick **Free credits only for a verified mobile number**. Everyone who
-   signs in with Google or email must then verify a number with an SMS code before using the app; a verified number
-   belongs to one account only, so free credits go to one number a month.
+4. Free credits always need a mobile number verified by an SMS code (migration `20261030000100`; no longer a
+   switch). Everyone who signs in with Google or email is asked to verify a number each visit until they do; they
+   can choose "Not now" and use the app with paid credits only. A verified number belongs to one account only, so
+   free credits go to one number a month. Until step 3 is done nobody can verify, so nobody gets free credits.
 
 People who sign in this way get a stand-in email address in Supabase (`pp-phone-<number>@inaivuit.com`); the app
 never emails it and shows their mobile number instead.
@@ -91,6 +92,13 @@ as per UPI risk policy"), but accepts a scan of its QR, also scanned from a phot
 
 Run `supabase/migrations/20261029000600_delete_account.sql` (UAT first, then production). Customers can then delete
 their account from the account menu; admins cannot (remove the admin role first).
+
+### 1.3c Extra photos for paying customers
+
+Run `supabase/migrations/20261029000900_extra_photos.sql` (UAT first, then production). A try takes up to 3 clothes
+photos; customers with a recharge approved this month can choose 4 or 5, and the 4th and 5th pictures cost extra
+credits each (1 by default, so 2 credits a picture), from paid credits only. `/admin` → **Settings** → *Extra photos
+for paying customers* turns it off or changes the extra.
 
 ### 1.4 Couple pictures (optional, paid)
 

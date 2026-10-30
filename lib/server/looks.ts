@@ -8,6 +8,8 @@ import { buildCouplePrompt, buildPairPrompt, buildSinglePrompt } from '@/lib/pro
 import {
   coupleGarmentAllowed,
   MAX_GARMENTS,
+  MAX_GARMENTS_PAID,
+  paidCreditsNeeded,
   PHOTO_BUCKET,
   planLooks,
   RETENTION_DAYS,
@@ -111,21 +113,18 @@ export async function createTryOns(user: SignedInUser, form: FormData) {
   if (!Array.isArray(garments) || !Array.isArray(pairs) || !pairs.every(pair => Array.isArray(pair) && pair.length === 2 && pair.every(Number.isInteger))) {
     throw new ApiError(400, 'INVALID_INPUT', 'Invalid clothes list.')
   }
-  if (files.length !== garments.length || files.length > MAX_GARMENTS) {
-    throw new ApiError(400, 'INVALID_INPUT', `Add up to ${MAX_GARMENTS} clothes photos.`)
-  }
-  const plan = planLooks(garments, pairs)
-  if (!plan.ok) throw new ApiError(400, 'INVALID_INPUT', plan.message)
-
   // Checked again (atomically) when the credits are taken; this only spares
   // reading and storing photos that cannot be used.
-  const account = await getAccount(user)
+  const [account, settings] = await Promise.all([getAccount(user), loadSettings()])
   if (account.termsVersion !== TERMS_VERSION) throw new ApiError(403, 'TERMS_REQUIRED', 'Please read and agree to the terms first.')
-  if (account.freeLeft + account.credits < plan.credits) {
-    throw new ApiError(402, 'INSUFFICIENT_CREDITS',
-      `This needs ${plan.credits} credit${plan.credits === 1 ? '' : 's'}; you have ${account.freeLeft + account.credits}. Please recharge.`,
-      { needed: plan.credits, available: account.freeLeft + account.credits })
+  const extraAllowed = settings.extraPhotos.enabled && account.paidThisMonth
+  const maxGarments = extraAllowed ? MAX_GARMENTS_PAID : MAX_GARMENTS
+  if (files.length !== garments.length || files.length > maxGarments) {
+    throw files.length > MAX_GARMENTS && files.length <= MAX_GARMENTS_PAID ? extraPhotosError() : new ApiError(400, 'INVALID_INPUT', `Add up to ${maxGarments} clothes photos.`)
   }
+  const plan = planLooks(garments, pairs, { maxGarments, extraCredits: settings.extraPhotos.credits })
+  if (!plan.ok) throw new ApiError(400, 'INVALID_INPUT', plan.message)
+  if (paidCreditsNeeded(plan, account.freeLeft) > account.credits) throw creditsError(plan.credits, account.freeLeft + account.credits, plan.extraCredits)
 
   const customer = await validatePhoto(photo, 'photo of you')
   const garmentPhotos = []
@@ -159,11 +158,8 @@ export async function createTryOns(user: SignedInUser, form: FormData) {
     if (error) throw dbError(error, 'Unable to start the try-on')
     const result = data as { error?: string; needed?: number; available?: number; looks?: Array<{ id: string; kind: 'SINGLE' | 'PAIR'; credits: number }>; account?: unknown }
     if (result.error === 'TERMS_REQUIRED') throw new ApiError(403, 'TERMS_REQUIRED', 'Please read and agree to the terms first.')
-    if (result.error === 'INSUFFICIENT_CREDITS') {
-      throw new ApiError(402, 'INSUFFICIENT_CREDITS',
-        `This needs ${result.needed} credit${result.needed === 1 ? '' : 's'}; you have ${result.available}. Please recharge.`,
-        { needed: result.needed, available: result.available })
-    }
+    if (result.error === 'EXTRA_PHOTOS_NOT_ALLOWED') throw extraPhotosError()
+    if (result.error === 'INSUFFICIENT_CREDITS') throw creditsError(result.needed ?? plan.credits, result.available ?? 0, plan.extraCredits)
     if (!result.looks?.length) throw new Error('No looks were created.')
 
     await dispatchLooks(result.looks.map(look => look.id))
@@ -173,6 +169,16 @@ export async function createTryOns(user: SignedInUser, form: FormData) {
     await removeFiles(uploaded).catch(cleanupError => console.error('Unable to remove photos of a refused try-on', cleanupError))
     throw error
   }
+}
+
+function extraPhotosError() {
+  return new ApiError(403, 'EXTRA_PHOTOS_NOT_ALLOWED', `A try takes up to ${MAX_GARMENTS} photos. Recharge this month to add up to ${MAX_GARMENTS_PAID}.`)
+}
+
+function creditsError(needed: number, available: number, extra: number) {
+  return new ApiError(402, 'INSUFFICIENT_CREDITS',
+    `This needs ${needed} credit${needed === 1 ? '' : 's'}${extra ? `, ${extra} of them paid credits for the extra photo${extra === 1 ? '' : 's'}` : ''}; you have ${available}. Please recharge.`,
+    { needed, available })
 }
 
 // Multipart form: hisPhoto, hisGarment, herPhoto, herGarment (files), garments

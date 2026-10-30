@@ -102,8 +102,9 @@ function SettingsForm({ overview, onSaved }: { overview: Overview; onSaved: () =
     msg91WidgetId: phoneLogin.widgetId,
     msg91TokenAuth: phoneLogin.tokenAuth,
     msg91AuthKey: '',
-    freeNeedsMobile: String(phoneLogin.freeNeedsMobile),
     coupleEnabled: String(settings.couple.enabled),
+    extraPhotosEnabled: String(settings.extraPhotos.enabled),
+    extraPhotoCredits: String(settings.extraPhotos.credits),
     coupleCredits: String(settings.couple.credits),
   })
   const [busy, setBusy] = useState(false)
@@ -172,6 +173,30 @@ function SettingsForm({ overview, onSaved }: { overview: Overview; onSaved: () =
         </div>
       </Card>
 
+      <Card title="Extra photos for paying customers">
+        <div className="space-y-3">
+          <p className="text-sm text-stone-600">
+            A try takes up to 3 clothes photos. Customers with a recharge approved this month can choose 4 or 5; the 4th and
+            5th pictures cost extra credits each, from paid credits only (never the free ones). A failed picture gives its
+            credits back.
+          </p>
+          <label className="flex items-start gap-3 rounded-xl bg-stone-50 p-3 text-sm text-stone-700">
+            <input type="checkbox" checked={form.extraPhotosEnabled === 'true'} onChange={event => setForm(current => ({ ...current, extraPhotosEnabled: String(event.target.checked) }))}
+              className="mt-0.5 h-5 w-5 shrink-0 accent-brand-600" />
+            <span><b>Offer a 4th and 5th photo to customers who recharged this month</b></span>
+          </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {field('extraPhotoCredits', 'Extra credits for each 4th and 5th picture', { inputMode: 'numeric' })}
+          </div>
+          {Number(form.extraPhotoCredits) > 0 && Number(form.standardRateInr) > 0 && (
+            <p className="text-xs text-stone-500">
+              = {1 + Number(form.extraPhotoCredits)} credits a picture, ₹{(1 + Number(form.extraPhotoCredits)) * Number(form.standardRateInr)} at the
+              standard price. 4 photos = {4 + Number(form.extraPhotoCredits)} credits, 5 photos = {5 + 2 * Number(form.extraPhotoCredits)} credits.
+            </p>
+          )}
+        </div>
+      </Card>
+
       <Card title="Couple pictures">
         <div className="space-y-3">
           <p className="text-sm text-stone-600">
@@ -225,15 +250,16 @@ function SettingsForm({ overview, onSaved }: { overview: Overview; onSaved: () =
               Client Side Integration; MSG91 answers &ldquo;Widget not found&rdquo; to a name.
             </Notice>
           )}
-          <label className="flex items-start gap-3 rounded-xl bg-stone-50 p-3 text-sm text-stone-700">
-            <input type="checkbox" checked={form.freeNeedsMobile === 'true'} onChange={event => setForm(current => ({ ...current, freeNeedsMobile: String(event.target.checked) }))}
-              className="mt-0.5 h-5 w-5 shrink-0 accent-brand-600" />
-            <span>
-              <b>Free credits only for a verified mobile number.</b> Everyone who signs in with Google or email must verify a
-              number with an SMS code, and one number can belong to one account only, so the free credits go to one number
-              a month. Needs the three boxes above.
-            </span>
-          </label>
+          <p className="rounded-xl bg-stone-50 p-3 text-sm text-stone-700">
+            <b>Free credits only for a verified mobile number.</b> Anyone can sign in with Google or email and use paid
+            credits, but the monthly free credits need a number verified here with an SMS code, and one number can belong
+            to one account only, so the free credits go to one number a month.
+          </p>
+          {!(phoneLogin.widgetId && phoneLogin.tokenAuth && phoneLogin.authKeySet) && (
+            <Notice tone="warning">
+              Until the three boxes above are saved, nobody can verify a mobile number, so nobody gets free credits.
+            </Notice>
+          )}
         </div>
       </Card>
 

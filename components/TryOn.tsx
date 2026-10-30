@@ -4,13 +4,13 @@ import { useMemo, useRef, useState, type ChangeEvent } from 'react'
 
 import { CameraCapture, cameraAvailable } from '@/components/CameraCapture'
 import { CategoryChips, SourceToggle } from '@/components/CategoryPicker'
-import LookCard from '@/components/LookCard'
+import { LookGallery } from '@/components/LookGallery'
 import { Button, Card, Notice, Sheet, useToast } from '@/components/ui'
 import { api, ApiFailure, errorMessage } from '@/lib/client/api'
 import { shrinkPhoto } from '@/lib/client/photos'
-import { isFinished, type Account, type LookView } from '@/lib/client/types'
+import { isFinished, type Account, type AppSettings, type LookView } from '@/lib/client/types'
 import { useLookPolling } from '@/lib/client/useLookPolling'
-import { canPair, categoryLabel, freeCreditsReturnDay, MAX_GARMENTS, planLooks, SOURCE_LABELS, type GarmentSource } from '@/lib/rules'
+import { canPair, categoryLabel, freeCreditsReturnDay, sourceFor, MAX_GARMENTS, MAX_GARMENTS_PAID, paidCreditsNeeded, planLooks, SOURCE_LABELS, type GarmentSource } from '@/lib/rules'
 
 type Item = { id: string; blob: Blob; url: string; category: string; source: GarmentSource }
 type Photo = { blob: Blob; url: string }
@@ -33,11 +33,14 @@ function StepTitle({ number, children, done }: { number: number; children: React
   )
 }
 
-export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }: {
+export default function TryOn({ account, settings, onAccount, onRecharge, onTermsNeeded, onVerifyMobile }: {
   account: Account
+  settings: AppSettings
   onAccount: (account: Account) => void
   onRecharge: () => void
   onTermsNeeded: () => void
+  // Opens the SMS code check, where mobile numbers can be verified.
+  onVerifyMobile?: () => void
 }) {
   const toast = useToast()
   const [category, setCategory] = useState<string | null>(null)
@@ -60,15 +63,24 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
   const selfieCamera = useRef<HTMLInputElement>(null)
   const selfieGallery = useRef<HTMLInputElement>(null)
 
+  // Extra (4th and 5th) photos: for customers who recharged this month.
+  const extraAllowed = settings.extraPhotos.enabled && account.paidThisMonth
+  const extraCredits = settings.extraPhotos.credits
+  const planOptions = useMemo(() => ({ maxGarments: extraAllowed ? MAX_GARMENTS_PAID : MAX_GARMENTS, extraCredits }), [extraAllowed, extraCredits])
+  const [chosenLimit, setLimit] = useState(MAX_GARMENTS)
+  const limit = extraAllowed ? Math.max(chosenLimit, items.length) : MAX_GARMENTS
+
   const indexOf = (id: string) => items.findIndex(item => item.id === id)
   const plan = useMemo(() => planLooks(
     items.map(item => ({ category: item.category, source: item.source })),
-    pairs.map(([a, b]) => [items.findIndex(item => item.id === a), items.findIndex(item => item.id === b)] as [number, number])
-  ), [items, pairs])
+    pairs.map(([a, b]) => [items.findIndex(item => item.id === a), items.findIndex(item => item.id === b)] as [number, number]),
+    planOptions,
+  ), [items, pairs, planOptions])
   const available = account.freeLeft + account.credits
   const [freeCreditsBack] = useState(() => freeCreditsReturnDay(new Date()))
   const needed = plan.ok ? plan.credits : 0
-  const room = MAX_GARMENTS - items.length
+  const short = plan.ok && (needed > available || paidCreditsNeeded(plan, account.freeLeft) > account.credits)
+  const room = limit - items.length
 
   const partnerOf = (id: string) => {
     const pair = pairs.find(([a, b]) => a === id || b === id)
@@ -100,7 +112,7 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
 
   async function addClothesFiles(files: File[]) {
     if (!files.length || !category) return
-    if (files.length > room) toast(`Only ${room} more photo${room === 1 ? '' : 's'} can be added (up to ${MAX_GARMENTS}).`)
+    if (files.length > room) toast(`Only ${room} more photo${room === 1 ? '' : 's'} can be added (up to ${limit}).`)
     setPreparing(true)
     try {
       const added: Item[] = []
@@ -108,7 +120,7 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
         const blob = await shrinkPhoto(file)
         added.push({ id: `item-${nextItemId++}`, blob, url: URL.createObjectURL(blob), category, source })
       }
-      setItems(current => [...current, ...added].slice(0, MAX_GARMENTS))
+      setItems(current => [...current, ...added].slice(0, limit))
     } catch (photoError) {
       toast(errorMessage(photoError), 'error')
     } finally {
@@ -145,7 +157,11 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
   }
 
   function changeItem(id: string, change: Partial<Pick<Item, 'category' | 'source'>>) {
-    const next = items.map(item => (item.id === id ? { ...item, ...change } : item))
+    changeItems(item => item.id === id, () => change)
+  }
+
+  function changeItems(match: (item: Item) => boolean, change: (item: Item) => Partial<Pick<Item, 'category' | 'source'>>) {
+    const next = items.map(item => (match(item) ? { ...item, ...change(item) } : item))
     setItems(next)
     // A pair that no longer makes sense is separated.
     setPairs(current => current.filter(([a, b]) => {
@@ -153,6 +169,39 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
       const second = next.find(item => item.id === b)
       return first && second && canPair(first.category, second.category)
     }))
+  }
+
+  // Step 1 describes the photos already added, so a change there changes them
+  // too (back from the pictures, Saree -> Lehenga makes a lehenga next time).
+  // Not when the new choice is worn with them as a pair (shirt, then veshti):
+  // that is the next garment to add. "Undo" on the toast keeps them as they were.
+  function chooseCategory(code: string) {
+    const nextSource = sourceFor(code, source)
+    setCategory(code)
+    setSource(nextSource)
+    if (!category || code === category) return
+    relabel(item => item.category === category && !canPair(item.category, code), categoryLabel(code),
+      item => ({ category: code, source: sourceFor(code, item.source) }))
+  }
+
+  function chooseSource(next: GarmentSource) {
+    setSource(next)
+    if (category && next !== source) {
+      relabel(item => item.category === category && item.source === source, SOURCE_LABELS[next].toLowerCase(), () => ({ source: next }))
+    }
+  }
+
+  // Changes the matching photos (what: the new choice, for the toast).
+  function relabel(match: (item: Item) => boolean, what: string, change: (item: Item) => Partial<Pick<Item, 'category' | 'source'>>) {
+    const changed = items.filter(match)
+    if (!changed.length) return
+    const before = new Map(changed.map(item => [item.id, { category: item.category, source: item.source }]))
+    changeItems(item => before.has(item.id), change)
+    const numbers = items.flatMap((item, index) => (before.has(item.id) ? [`#${index + 1}`] : []))
+    toast(`${numbers.length === 1 ? 'Photo' : 'Photos'} ${numbers.join(', ')} changed to ${what}.`, 'info', {
+      label: 'Undo',
+      onClick: () => setItems(current => current.map(item => ({ ...item, ...before.get(item.id) }))),
+    })
   }
 
   // ---------------------------------------------------------------------------
@@ -171,7 +220,7 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
       const pairIndexes = chosenPairs.map(([a, b]) => [chosen.findIndex(item => item.id === a), chosen.findIndex(item => item.id === b)])
       form.append('pairs', JSON.stringify(pairIndexes))
 
-      const local = planLooks(chosen.map(item => ({ category: item.category, source: item.source })), pairIndexes as Array<[number, number]>)
+      const local = planLooks(chosen.map(item => ({ category: item.category, source: item.source })), pairIndexes as Array<[number, number]>, planOptions)
       const created = await api<CreateResponse>('/api/try-ons', { method: 'POST', body: form })
       onAccount(created.account)
 
@@ -198,6 +247,8 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
         onTermsNeeded()
         return
       }
+      // The account changed (for example a new month): load it again.
+      if (submitError instanceof ApiFailure && submitError.code === 'EXTRA_PHOTOS_NOT_ALLOWED') onTermsNeeded()
       const recharge = submitError instanceof ApiFailure && submitError.code === 'INSUFFICIENT_CREDITS'
       setError({ message: errorMessage(submitError), recharge })
       if (replaceLookId) toast(errorMessage(submitError), 'error')
@@ -236,9 +287,7 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
             {making ? 'Making them now. You can leave this screen; they will be in My pictures.' : 'Save the ones you like. Pictures are deleted after 3 days.'}
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          {results.map(look => <LookCard key={look.id} look={look} onRetry={retryFrom[look.id] ? () => retry(look) : undefined} />)}
-        </div>
+        <LookGallery looks={results} onRetry={look => (retryFrom[look.id] ? () => retry(look) : undefined)} />
         <div className="grid grid-cols-1 gap-2">
           <Button onClick={tryMore} className="w-full">Try other clothes</Button>
           <Button variant="secondary" onClick={() => { setShowResults(false); setError(null) }} className="w-full">Back to these clothes</Button>
@@ -252,7 +301,17 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
 
   return (
     <div className="space-y-4 pb-36">
-      {available === 0 && (
+      {!account.phoneVerified && (
+        <Notice tone={available === 0 ? 'warning' : 'info'}>
+          <b>{account.freeCreditsPerMonth} free credits every month need a verified mobile number</b> (one account per
+          number).{' '}
+          {onVerifyMobile
+            ? <button type="button" onClick={onVerifyMobile} className="font-extrabold underline">Verify my number</button>
+            : 'Mobile number checks are not available yet.'}
+          {available === 0 && <>{' '}Or <button type="button" onClick={onRecharge} className="font-extrabold underline">recharge</button>.</>}
+        </Notice>
+      )}
+      {account.phoneVerified && available === 0 && (
         <Notice tone="warning">
           <b>You have used this month&rsquo;s {account.freeCreditsPerMonth} free credits.</b> They come back on {freeCreditsBack}.
           To keep trying on now,{' '}
@@ -260,13 +319,36 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
         </Notice>
       )}
       <Card title={<StepTitle number={1} done={Boolean(category)}>What are you trying?</StepTitle>}>
-        <CategoryChips value={category} onChange={setCategory} />
+        <CategoryChips value={category} onChange={chooseCategory} />
         <div className="mt-4">
-          <SourceToggle value={source} onChange={setSource} />
+          <SourceToggle value={source} category={category} onChange={chooseSource} />
         </div>
       </Card>
 
-      <Card title={<StepTitle number={2} done={items.length > 0}>Photos of the clothes <span className="font-semibold text-stone-500">({items.length}/{MAX_GARMENTS})</span></StepTitle>}>
+      <Card title={<StepTitle number={2} done={items.length > 0}>Photos of the clothes <span className="font-semibold text-stone-500">({items.length}/{limit})</span></StepTitle>}>
+        {extraAllowed ? (
+          <div className="mb-3 space-y-1.5">
+            <p className="text-sm font-bold text-stone-700">Photos in this try</p>
+            <div role="radiogroup" aria-label="Photos in this try" className="grid grid-cols-3 gap-1 rounded-full bg-stone-100 p-1">
+              {[MAX_GARMENTS, MAX_GARMENTS + 1, MAX_GARMENTS_PAID].map(count => (
+                <button key={count} type="button" role="radio" aria-checked={limit === count} disabled={count < items.length}
+                  onClick={() => setLimit(count)}
+                  className={`min-h-9 rounded-full text-sm font-extrabold disabled:opacity-40 ${limit === count ? 'bg-white text-brand-800 shadow-sm ring-1 ring-brand-200' : 'text-stone-600'}`}>
+                  {count}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-stone-500">
+              You recharged this month, so you can add up to {MAX_GARMENTS_PAID}. The 4th and 5th pictures cost {1 + extraCredits} credits
+              each, from paid credits.
+            </p>
+          </div>
+        ) : settings.extraPhotos.enabled ? (
+          <p className="mb-3 text-xs text-stone-500">
+            Up to {MAX_GARMENTS} photos a try.{' '}
+            <button type="button" onClick={onRecharge} className="font-bold text-brand-700 underline">Recharge</button> this month to add up to {MAX_GARMENTS_PAID}.
+          </p>
+        ) : null}
         {!category && <p className="mb-3 text-sm text-stone-500">Choose what you are trying first.</p>}
         {category && room > 0 && (
           <p className="mb-3 text-sm text-stone-600">
@@ -348,11 +430,13 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
           )}
           <div className="flex items-center justify-between gap-2 px-1 text-sm">
             <span className="font-semibold text-stone-700">
-              {plan.ok ? `${plan.looks.length} picture${plan.looks.length === 1 ? '' : 's'} · ${needed} credit${needed === 1 ? '' : 's'}` : 'Add clothes and your photo'}
+              {plan.ok
+                ? `${plan.looks.length} picture${plan.looks.length === 1 ? '' : 's'} · ${needed} credit${needed === 1 ? '' : 's'}${plan.extraCredits ? ` (${plan.extraCredits} extra, paid)` : ''}`
+                : 'Add clothes and your photo'}
             </span>
-            <span className={`font-bold ${needed > available ? 'text-red-700' : 'text-stone-500'}`}>You have {available}</span>
+            <span className={`font-bold ${short ? 'text-red-700' : 'text-stone-500'}`}>You have {available}</span>
           </div>
-          {needed > available ? (
+          {short ? (
             <Button onClick={onRecharge} className="w-full">Recharge to try on</Button>
           ) : (
             <Button busy={submitting} disabled={!plan.ok || !photo || preparing} onClick={() => submit(items, pairs)} className="w-full text-base">
@@ -400,8 +484,9 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
       <Sheet open={Boolean(editingItem)} title="What is this photo?" onClose={() => setEditing(null)}>
         {editingItem && (
           <div className="space-y-4">
-            <CategoryChips value={editingItem.category} onChange={code => changeItem(editingItem.id, { category: code })} />
-            <SourceToggle value={editingItem.source} onChange={value => changeItem(editingItem.id, { source: value })} />
+            <CategoryChips value={editingItem.category}
+              onChange={code => changeItem(editingItem.id, { category: code, source: sourceFor(code, editingItem.source) })} />
+            <SourceToggle value={editingItem.source} category={editingItem.category} onChange={value => changeItem(editingItem.id, { source: value })} />
             <Button onClick={() => setEditing(null)} className="w-full">Done</Button>
           </div>
         )}
