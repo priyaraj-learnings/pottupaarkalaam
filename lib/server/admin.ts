@@ -92,14 +92,14 @@ export async function adminOverview() {
     supabaseAdmin.from('payment_alerts').select('id, utr, amount_inr, sender, message, received_at')
       .is('recharge_id', null).order('received_at', { ascending: false }).limit(30),
     supabaseAdmin.from('payment_alerts').select('received_at').order('received_at', { ascending: false }).limit(1),
-    supabaseAdmin.from('app_settings').select('msg91_widget_id, msg91_token_auth, msg91_auth_key, free_needs_mobile').eq('id', true).maybeSingle(),
+    supabaseAdmin.from('app_settings').select('msg91_widget_id, msg91_token_auth, msg91_auth_key').eq('id', true).maybeSingle(),
   ])
   if (pending.error) throw dbError(pending.error, 'Unable to load recharges')
   if (recent.error) throw dbError(recent.error, 'Unable to load recharges')
   if (alerts.error) throw dbError(alerts.error, 'Unable to load bank alerts')
   if (lastAlert.error) throw dbError(lastAlert.error, 'Unable to load bank alerts')
   if (msg91.error) throw dbError(msg91.error, 'Unable to load sign-in settings')
-  const msg91Row = msg91.data as { msg91_widget_id: string | null; msg91_token_auth: string | null; msg91_auth_key: string | null; free_needs_mobile: boolean } | null
+  const msg91Row = msg91.data as { msg91_widget_id: string | null; msg91_token_auth: string | null; msg91_auth_key: string | null } | null
 
   // What the bank said for each waiting UTR, if its alert has arrived.
   const pendingRows = (pending.data ?? []) as RechargeRow[]
@@ -127,7 +127,6 @@ export async function adminOverview() {
       widgetId: msg91Row?.msg91_widget_id ?? '',
       tokenAuth: msg91Row?.msg91_token_auth ?? '',
       authKeySet: Boolean(msg91Row?.msg91_auth_key),
-      freeNeedsMobile: Boolean(msg91Row?.free_needs_mobile),
     },
   }
 }
@@ -204,17 +203,6 @@ export async function updateSettings(adminId: string, body: unknown) {
   // Write-only: an empty box keeps the saved key.
   const authKey = text(input.msg91AuthKey, 300)
   if (authKey) row.msg91_auth_key = authKey
-  // Free credits only for a verified mobile number: needs the MSG91 widget,
-  // or nobody could verify a number and nobody would get free credits.
-  const freeNeedsMobile = input.freeNeedsMobile === true || input.freeNeedsMobile === 'true'
-  if (freeNeedsMobile) {
-    const { data: saved, error: savedError } = await supabaseAdmin.from('app_settings').select('msg91_auth_key').eq('id', true).maybeSingle()
-    if (savedError) throw dbError(savedError, 'Unable to load sign-in settings')
-    if (!row.msg91_widget_id || !row.msg91_token_auth || !(authKey || (saved as { msg91_auth_key: string | null } | null)?.msg91_auth_key)) {
-      throw new ApiError(400, 'INVALID_INPUT', 'Set up mobile number sign-in (MSG91) first: free credits for verified numbers need it.')
-    }
-  }
-  row.free_needs_mobile = freeNeedsMobile
   row.couple_enabled = input.coupleEnabled === true || input.coupleEnabled === 'true'
   row.couple_credits = whole(input.coupleCredits ?? DEFAULT_COUPLE_CREDITS, 'Credits per couple picture', 1, 50)
   row.extra_photos_enabled = input.extraPhotosEnabled === true || input.extraPhotosEnabled === 'true'

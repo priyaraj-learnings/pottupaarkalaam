@@ -33,11 +33,14 @@ async function one<T>(sql: string, params: unknown[] = []) {
   return result.rows[0].r
 }
 
+// Each with a verified mobile number of their own (free credits need one).
+let nextPhone = 8100000001
 async function newUser(email: string, name: string) {
   const { rows } = await db.query<{ id: string }>(
     `insert into auth.users (email, raw_user_meta_data, raw_app_meta_data) values ($1, $2, '{"provider":"google"}') returning id`,
     [email, JSON.stringify({ full_name: name })]
   )
+  await db.query('select public.verify_phone($1, $2)', [rows[0].id, `+91${nextPhone++}`])
   return rows[0].id
 }
 
