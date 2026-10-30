@@ -40,9 +40,11 @@ export function TermsContent() {
       <section>
         <h2>4. Credits, prices and recharges</h2>
         <ul>
-          <li>Every account gets free credits each calendar month (shown in the app). Unused free credits do not carry over.</li>
-          <li>Free credits may need a mobile number verified by an SMS code. One mobile number can belong to one account only,
-            so free credits go to one number a month. Making extra accounts to get more free credits is not allowed.</li>
+          <li>An account with a mobile number verified by an SMS code gets free credits each calendar month (shown in the
+            app). Unused free credits do not carry over. Without a verified number you can still use the service with paid
+            credits.</li>
+          <li>One mobile number can belong to one account only, so free credits go to one number a month. Making extra
+            accounts, or moving a number between accounts, to get more free credits is not allowed.</li>
           <li>One garment makes one picture for 1 credit. Two garments worn together (a pair) make one picture for 2 credits.</li>
           <li>A try takes up to 3 photos of clothes. If you have made a recharge in the same calendar month (and the service
             offers it), you can add a 4th and 5th photo; each of those pictures uses the extra credits shown in the app, from
