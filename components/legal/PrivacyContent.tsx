@@ -17,7 +17,7 @@ export function PrivacyContent() {
           <li><b>Account:</b> your email address and name, from Google (see &ldquo;Signing in with Google&rdquo; below) or
             the email you sign in with; or your mobile number, if you sign in with it.</li>
           <li><b>Mobile number:</b> if you give it or verify it with an SMS code (sent by MSG91), and whether you agreed to
-            hear about offers on it. A verified number may be needed for free credits, and belongs to one account only.</li>
+            hear about offers on it. Free credits need a verified number, and a verified number belongs to one account only.</li>
           <li><b>Photos:</b> the photo of you and the photos of clothes you add, and the pictures we make from them. For a
             couple picture, also your partner&rsquo;s photo, which is kept and deleted exactly like yours. Each picture
             carries an &ldquo;AI-generated&rdquo; label and, inside the file, a note that it is AI-generated with its own ID
@@ -33,6 +33,7 @@ export function PrivacyContent() {
         <ul>
           <li>To make your try-on pictures and show them to you.</li>
           <li>To keep your credit balance and confirm your payments.</li>
+          <li>To give the monthly free credits to one verified mobile number, and stop the same number getting them twice.</li>
           <li>To keep the service secure and answer your questions or complaints.</li>
           <li>To call or message you about your payments, pictures or account, if you gave your mobile number.</li>
           <li>To send you offers and news on WhatsApp or SMS, only if you ticked the box for it. You can untick it or
@@ -52,8 +53,8 @@ export function PrivacyContent() {
           <li><b>Payments:</b> the amount, date and UPI reference of your recharges and the bank&rsquo;s message for them
             are kept as long as tax and accounting law requires (usually 8 years), without your name or email once you
             delete your account.</li>
-          <li><b>After you delete your account:</b> if you used free credits this month with a verified mobile number, we
-            keep a one-way code made from that number (not the number itself) until the end of the month, so the same
+          <li><b>After you delete your account or change your verified number:</b> if you used free credits this month
+            with a verified mobile number, we keep a one-way code made from that number (not the number itself) until the end of the month, so the same
             number does not get that month&rsquo;s free credits twice. Then it is deleted.</li>
         </ul>
       </section>
@@ -94,7 +95,7 @@ export function PrivacyContent() {
         <ul>
           <li><b>OpenAI</b> (USA) makes the pictures from your photos. Under OpenAI&rsquo;s API terms it does not use
             them to train its models, and may keep them for up to 30 days to detect abuse.</li>
-          <li><b>MSG91</b> (India) sends the sign-in code by SMS when you sign in with your mobile number.</li>
+          <li><b>MSG91</b> (India) sends the code by SMS when you sign in with your mobile number or verify your number.</li>
           <li><b>Supabase</b> stores your account, photos and records; <b>Google Cloud</b> runs the app; Google
             signs you in if you choose Google.</li>
         </ul>

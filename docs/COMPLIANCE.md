@@ -1,6 +1,6 @@
 # Compliance record (India)
 
-What the law asks of PottuPaarkalaam and where the app does it. Last reviewed 29 October 2026.
+What the law asks of PottuPaarkalaam and where the app does it. Last reviewed 30 October 2026.
 This is an engineering record, not legal advice: have a lawyer review it before relying on it.
 
 ## In force now
@@ -18,6 +18,8 @@ This is an engineering record, not legal advice: have a lawyer review it before 
 | DPDP Act 2023 (Board, breach basics) | Notice of what is collected and why; security; breach reporting | Privacy Policy; photos private and deleted after 3 days |
 | DPDP Act 2023, s.5(3) | Notice in English or a language of the Eighth Schedule | Consent screen and Privacy Policy in English or Tamil (`CONSENT_SCREEN`, `PrivacyContentTa.tsx`); switch remembered per phone. Have a native speaker review the Tamil |
 | DPDP Act 2023, s.6(4) and s.12 | Withdraw consent as easily as giving it; erasure | Account menu → Delete my account (`lib/server/deleteAccount.ts`, migration `20261029000600`): photos, account, credits, mobile number and sign-in deleted; recharges kept without the person; a one-way code of a verified number kept to month end to stop repeat free credits |
+| DPDP Act 2023, s.5 and s.6 (notice matches the purpose) | Say why the mobile number is collected and what is kept | Free credits only with a number verified by SMS code (migration `20261030000100`): Terms §4 and the Privacy Policy (English and Tamil) say so, give the purpose (one set of free credits per number a month) and the one-way code kept to month end after deleting the account or changing the number. Google or email accounts can use paid credits without a number, so giving it stays a choice |
+| Consumer Protection Act 2019 (no misleading statements) | What the Terms promise matches the service | Terms §4 no longer says every account gets free credits (terms version `2026-10-30.1`) |
 | E-Commerce Rules 2020, rule 4(2) | Customer care phone number | `COMPANY.supportPhone` in Terms §1 and §10, Privacy Policy and the account menu |
 
 ## Coming into force on 13 May 2027 (DPDP Rules 2025, rules 3 and 5–16)
@@ -36,6 +38,8 @@ This is an engineering record, not legal advice: have a lawyer review it before 
 
 ## Operational (outside the code)
 
+- **SMS codes (OTP)** are sent by MSG91 for sign-in and number checks. Confirm with MSG91 that the sender ID
+  and OTP template are registered on DLT (TRAI TCCCPR 2018); unregistered SMS are blocked by operators.
 - **Offers on SMS or WhatsApp** need TRAI DLT registration (header and templates) or WhatsApp Business opt-in. The
   app records consent (`offers_ok`, `offers_ok_at`). Send nothing promotional until that is in place.
 - **GST**: if the firm becomes GST-registered, prices stay "full prices" (tax included) and invoices are needed for
