@@ -150,12 +150,12 @@ describe('recharges', () => {
 
   it('offers only the garments still in the app, and keeps names for earlier pictures', () => {
     const offered = OFFERED_CATEGORIES.map(category => category.code)
-    for (const gone of ['BLOUSE', 'SALWAR_SUIT', 'ANARKALI', 'KURTI', 'TROUSER', 'PYJAMA', 'WAISTCOAT']) {
+    for (const gone of ['BLOUSE', 'SALWAR_SUIT', 'TROUSER', 'PYJAMA', 'WAISTCOAT']) {
       expect(offered, gone).not.toContain(gone)
       expect(isGarmentCategory(gone), gone).toBe(true)
     }
     expect(categoryLabel('TROUSER')).toBe('Pant')
-    expect(offered).toEqual(expect.arrayContaining(['SAREE', 'CHUDIDHAR', 'LEHENGA', 'GOWN', 'FORMAL_SHIRT', 'KURTA', 'DHOTI', 'SHERWANI']))
+    expect(offered).toEqual(expect.arrayContaining(['SAREE', 'CHUDIDHAR', 'KURTI', 'ANARKALI', 'LEHENGA', 'GOWN', 'FORMAL_SHIRT', 'KURTA', 'DHOTI', 'SHERWANI']))
     // Pairs still possible with what is offered: shirt or kurta with veshti, coat with shirt.
     expect(canPair('FORMAL_SHIRT', 'DHOTI')).toBe(true)
     expect(canPair('COAT', 'KURTA')).toBe(true)
