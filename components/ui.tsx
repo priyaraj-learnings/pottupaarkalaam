@@ -30,9 +30,9 @@ export function Spinner({ className = 'h-4 w-4' }: { className?: string }) {
   return <span aria-hidden="true" className={`inline-block animate-spin rounded-full border-2 border-current border-r-transparent ${className}`} />
 }
 
-export function Card({ title, children, className = '' }: { title?: ReactNode; children: ReactNode; className?: string }) {
+export function Card({ title, children, className = '', id }: { title?: ReactNode; children: ReactNode; className?: string; id?: string }) {
   return (
-    <section className={`rounded-3xl bg-white p-4 shadow-sm ring-1 ring-stone-200/70 ${className}`}>
+    <section id={id} className={`scroll-mt-20 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-stone-200/70 ${className}`}>
       {title && <h2 className="mb-3 text-base font-extrabold text-stone-900">{title}</h2>}
       {children}
     </section>
