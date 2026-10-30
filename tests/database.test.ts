@@ -523,6 +523,28 @@ describe('deleting an account', () => {
   })
 })
 
+describe('website visits', () => {
+  const code = (n: number) => n.toString(16).padStart(64, '0')
+  const today = async () => (await db.query<{ visitors: number; page_views: number }>(
+    `select visitors, page_views from public.site_visit_days where day = (now() at time zone 'Asia/Kolkata')::date`)).rows[0]
+
+  it('counts each visitor once a day and every page view, and keeps only the counts after the day', async () => {
+    await db.query('select public.record_site_visit($1)', [code(1)])
+    await db.query('select public.record_site_visit($1)', [code(1)])
+    await db.query('select public.record_site_visit($1)', [code(2)])
+    expect(await today()).toEqual({ visitors: 2, page_views: 3 })
+
+    await db.query(`update public.site_visitors set day = day - 1`)
+    expect(await one('select public.purge_site_visitors() as r')).toBe(2)
+    expect((await db.query('select count(*)::int as n from public.site_visitors')).rows[0]).toEqual({ n: 0 })
+    expect(await today()).toEqual({ visitors: 2, page_views: 3 })
+  })
+
+  it('refuses anything but a 64-character code', async () => {
+    await expect(db.query('select public.record_site_visit($1)', ['203.0.113.9'])).rejects.toThrow()
+  })
+})
+
 describe('database permissions', () => {
   it('lets only the server call the functions and read the tables', async () => {
     for (const role of ['anon', 'authenticated']) {
@@ -537,6 +559,8 @@ describe('database permissions', () => {
         await expect(db.query(`select public.prepare_account_deletion(gen_random_uuid())`)).rejects.toThrow(/permission denied/)
         await expect(db.query(`select public.paid_this_month(gen_random_uuid())`)).rejects.toThrow(/permission denied/)
         await expect(db.query('select * from public.free_use_carryover')).rejects.toThrow(/permission denied/)
+        await expect(db.query(`select public.record_site_visit('${'0'.repeat(64)}')`)).rejects.toThrow(/permission denied/)
+        await expect(db.query('select * from public.site_visit_days')).rejects.toThrow(/permission denied/)
       } finally {
         await db.exec('reset role')
       }

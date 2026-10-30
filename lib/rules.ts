@@ -17,7 +17,7 @@ export const PHOTO_BUCKET = 'try-on-photos'
 
 // Bump when the consent card or /terms changes: everyone is asked to agree
 // again before their next try-on.
-export const TERMS_VERSION = '2026-10-30.1'
+export const TERMS_VERSION = '2026-10-30.2'
 
 // Customers are asked to read the terms again at least once a year (IT Rules
 // 2021, rule 3(1)(c)), even when nothing changed.

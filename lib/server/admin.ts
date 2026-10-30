@@ -5,6 +5,7 @@ import { parseUpiQr } from '@/lib/upi'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { loadSettings } from '@/lib/server/account'
 import { ApiError, dbError, UUID } from '@/lib/server/http'
+import { indiaDay, visitsBetween } from '@/lib/server/visits'
 
 // =======================================================
 // ADMIN (/admin): the numbers (money received, AI cost,
@@ -224,9 +225,24 @@ export async function adminAnalytics(period: Period) {
     firstActivity = data?.[0] ? new Date(data[0].created_at as string) : null
   }
   const { from, to } = periodRange(period, new Date(), firstActivity)
-  const { data, error } = await supabaseAdmin.rpc('admin_analytics', { p_from: from.toISOString(), p_to: to.toISOString() })
+  const [{ data, error }, visits] = await Promise.all([
+    supabaseAdmin.rpc('admin_analytics', { p_from: from.toISOString(), p_to: to.toISOString() }),
+    visitsBetween(indiaDay(from), indiaDay(new Date(to.getTime() - 1))),
+  ])
   if (error) throw dbError(error, 'Unable to load the numbers')
-  return { period, from: from.toISOString(), to: to.toISOString(), ...(data as Record<string, unknown>) }
+  return { period, from: from.toISOString(), to: to.toISOString(), ...(data as Record<string, unknown>), visits: visitTotals(visits) }
+}
+
+// Visitors (once a day each) and page views in the period, and per day.
+// null until the site_visits migration has run.
+export function visitTotals(days: Array<{ day: string; visitors: number; page_views: number }> | null) {
+  if (!days) return null
+  return {
+    visitors: days.reduce((sum, day) => sum + day.visitors, 0),
+    pageViews: days.reduce((sum, day) => sum + day.page_views, 0),
+    firstDay: days[0]?.day ?? null,
+    days: days.map(day => ({ day: day.day, visitors: day.visitors })),
+  }
 }
 
 const SORTS = new Set(['recent', 'active', 'paid', 'pictures'])
