@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 
-import { GARMENT_CATEGORIES, OFFERED_CATEGORIES, SOURCE_LABELS, type GarmentSource } from '@/lib/rules'
+import { categoryLabel, fabricOnly, GARMENT_CATEGORIES, OFFERED_CATEGORIES, SOURCE_LABELS, type GarmentSource } from '@/lib/rules'
 
 export type Group = 'WOMEN' | 'MEN'
 
@@ -80,23 +80,33 @@ export function CategoryChips({ value, onChange, onlyGroup }: { value: string | 
   )
 }
 
-export function SourceToggle({ value, onChange }: { value: GarmentSource; onChange: (source: GarmentSource) => void }) {
+// For a saree or veshti (category), "Stitched dress" is off and fabric chosen.
+export function SourceToggle({ value, onChange, category }: {
+  value: GarmentSource
+  onChange: (source: GarmentSource) => void
+  category?: string | null
+}) {
+  const onlyFabric = fabricOnly(category)
   return (
     <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Fabric or dress">
       {(Object.keys(SOURCE_LABELS) as GarmentSource[]).map(source => {
-        const selected = source === value
+        const disabled = onlyFabric && source === 'STITCHED'
+        const selected = onlyFabric ? source === 'FABRIC' : source === value
         return (
           <button
             key={source}
             type="button"
             role="radio"
             aria-checked={selected}
+            disabled={disabled}
             onClick={() => onChange(source)}
-            className={`rounded-2xl border-2 p-3 text-left transition ${selected ? 'border-brand-500 bg-brand-50' : 'border-stone-200 bg-white'}`}
+            className={`rounded-2xl border-2 p-3 text-left transition ${selected ? 'border-brand-500 bg-brand-50' : 'border-stone-200 bg-white'} ${disabled ? 'cursor-not-allowed opacity-45' : ''}`}
           >
             <span className="text-xl" aria-hidden="true">{SOURCE_HELP[source].icon}</span>
             <span className="mt-1 block text-sm font-extrabold">{SOURCE_LABELS[source]}</span>
-            <span className="block text-xs text-stone-500">{SOURCE_HELP[source].help}</span>
+            <span className="block text-xs text-stone-500">
+              {disabled ? `A ${categoryLabel(category ?? '').toLowerCase()} is always unstitched cloth.` : SOURCE_HELP[source].help}
+            </span>
           </button>
         )
       })}

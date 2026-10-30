@@ -85,23 +85,32 @@ export function Sheet({ open, title, onClose, children }: { open: boolean; title
 // Toasts
 // ---------------------------------------------------------------------------
 
-type Toast = { id: number; message: string; tone: 'info' | 'error' }
-const ToastContext = createContext<(message: string, tone?: Toast['tone']) => void>(() => undefined)
+// action: one button on the toast, such as "Undo".
+type ToastAction = { label: string; onClick: () => void }
+type Toast = { id: number; message: string; tone: 'info' | 'error'; action?: ToastAction }
+const ToastContext = createContext<(message: string, tone?: Toast['tone'], action?: ToastAction) => void>(() => undefined)
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
-  const show = useCallback((message: string, tone: Toast['tone'] = 'info') => {
+  const dismiss = useCallback((id: number) => setToasts(current => current.filter(toast => toast.id !== id)), [])
+  const show = useCallback((message: string, tone: Toast['tone'] = 'info', action?: ToastAction) => {
     const id = Date.now() + Math.random()
-    setToasts(current => [...current.slice(-2), { id, message, tone }])
-    setTimeout(() => setToasts(current => current.filter(toast => toast.id !== id)), 4500)
-  }, [])
+    setToasts(current => [...current.slice(-2), { id, message, tone, action }])
+    setTimeout(() => dismiss(id), action ? 7000 : 4500)
+  }, [dismiss])
   return (
     <ToastContext.Provider value={show}>
       {children}
       <div className="pointer-events-none fixed inset-x-0 bottom-24 z-[60] flex flex-col items-center gap-2 px-4" aria-live="polite">
         {toasts.map(toast => (
-          <div key={toast.id} className={`max-w-sm rounded-2xl px-4 py-3 text-sm font-semibold text-white shadow-lg ${toast.tone === 'error' ? 'bg-red-700' : 'bg-stone-900'}`}>
-            {toast.message}
+          <div key={toast.id} className={`flex max-w-sm items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold text-white shadow-lg ${toast.tone === 'error' ? 'bg-red-700' : 'bg-stone-900'}`}>
+            <span>{toast.message}</span>
+            {toast.action && (
+              <button type="button" onClick={() => { toast.action?.onClick(); dismiss(toast.id) }}
+                className="pointer-events-auto shrink-0 rounded-full px-2 py-1 font-extrabold text-marigold-200 underline">
+                {toast.action.label}
+              </button>
+            )}
           </div>
         ))}
       </div>
