@@ -106,19 +106,31 @@ export type PairPlan = {
   role: PairRole
 }
 
-const TOPS = new Set(['FORMAL_SHIRT', 'CASUAL_SHIRT', 'KURTA', 'KURTI', 'COAT', 'JACKET', 'SHERWANI', 'SALWAR_SUIT', 'CHUDIDHAR', 'ANARKALI'])
-const BOTTOMS = new Set(['TROUSER', 'PYJAMA', 'DHOTI'])
-const DRAPES_WITH_BLOUSE = new Set(['SAREE', 'LEHENGA'])
-const OUTER_LAYERS = new Set(['COAT', 'JACKET', 'WAISTCOAT'])
-const INNER_LAYERS = new Set(['FORMAL_SHIRT', 'CASUAL_SHIRT', 'KURTA', 'KURTI'])
+// Explicit supported outfits, not every possible top/bottom cross-product.
+// Hidden categories remain usable for existing records and retry flows.
+const PAIR_OPTIONS: Record<PairRole, Record<string, readonly string[]>> = {
+  BLOUSE: { SAREE: ['BLOUSE'], LEHENGA: ['BLOUSE'] },
+  INNER: {
+    COAT: ['FORMAL_SHIRT', 'CASUAL_SHIRT', 'KURTA', 'KURTI'],
+    JACKET: ['FORMAL_SHIRT', 'CASUAL_SHIRT', 'KURTA', 'KURTI'],
+    WAISTCOAT: ['FORMAL_SHIRT', 'CASUAL_SHIRT', 'KURTA', 'KURTI'],
+  },
+  BOTTOM: {
+    FORMAL_SHIRT: ['TROUSER', 'PYJAMA', 'DHOTI'],
+    CASUAL_SHIRT: ['TROUSER', 'PYJAMA', 'DHOTI'],
+    KURTA: ['TROUSER', 'PYJAMA', 'DHOTI'],
+    KURTI: ['TROUSER', 'PYJAMA'],
+    COAT: ['TROUSER'], JACKET: ['TROUSER'],
+    SHERWANI: ['TROUSER', 'PYJAMA'],
+    SALWAR_SUIT: ['PYJAMA'], CHUDIDHAR: ['PYJAMA'], ANARKALI: ['PYJAMA'],
+  },
+}
 
 function orderedPair(first: string, second: string): { role: PairRole; swap: boolean } | null {
-  if (DRAPES_WITH_BLOUSE.has(first) && second === 'BLOUSE') return { role: 'BLOUSE', swap: false }
-  if (DRAPES_WITH_BLOUSE.has(second) && first === 'BLOUSE') return { role: 'BLOUSE', swap: true }
-  if (OUTER_LAYERS.has(first) && INNER_LAYERS.has(second)) return { role: 'INNER', swap: false }
-  if (OUTER_LAYERS.has(second) && INNER_LAYERS.has(first)) return { role: 'INNER', swap: true }
-  if (TOPS.has(first) && BOTTOMS.has(second)) return { role: 'BOTTOM', swap: false }
-  if (TOPS.has(second) && BOTTOMS.has(first)) return { role: 'BOTTOM', swap: true }
+  for (const role of ['BLOUSE', 'INNER', 'BOTTOM'] as const) {
+    if (PAIR_OPTIONS[role][first]?.includes(second)) return { role, swap: false }
+    if (PAIR_OPTIONS[role][second]?.includes(first)) return { role, swap: true }
+  }
   return null
 }
 

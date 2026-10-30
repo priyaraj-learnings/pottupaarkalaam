@@ -11,6 +11,7 @@
 export type GarmentProfile = {
   // "Dress the customer in a <description>."
   description: string
+  // Construction rules for FABRIC only; stitched references preserve their own design.
   rules: string
   // What the finished garment must look like, and what it must never become:
   // repeated as the last check of every prompt, so a long fabric with a border
@@ -36,9 +37,7 @@ a floor-length lower drape and the pallu passing naturally over one shoulder.
 
 Preserve the supplied fabric's body field, border, pallu area, motifs, weave,
 pattern scale and colour placement wherever those details are visible. Do not
-invent a contrasting border or ornamental work. Use a simple, coordinating
-solid blouse only where a blouse is required and no distinct blouse-piece
-design is identifiable in the reference.
+invent a contrasting border or ornamental work. Supporting pieces follow the reference allocation instructions below.
 
 Keep the full saree silhouette, lower hem and pallu visible. Do not transform
 the saree into a kurta, salwar suit, gown, skirt, dress, dhoti, shirt or coat.
@@ -47,10 +46,8 @@ the saree into a kurta, salwar suit, gown, skirt, dress, dhoti, shirt or coat.
 const SALWAR_RULES = `
 SALWAR-SUIT-SPECIFIC RULES:
 Create a coordinated Indian salwar suit with a kameez/top, lower garment and
-dupatta. If the fabric photo shows separate pieces for the top, the bottom and
-the dupatta (unstitched suit material often comes as three pieces), use each
-piece only for its own part; if it shows one fabric, use it for the kameez and
-make the salwar and dupatta in a plain colour taken from that fabric. Do not
+dupatta. Allocate top, bottom and dupatta material using the reference
+allocation instructions below. Do not
 transform the outfit into a saree, gown or western dress.
 `.trim()
 
@@ -58,8 +55,8 @@ const LEHENGA_RULES = `
 LEHENGA-SPECIFIC RULES:
 Create an authentic Indian lehenga choli: a full, floor-length flared skirt
 (lehenga), a fitted short blouse (choli) and a dupatta. Use the supplied fabric
-for the lehenga skirt (if the photo shows separate blouse or dupatta pieces,
-use those for the blouse and dupatta), keep
+for the lehenga skirt; allocate the blouse and dupatta using the reference
+allocation instructions below. Keep
 borders, embroidery and motifs at their natural scale and placement, and show
 the full flare down to the hem. Do not transform the outfit into a saree,
 gown, western skirt or salwar suit.
@@ -75,10 +72,8 @@ Create an authentic Indian chudidhar set made of three separate parts:
    kameez hem.
 3. A dupatta (long stole) worn over the shoulders or around the neck, falling
    loosely; never wrapped around the waist or pleated.
-Unstitched chudidhar material often comes as three pieces (top, bottom,
-dupatta); if the photo shows them, use each piece only for its own part. If it
-shows one fabric, use it for the kameez and make the churidar and dupatta in a
-plain colour taken from that fabric. A border on the fabric goes on the kameez
+Allocate top, bottom and dupatta material using the reference allocation
+instructions below. A border on the fabric goes on the kameez
 hem, sleeves or neckline, or on the dupatta edge. There are no waist pleats, no
 wrapped skirt and no pallu. Do not transform the outfit into a saree,
 half-saree, lehenga, gown or loose salwar.
@@ -86,7 +81,7 @@ half-saree, lehenga, gown or loose salwar.
 
 const JACKET_RULES = `
 JACKET-SPECIFIC RULES:
-Create a well-made outer jacket worn over a plain top. Use the supplied fabric
+Create a well-made outer jacket. Use the supplied fabric
 for the jacket body and sleeves, keep the collar, front closure and pockets
 consistent with that fabric, and keep linings and trims neutral. Do not turn
 the jacket into a formal suit coat, shirt, sweater or long coat.
@@ -95,8 +90,8 @@ the jacket into a formal suit coat, shirt, sweater or long coat.
 const WAISTCOAT_RULES = `
 WAISTCOAT-SPECIFIC RULES:
 Create a sleeveless waistcoat (such as a Nehru or Modi jacket) worn over a
-plain kurta or shirt. Use the supplied fabric for the waistcoat only, keep the
-garment underneath neutral and plain, and keep the collar, buttons and pockets
+supporting inner garment. Use the supplied fabric for the waistcoat only,
+and keep the collar, buttons and pockets
 consistent. Do not add sleeves to the waistcoat or turn it into a coat.
 `.trim()
 
@@ -105,8 +100,8 @@ SHERWANI-SPECIFIC RULES:
 Create an authentic Indian sherwani: a long, knee-length, fitted coat with a
 band (mandarin) collar and front buttons, worn over churidar or straight
 bottoms. Use the supplied fabric for the sherwani, keep embroidery and motifs
-at their natural scale and placement, and keep the bottoms neutral unless a
-role-labelled reference says otherwise. Do not turn it into a suit coat,
+at their natural scale and placement. Allocate the bottoms using the
+reference allocation instructions below. Do not turn it into a suit coat,
 kurta or western long coat.
 `.trim()
 
@@ -114,7 +109,7 @@ const BLOUSE_RULES = `
 BLOUSE-SPECIFIC RULES:
 Create a fitted Indian saree blouse (choli) with the neckline, sleeve length
 and hem natural to a tailored blouse. Use the supplied fabric for the blouse
-only; keep any saree or skirt worn with it plain and neutral. Do not turn the
+only. Supporting pieces follow the reference allocation instructions below. Do not turn the
 blouse into a kurta, shirt, crop top or dress.
 `.trim()
 
@@ -122,8 +117,8 @@ const ANARKALI_RULES = `
 ANARKALI-SPECIFIC RULES:
 Create an authentic Indian anarkali: a fitted bodice flowing into a long,
 flared, floor- or ankle-length kameez, worn with fitted churidar bottoms and a
-dupatta. Respect role-labelled references for the dupatta and bottoms, and
-show the full flare. Do not turn it into a gown, lehenga, saree or straight
+dupatta. Allocate the dupatta and bottoms using the reference allocation
+instructions below, and show the full flare. Do not turn it into a gown, lehenga, saree or straight
 salwar suit.
 `.trim()
 
@@ -136,26 +131,36 @@ into a saree, lehenga, anarkali or short dress.
 
 const DHOTI_RULES = `
 DHOTI-SPECIFIC RULES:
-Create an authentic South Indian veshti/dhoti (or mundu) worn with a plain
-shirt or kurta. Use the supplied fabric for the dhoti, including its border at
-the hem, and keep the upper garment neutral (a plain white shirt unless the
-customer chose a shirt to wear with it). Do not turn it into trousers,
+Create an authentic South Indian veshti/dhoti (or mundu). Use the supplied fabric for the dhoti, including its border at
+the hem. Supporting pieces follow the reference allocation instructions below. Do not turn it into trousers,
 a lungi with a western cut, or a skirt.
 `.trim()
 
 const PYJAMA_RULES = `
 PYJAMA-SPECIFIC RULES:
 Create traditional Indian pyjama trousers (straight or churidar-style) with an
-elasticated or drawstring waist, worn under a kurta. Use the supplied fabric
+elasticated or drawstring waist. Use the supplied fabric
 for the pyjama only. Do not turn it into formal trousers, a dhoti or a skirt.
 `.trim()
 
 const KURTA_RULES = `
 KURTA-SPECIFIC RULES:
-Create an authentic tailored Indian kurta. Keep separately supplied neck/yoke,
-sleeve/cuff, hem and back designs only in their designated areas. Do not repeat
+Create an authentic tailored Indian kurta. Use identifiable neck/yoke, sleeve/cuff, hem and back panels visible within
+the supplied photo only in their corresponding areas; do not assume extra
+labelled reference photos exist. Do not repeat
 a placement panel across the entire garment or transform the kurta into a
 shirt, coat, gown or saree.
+`.trim()
+
+const SAFARI_RULES = `
+SAFARI-SUIT-SPECIFIC RULES:
+Create a complete two-piece safari suit: a structured, collared, button-front
+safari shirt/jacket with chest and lower patch pockets, and matching tailored
+full-length trousers. Use the supplied fabric consistently for BOTH pieces,
+including sleeves, collar, pocket flaps and waistband. Preserve colour,
+texture, pattern direction and repeat scale across seams. Keep buttons and
+thread neutral. Do not add a contrast fabric, military badges or decoration.
+Do not replace the outfit with a blazer suit, kurta or standalone shirt.
 `.trim()
 
 const PROFILES: Record<string, GarmentProfile> = {
@@ -221,7 +226,7 @@ const PROFILES: Record<string, GarmentProfile> = {
   },
   PYJAMA: {
     description: 'traditional Indian pyjama', rules: PYJAMA_RULES,
-    shape: 'loose or churidar-style trousers with a drawstring waist, worn under a kurta',
+    shape: 'loose or churidar-style trousers with a drawstring waist',
     never: ['formal trousers', 'dhoti', 'skirt'],
   },
   DHOTI: {
@@ -236,7 +241,7 @@ const PROFILES: Record<string, GarmentProfile> = {
   },
   COAT: {
     description: 'formal tailored coat or blazer', rules: COAT_RULES,
-    shape: 'a tailored blazer or suit coat with lapels and front buttons, over a shirt',
+    shape: 'a tailored blazer or suit coat with lapels and front buttons',
     never: ['kurta', 'sherwani', 'shirt', 'jacket'],
   },
   WAISTCOAT: {
@@ -246,12 +251,12 @@ const PROFILES: Record<string, GarmentProfile> = {
   },
   JACKET: {
     description: 'well-made outer jacket', rules: JACKET_RULES,
-    shape: 'a waist- or hip-length outer jacket with sleeves and a front closure, over a plain top',
+    shape: 'a waist- or hip-length outer jacket with sleeves and a front closure',
     never: ['blazer', 'suit coat', 'shirt', 'long coat'],
   },
   SAFARI: {
-    description: 'professionally tailored safari suit', rules: '',
-    shape: 'a matching safari suit: a belted bush jacket with patch pockets and shoulder straps, and matching trousers',
+    description: 'professionally tailored safari suit', rules: SAFARI_RULES,
+    shape: 'a matching two-piece safari suit: a collared, button-front safari shirt/jacket with patch pockets and matching tailored trousers',
     never: ['blazer suit', 'kurta', 'shirt'],
   },
 }

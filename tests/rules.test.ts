@@ -116,7 +116,8 @@ describe('prompts', () => {
     expect(couple).toMatch(/IMAGE 4 is a photo of a READY-MADE, STITCHED saree/)
     expect(couple).toMatch(/onto the woman/)
     expect(couple).toMatch(/never dress one person in the other person's garment/)
-    expect(couple).toMatch(/SAREE-SPECIFIC DRAPING RULES/)
+    expect(couple).not.toMatch(/SAREE-SPECIFIC DRAPING RULES/)
+    expect(couple).toMatch(/READY-MADE PRESERVATION/)
   })
 })
 
