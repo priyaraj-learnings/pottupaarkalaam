@@ -28,6 +28,40 @@ describe('priority-one prompt contracts', () => {
     })
   }
 
+  it('drapes a saree or dhoti fabric instead of tailoring it into a stitched garment', () => {
+    for (const category of ['SAREE', 'DHOTI']) {
+      const prompt = buildSinglePrompt({ category, source: 'FABRIC' })
+      expect(prompt, category).toContain('drape it, unstitched, as')
+      expect(prompt, category).not.toContain('tailor a new')
+    }
+    expect(buildSinglePrompt({ category: 'KURTI', source: 'FABRIC' })).toContain('tailor a new')
+  })
+
+  it('names only the chosen garment, not other categories, when saying what one fabric makes', () => {
+    for (const { code } of GARMENT_CATEGORIES) {
+      const prompt = buildSinglePrompt({ category: code, source: 'FABRIC' })
+      // No example garment that could pull the picture towards it (a lehenga turning into a saree).
+      expect(prompt, code).not.toContain('for example a saree')
+      if (code !== 'SAFARI') expect(prompt, code).not.toMatch(/safari/i)
+    }
+    expect(buildSinglePrompt({ category: 'LEHENGA', source: 'FABRIC' })).toContain('use it for the lehenga skirt')
+    expect(buildSinglePrompt({ category: 'TROUSER', source: 'FABRIC' })).toContain('Dress the customer in a pair of formal trousers.')
+  })
+
+  it('keeps kurti, anarkali and lehenga apart', () => {
+    expect(buildSinglePrompt({ category: 'KURTI', source: 'FABRIC' })).toContain('KURTI-SPECIFIC RULES')
+    expect(buildSinglePrompt({ category: 'KURTI', source: 'FABRIC' })).toMatch(/must not look like any of these: anarkali/)
+    expect(buildSinglePrompt({ category: 'ANARKALI', source: 'FABRIC' })).toContain('never a\nseparate skirt and blouse')
+    expect(buildSinglePrompt({ category: 'LEHENGA', source: 'FABRIC' })).toMatch(/must not look like any of these: saree, gown, anarkali/)
+  })
+
+  it('mentions a dupatta for a shirt and trousers pair only for sets', () => {
+    const shirt = buildPairPrompt({ category: 'FORMAL_SHIRT', source: 'FABRIC' }, { category: 'TROUSER', source: 'FABRIC' }, 'BOTTOM')
+    expect(shirt).not.toContain('coordinating dupatta')
+    const set = buildPairPrompt({ category: 'CHUDIDHAR', source: 'FABRIC' }, { category: 'PYJAMA', source: 'FABRIC' }, 'BOTTOM')
+    expect(set).toContain('add a plain coordinating dupatta')
+  })
+
   it('constructs both safari pieces from one fabric, without redesigning a ready-made suit', () => {
     const fabric = buildSinglePrompt({ category: 'SAFARI', source: 'FABRIC' })
     expect(fabric).toContain('chest and lower patch pockets')

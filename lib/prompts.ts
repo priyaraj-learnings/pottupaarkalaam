@@ -11,7 +11,7 @@ import { categoryLabel, type GarmentSource, type PairRole } from '@/lib/rules'
 // packing, the person wearing a dress) and what to keep.
 // =======================================================
 
-export const PROMPT_VERSION = 'pp-try-on-v3'
+export const PROMPT_VERSION = 'pp-try-on-v4'
 
 export type PromptGarment = {
   category: string
@@ -28,7 +28,7 @@ keeping the face and features unchanged.
 
 Replace everything the customer is wearing in IMAGE 1 with the new outfit. Do
 not keep any of their current clothes, and do not let the type of garment they
-are wearing now (for example a saree) decide the type of the new garment.
+are wearing now decide the type of the new garment.
 `.trim()
 
 const PRIORITY = `
@@ -49,6 +49,21 @@ other people. Preserve the supplied garments' colours and designs without
 adding embroidery or prints. Plain supporting pieces and neutral functional
 trims are allowed only as specified in REFERENCE ALLOCATION.
 `.trim()
+
+// Sets whose fabric photo makes the main piece; the rest follow REFERENCE
+// ALLOCATION (not the whole set from one fabric).
+const SETS = ['LEHENGA', 'CHUDIDHAR', 'SALWAR_SUIT', 'ANARKALI']
+
+// Worn as one unstitched length of cloth: "tailor" would make a stitched dress.
+const DRAPED = ['SAREE', 'DHOTI']
+
+// What a single fabric photo makes when no other pieces are visible in it.
+const SINGLE_FABRIC_PIECE: Record<string, string> = {
+  LEHENGA: 'the lehenga skirt',
+  CHUDIDHAR: 'the kameez', SALWAR_SUIT: 'the kameez', ANARKALI: 'the flared anarkali kameez',
+  SAREE: 'the whole saree (body, border and pallu)', DHOTI: 'the whole dhoti, with its border at the hem',
+  SAFARI: 'BOTH the safari jacket and the trousers',
+}
 
 // "a" or "an" before a garment name.
 const withArticle = (text: string) => `${/^[aeiou]/i.test(text) ? 'an' : 'a'} ${text}`
@@ -78,7 +93,10 @@ IMAGE ${image} is a phone photo of UNSTITCHED FABRIC for the ${label}. It may be
 folded, rolled, held in hands, on a table or still in its packing. Ignore the
 hands, background, packing, tags and folds. Use only the material itself - its
 colour, weave, texture, motifs, checks, stripes, borders, pattern direction and
-repeat scale - and tailor a new ${description} from it. The length of the
+repeat scale - and ${DRAPED.includes(garment.category)
+    ? `drape it, unstitched, as ${withArticle(description)}; never cut and sew it into a stitched garment`
+    : `tailor a new ${description} from it`}.${SETS.includes(garment.category)
+    ? ' It makes the main piece; the other pieces of the set follow REFERENCE ALLOCATION.' : ''} The length of the
 fabric, a border or a decorated end does not decide the garment type: it is
 ${withArticle(label)}, as the customer chose.
 `.trim()
@@ -104,7 +122,7 @@ const SUPPORT: Record<string, string> = {
   CHUDIDHAR: 'plain fitted churidar bottoms and a plain dupatta',
   SALWAR_SUIT: 'plain loose salwar bottoms and a plain dupatta',
   ANARKALI: 'plain fitted churidar bottoms and a plain dupatta',
-  KURTI: 'plain coordinating trousers', KURTA: 'plain coordinating pyjama trousers',
+  KURTI: 'plain coordinating leggings or straight trousers', KURTA: 'plain coordinating pyjama trousers',
   FORMAL_SHIRT: 'plain neutral trousers', CASUAL_SHIRT: 'plain neutral trousers',
   TROUSER: 'a plain neutral shirt', PYJAMA: 'a plain neutral kurta',
   DHOTI: 'a plain neutral shirt', SHERWANI: 'plain neutral churidar or straight bottoms',
@@ -121,10 +139,11 @@ Use distinct component fabrics visible in this photo only when their roles are
 visually clear. There are no additional labelled neck, sleeve, bottom or dupatta
 photos: do not assume any exist or guess roles for ambiguous pieces.
 ${garment.source === 'FABRIC'
-    ? 'For a single fabric, apply it to the selected main garment (the skirt for lehenga; the kameez for a suit set; BOTH jacket and trousers for safari).'
+    ? `For a single fabric, use it for ${SINGLE_FABRIC_PIECE[garment.category] ?? `the ${categoryLabel(garment.category).toLowerCase()}`}.`
     : 'Keep every visible piece of the ready-made outfit faithful to this photo; do not replace visible pieces with plain defaults.'}
 ${companionRole === 'BOTTOM'
-    ? 'IMAGE 3 supplies the bottom, including colour and pattern; no neutral-bottom default applies. Do not add a second bottom. For a set, use visible top/dupatta pieces from IMAGE 2; if its dupatta is absent, add a plain coordinating dupatta using a colour from IMAGE 2.'
+    ? `IMAGE 3 supplies the bottom, including colour and pattern; no neutral-bottom default applies. Do not add a second bottom.${SETS.includes(garment.category)
+      ? ' Use visible top/dupatta pieces from IMAGE 2; if its dupatta is absent, add a plain coordinating dupatta using a colour from IMAGE 2.' : ''}`
     : companionRole === 'INNER'
       ? 'IMAGE 3 supplies the inner garment; no plain-inner default applies. Add only plain neutral trousers if no lower garment is supplied.'
       : companionRole === 'BLOUSE'

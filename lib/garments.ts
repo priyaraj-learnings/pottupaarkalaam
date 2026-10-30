@@ -115,11 +115,47 @@ blouse into a kurta, shirt, crop top or dress.
 
 const ANARKALI_RULES = `
 ANARKALI-SPECIFIC RULES:
-Create an authentic Indian anarkali: a fitted bodice flowing into a long,
-flared, floor- or ankle-length kameez, worn with fitted churidar bottoms and a
-dupatta. Allocate the dupatta and bottoms using the reference allocation
-instructions below, and show the full flare. Do not turn it into a gown, lehenga, saree or straight
-salwar suit.
+Create an authentic Indian anarkali: ONE long frock-style kameez with a fitted
+bodice and sleeves, flaring from just below the bust or at the waist into many
+gathered or panelled (kali) folds that fall to the ankles. It is worn with
+fitted churidar bottoms, gathered at the ankles just below the kameez hem, and
+a dupatta over the shoulders. Use the supplied fabric for the kameez; allocate
+the dupatta and bottoms using the reference allocation instructions below, and
+show the full flare. The kameez is one piece from shoulder to hem: never a
+separate skirt and blouse. Do not turn it into a gown, lehenga, saree, straight
+salwar suit or knee-length kurti.
+`.trim()
+
+const KURTI_RULES = `
+KURTI-SPECIFIC RULES:
+Create an authentic tailored Indian women's kurti: a straight or slightly
+A-line tunic reaching between the hips and the knees, with a round, V, boat or
+band neckline, sleeves (short, elbow or full) and side slits from the hip down.
+Use the supplied fabric for the kurti only, with any border on the hem, sleeves
+or neckline. Use neck/yoke, sleeve and hem panels visible in the supplied photo
+only in their corresponding areas; do not assume extra labelled reference photos
+exist. Supporting pieces follow the reference allocation instructions below; do
+not add a dupatta unless the photo shows one. Do not turn the kurti into a
+floor-length anarkali, gown, saree, shirt or men's kurta.
+`.trim()
+
+const SHIRT_RULES = `
+SHIRT-SPECIFIC RULES:
+Create a properly tailored shirt from the supplied fabric: a turn-down collar,
+a front button placket, a yoke and sleeves, with cuffs on long sleeves. Keep
+checks and stripes straight and aligned across the placket, pockets and seams,
+and keep buttons and thread neutral. Supporting pieces follow the reference
+allocation instructions below. Do not turn it into a kurta, T-shirt, jacket or
+coat.
+`.trim()
+
+const TROUSER_RULES = `
+TROUSER-SPECIFIC RULES:
+Create full-length tailored trousers from the supplied fabric with a waistband,
+belt loops, a front fly, side pockets and a straight leg with a pressed crease,
+falling to the shoes. Keep stripes and checks running straight down the legs.
+Supporting pieces follow the reference allocation instructions below. Do not
+turn them into jeans, a pyjama, a dhoti or shorts.
 `.trim()
 
 const GOWN_RULES = `
@@ -145,7 +181,9 @@ for the pyjama only. Do not turn it into formal trousers, a dhoti or a skirt.
 
 const KURTA_RULES = `
 KURTA-SPECIFIC RULES:
-Create an authentic tailored Indian kurta. Use identifiable neck/yoke, sleeve/cuff, hem and back panels visible within
+Create an authentic tailored Indian kurta: a long tunic reaching about the
+knees, with a band collar or round neck, a short front button placket, long
+sleeves and side slits. Use identifiable neck/yoke, sleeve/cuff, hem and back panels visible within
 the supplied photo only in their corresponding areas; do not assume extra
 labelled reference photos exist. Do not repeat
 a placement panel across the entire garment or transform the kurta into a
@@ -185,19 +223,19 @@ const PROFILES: Record<string, GarmentProfile> = {
     never: ['saree', 'lehenga', 'gown', 'western dress'],
   },
   KURTI: {
-    description: "authentic tailored Indian women's kurti", rules: KURTA_RULES,
-    shape: "a women's tunic (kurti) reaching the hips or knees, worn over trousers or leggings",
-    never: ['saree', 'gown', 'shirt', 'dress'],
+    description: "authentic tailored Indian women's kurti", rules: KURTI_RULES,
+    shape: "a women's tunic (kurti) reaching between the hips and the knees, with side slits, worn over plain leggings or trousers that show below it",
+    never: ['anarkali', 'gown', 'saree', 'lehenga', 'shirt', 'dress'],
   },
   ANARKALI: {
     description: 'authentic Indian anarkali suit with churidar and dupatta', rules: ANARKALI_RULES,
-    shape: 'a fitted bodice flowing into a long, flared kameez to the ankles, over fitted churidar trousers, with a dupatta',
-    never: ['saree', 'lehenga', 'gown', 'straight salwar suit'],
+    shape: 'one long frock-style kameez with a fitted bodice that flares into many folds down to the ankles, over fitted churidar trousers gathered at the ankles, with a dupatta',
+    never: ['saree', 'lehenga', 'gown', 'straight salwar suit', 'knee-length kurti'],
   },
   LEHENGA: {
     description: 'authentic Indian lehenga choli with dupatta', rules: LEHENGA_RULES,
-    shape: 'a full, flared, floor-length skirt with a separate short fitted blouse (choli) and a dupatta',
-    never: ['saree', 'gown', 'chudidhar', 'salwar suit'],
+    shape: 'a full, flared, floor-length skirt with a separate short fitted blouse (choli) ending at or above the waist, and a dupatta',
+    never: ['saree', 'gown', 'anarkali', 'chudidhar', 'salwar suit'],
   },
   GOWN: {
     description: 'elegant floor-length gown', rules: GOWN_RULES,
@@ -205,17 +243,17 @@ const PROFILES: Record<string, GarmentProfile> = {
     never: ['saree', 'lehenga', 'anarkali', 'chudidhar', 'short dress'],
   },
   FORMAL_SHIRT: {
-    description: 'formal long-sleeve shirt', rules: '',
+    description: 'formal long-sleeve shirt', rules: SHIRT_RULES,
     shape: 'a long-sleeve collared shirt buttoned down the front, with cuffs',
     never: ['kurta', 'T-shirt', 'jacket', 'coat'],
   },
   CASUAL_SHIRT: {
-    description: 'casual shirt', rules: '',
+    description: 'casual shirt', rules: SHIRT_RULES,
     shape: 'a collared shirt buttoned down the front, with half or full sleeves, worn casually',
     never: ['kurta', 'T-shirt', 'jacket'],
   },
   TROUSER: {
-    description: 'formal trousers', rules: '',
+    description: 'pair of formal trousers', rules: TROUSER_RULES,
     shape: 'full-length tailored trousers with a waistband and front creases',
     never: ['dhoti', 'pyjama', 'jeans', 'shorts'],
   },
