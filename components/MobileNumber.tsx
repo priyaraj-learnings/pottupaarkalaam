@@ -9,9 +9,11 @@ import { openMsg91Widget } from '@/lib/client/msg91'
 import type { Account } from '@/lib/client/types'
 import { formatMobile, MOBILE_ASK_AGAIN_DAYS, normalizeMobile } from '@/lib/rules'
 
-// Whether to ask for the mobile number after sign-in: never given, and not
-// put off with "Not now" in the last 30 days.
-export function shouldAskForMobile(account: Account, now: number) {
+// Whether to ask for the mobile number after sign-in. Where numbers can be
+// verified (MSG91 set up), on every visit until one is: free credits need it.
+// Otherwise when never given, and not put off with "Not now" in the last 30 days.
+export function shouldAskForMobile(account: Account, now: number, canVerify: boolean) {
+  if (canVerify) return !account.phoneVerified
   if (account.phone) return false
   if (!account.phoneAskedAt) return true
   return now - new Date(account.phoneAskedAt).getTime() > MOBILE_ASK_AGAIN_DAYS * 86_400_000
@@ -169,13 +171,14 @@ export function VerifyMobileForm({ account, widget, onVerified, onCancel }: {
   )
 }
 
-// Shown after sign-in when free credits need a verified mobile number. One
-// number belongs to one account, so free credits go to one number a month.
-export function VerifyMobile({ account, widget, onDone, onSignOut }: {
+// Shown after sign-in until the account has a verified mobile number: free
+// credits need one. One number belongs to one account, so free credits go to
+// one number a month. "Not now" goes into the app with paid credits only.
+export function VerifyMobile({ account, widget, onDone, onSkip }: {
   account: Account
   widget: Widget
   onDone: (account: Account) => void
-  onSignOut: () => void
+  onSkip: () => void
 }) {
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col gap-4 px-4 pb-8 pt-[calc(1.5rem+env(safe-area-inset-top))]">
@@ -186,12 +189,12 @@ export function VerifyMobile({ account, widget, onDone, onSignOut }: {
       <Card title="Verify your mobile number">
         <p className="mb-4 text-[15px] text-stone-600">
           Your {account.freeCreditsPerMonth} free credits every month go to one mobile number. Verify yours with an SMS
-          code to start trying on. We also use it if a payment or a picture needs sorting out.
+          code to get them. We also use it if a payment or a picture needs sorting out.
         </p>
         <VerifyMobileForm account={account} widget={widget} onVerified={onDone} />
       </Card>
       <p className="px-1 text-xs text-stone-500">One account per mobile number. We never sell or share your number.</p>
-      <Button variant="ghost" onClick={onSignOut}>Sign out</Button>
+      <Button variant="ghost" onClick={onSkip}>Not now (no free credits; recharge to try on)</Button>
     </main>
   )
 }

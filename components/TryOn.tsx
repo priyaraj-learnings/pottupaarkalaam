@@ -33,14 +33,18 @@ function StepTitle({ number, children, done }: { number: number; children: React
   )
 }
 
-export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }: {
+export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded, onVerifyMobile }: {
   account: Account
   onAccount: (account: Account) => void
   onRecharge: () => void
   onTermsNeeded: () => void
+  // Opens the SMS code check, where mobile numbers can be verified.
+  onVerifyMobile?: () => void
 }) {
   const toast = useToast()
   const [category, setCategory] = useState<string | null>(null)
+  // Step 1 changed after photos were added as the old choice: which one.
+  const [retagFrom, setRetagFrom] = useState<string | null>(null)
   const [source, setSource] = useState<GarmentSource>('FABRIC')
   const [items, setItems] = useState<Item[]>([])
   const [pairs, setPairs] = useState<Array<[string, string]>>([])
@@ -109,6 +113,7 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
         added.push({ id: `item-${nextItemId++}`, blob, url: URL.createObjectURL(blob), category, source })
       }
       setItems(current => [...current, ...added].slice(0, MAX_GARMENTS))
+      setRetagFrom(null)
     } catch (photoError) {
       toast(errorMessage(photoError), 'error')
     } finally {
@@ -145,7 +150,11 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
   }
 
   function changeItem(id: string, change: Partial<Pick<Item, 'category' | 'source'>>) {
-    const next = items.map(item => (item.id === id ? { ...item, ...change } : item))
+    changeItems(item => item.id === id, change)
+  }
+
+  function changeItems(match: (item: Item) => boolean, change: Partial<Pick<Item, 'category' | 'source'>>) {
+    const next = items.map(item => (match(item) ? { ...item, ...change } : item))
     setItems(next)
     // A pair that no longer makes sense is separated.
     setPairs(current => current.filter(([a, b]) => {
@@ -153,6 +162,23 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
       const second = next.find(item => item.id === b)
       return first && second && canPair(first.category, second.category)
     }))
+  }
+
+  // Each photo keeps the category it was added with, so changing step 1 alone
+  // would still make the old garment. Offer to change the photos added as the
+  // old choice (not always: step 1 also picks the next garment to add, e.g. a
+  // blouse after the saree).
+  function chooseCategory(code: string) {
+    const changed = category && code !== category && items.some(item => item.category === category)
+      && !items.some(item => item.category === code)
+    setRetagFrom(changed ? category : null)
+    setCategory(code)
+  }
+
+  function retag() {
+    if (!retagFrom || !category) return
+    changeItems(item => item.category === retagFrom, { category })
+    setRetagFrom(null)
   }
 
   // ---------------------------------------------------------------------------
@@ -218,6 +244,7 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
   function tryMore() {
     setPairs([])
     setItems([])
+    setRetagFrom(null)
     setShowResults(false)
     setError(null)
   }
@@ -252,7 +279,17 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
 
   return (
     <div className="space-y-4 pb-36">
-      {available === 0 && (
+      {!account.phoneVerified && (
+        <Notice tone={available === 0 ? 'warning' : 'info'}>
+          <b>{account.freeCreditsPerMonth} free credits every month need a verified mobile number</b> (one account per
+          number).{' '}
+          {onVerifyMobile
+            ? <button type="button" onClick={onVerifyMobile} className="font-extrabold underline">Verify my number</button>
+            : 'Mobile number checks are not available yet.'}
+          {available === 0 && <>{' '}Or <button type="button" onClick={onRecharge} className="font-extrabold underline">recharge</button>.</>}
+        </Notice>
+      )}
+      {account.phoneVerified && available === 0 && (
         <Notice tone="warning">
           <b>You have used this month&rsquo;s {account.freeCreditsPerMonth} free credits.</b> They come back on {freeCreditsBack}.
           To keep trying on now,{' '}
@@ -260,7 +297,25 @@ export default function TryOn({ account, onAccount, onRecharge, onTermsNeeded }:
         </Notice>
       )}
       <Card title={<StepTitle number={1} done={Boolean(category)}>What are you trying?</StepTitle>}>
-        <CategoryChips value={category} onChange={setCategory} />
+        <CategoryChips value={category} onChange={chooseCategory} />
+        {retagFrom && category && (() => {
+          const numbers = items.flatMap((item, index) => (item.category === retagFrom ? [`#${index + 1}`] : []))
+          if (!numbers.length) return null
+          return (
+            <div className="mt-3">
+              <Notice tone="warning">
+                <p>
+                  {numbers.length === 1 ? 'Photo' : 'Photos'} {numbers.join(', ')} {numbers.length === 1 ? 'is' : 'are'} still
+                  marked <b>{categoryLabel(retagFrom)}</b>, so the picture would show {categoryLabel(retagFrom).toLowerCase()}.
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Button onClick={retag} className="min-h-10 text-sm">Change to {categoryLabel(category)}</Button>
+                  <Button variant="ghost" onClick={() => setRetagFrom(null)} className="min-h-10 text-sm">Keep, I&rsquo;m adding another photo</Button>
+                </div>
+              </Notice>
+            </div>
+          )
+        })()}
         <div className="mt-4">
           <SourceToggle value={source} onChange={setSource} />
         </div>

@@ -19,8 +19,12 @@ async function one<T = Record<string, unknown>>(sql: string, params: unknown[] =
   return result.rows[0].r
 }
 
-async function newUser(email: string) {
+// Free credits need a verified mobile number, so new accounts get one of their
+// own unless the test is about accounts without one.
+let nextPhone = 8000000001
+async function newUser(email: string, { verified = true } = {}) {
   const { rows } = await db.query<{ id: string }>('insert into auth.users (email) values ($1) returning id', [email])
+  if (verified) await db.query('select public.verify_phone($1, $2)', [rows[0].id, `+91${nextPhone++}`])
   return rows[0].id
 }
 
@@ -224,22 +228,26 @@ describe('admin credit adjustments', () => {
 
 describe('free credits for one mobile number', () => {
   const verify = (userId: string, phone: string) => one<Result>('select public.verify_phone($1, $2) as r', [userId, phone])
-  const requireMobile = (on: boolean) => db.query('update public.app_settings set free_needs_mobile = $1 where id', [on])
 
-  it('gives free credits only to accounts with a verified number, when the admin requires it', async () => {
-    const user = await newUser('needs-mobile@example.com')
+  it('gives free credits only to accounts with a verified number', async () => {
+    const user = await newUser('needs-mobile@example.com', { verified: false })
     await one('select public.get_account($1, $2) as r', [user, TERMS])
-    await requireMobile(true)
+    expect(await account(user)).toMatchObject({ freeLeft: 0, phoneVerified: false })
+    expect(await createLooks(user, [single(0)])).toMatchObject({ error: 'INSUFFICIENT_CREDITS', available: 0 })
+    // Even with the old admin switch off.
+    await db.query('update public.app_settings set free_needs_mobile = false where id')
     try {
-      expect(await account(user)).toMatchObject({ freeLeft: 0, phoneVerified: false })
-      expect(await createLooks(user, [single(0)])).toMatchObject({ error: 'INSUFFICIENT_CREDITS', available: 0 })
-
-      expect(await verify(user, '+919000000001')).toMatchObject({ account: { phone: '+919000000001', phoneVerified: true, freeLeft: 5 } })
-      expect((await createLooks(user, [single(0)])).looks).toHaveLength(1)
-      expect(await account(user)).toMatchObject({ freeLeft: 4 })
+      expect(await account(user)).toMatchObject({ freeLeft: 0 })
     } finally {
-      await requireMobile(false)
+      await db.query('update public.app_settings set free_needs_mobile = true where id')
     }
+    // Paid credits work without a number.
+    await db.query(`select public.adjust_credits('needs-mobile@example.com', null, 1, 'Gift')`)
+    expect((await createLooks(user, [single(0)])).looks).toHaveLength(1)
+
+    expect(await verify(user, '+919000000001')).toMatchObject({ account: { phone: '+919000000001', phoneVerified: true, freeLeft: 5 } })
+    expect((await createLooks(user, [single(0)])).looks).toHaveLength(1)
+    expect(await account(user)).toMatchObject({ freeLeft: 4 })
   })
 
   it('lets a verified number belong to one account only', async () => {
@@ -252,6 +260,16 @@ describe('free credits for one mobile number', () => {
     expect(await verify(first, '+919000000003')).toMatchObject({ account: { phone: '+919000000003' } })
     // The old number is free again for someone else.
     expect(await verify(second, '+919000000002')).toMatchObject({ account: { phoneVerified: true } })
+  })
+
+  it('does not give free credits again to a number an account moved away from', async () => {
+    const first = await newUser('mover@example.com', { verified: false })
+    const second = await newUser('taker@example.com', { verified: false })
+    await one('select public.get_account($1, $2) as r', [first, TERMS])
+    await verify(first, '+919000000006')
+    await createLooks(first, [single(0), single(1)])
+    expect(await verify(first, '+919000000007')).toMatchObject({ account: { freeLeft: 3 } })
+    expect(await verify(second, '+919000000006')).toMatchObject({ account: { phoneVerified: true, freeLeft: 3 } })
   })
 
   it('never lets a typed number replace or remove a verified one', async () => {
@@ -358,7 +376,7 @@ describe('mobile numbers', () => {
     one<Result>('select public.save_phone($1, $2, $3) as r', [userId, phone, offers])
 
   it('saves, changes and removes the number, with offers only when there is one', async () => {
-    const user = await newUser('mobile@example.com')
+    const user = await newUser('mobile@example.com', { verified: false })
     expect(await account(user)).toMatchObject({ phone: null, offersOk: false, phoneAskedAt: null })
 
     expect(await savePhone(user, '+919876543210', true)).toMatchObject({ phone: '+919876543210', offersOk: true })
@@ -372,14 +390,14 @@ describe('mobile numbers', () => {
   })
 
   it('remembers "Not now" without touching the number', async () => {
-    const user = await newUser('later@example.com')
+    const user = await newUser('later@example.com', { verified: false })
     const skipped = await one<Result>('select public.skip_phone($1) as r', [user])
     expect(skipped).toMatchObject({ phone: null })
     expect(skipped.phoneAskedAt).toBeTruthy()
   })
 
   it('shows the number to the admin and finds customers by it', async () => {
-    const user = await newUser('findme@example.com')
+    const user = await newUser('findme@example.com', { verified: false })
     await savePhone(user, '+919988776655', true)
     const search = (text: string) => one<{ total: number; users: Array<Record<string, unknown>> }>(
       `select public.admin_users($1, 'recent', 50, 0) as r`, [text])

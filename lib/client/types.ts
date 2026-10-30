@@ -26,9 +26,8 @@ export type AppSettings = {
   payeeName: string | null
   supportContact: string | null
   pricing: Pricing
-  // Free credits only with a verified mobile number: the app asks for one.
-  mobileRequired: boolean
-  // The MSG91 OTP widget's public values, when verification is set up.
+  // The MSG91 OTP widget's public values, when verification is set up. Free
+  // credits only with a verified mobile number: the app asks for one.
   phoneWidget: { widgetId: string; tokenAuth: string } | null
   // Couple pictures: on for the app, and their price in paid credits.
   couple: { enabled: boolean; credits: number }
