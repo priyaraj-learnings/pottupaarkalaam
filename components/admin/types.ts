@@ -53,6 +53,15 @@ export type Analytics = {
   }
   series: SeriesPoint[]
   categories: Array<{ category: string; pictures: number; fabric: number; stitched: number }>
+  // Website visits (lib/server/visits.ts); null before the visits migration.
+  visits: {
+    // Each visitor once a day: someone who comes on two days counts twice.
+    visitors: number
+    pageViews: number
+    // The first day with any visit in the period (counting started 30 Oct 2026).
+    firstDay: string | null
+    days: Array<{ day: string; visitors: number }>
+  } | null
 }
 
 export type AiRates = {
