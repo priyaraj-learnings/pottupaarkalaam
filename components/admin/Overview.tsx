@@ -59,6 +59,8 @@ export default function Overview({ data, loading, error, onOpenPayments }: {
         <MoneyChart series={data.series} unit={data.unit} />
       </Card>
 
+      <Funnel data={data} />
+
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="Customers and pictures">
         <StatTile label="Customers" value={t.customers.toLocaleString('en-IN')} hint={`${t.newCustomers} new in this period`} />
         <StatTile label="Active customers" value={t.activeCustomers} hint="Made a picture in this period" />
@@ -79,5 +81,41 @@ export default function Overview({ data, loading, error, onOpenPayments }: {
         against openai.com/api/pricing; changing them recalculates every report.
       </p>
     </div>
+  )
+}
+
+// From visit to payment, in the period. Visitors count once a day; the other
+// steps are accounts (signed up, made a picture, recharged in the period).
+function Funnel({ data }: { data: Analytics }) {
+  const t = data.totals
+  const visits = data.visits
+  if (!visits) {
+    return <Notice tone="info">Website visits appear here once the visits migration (20261030000200_site_visits.sql) has run.</Notice>
+  }
+  const steps = [
+    { label: 'Visitors', value: visits.visitors, hint: `${visits.pageViews.toLocaleString('en-IN')} page views` },
+    { label: 'Signed up', value: t.newCustomers, hint: 'New accounts' },
+    { label: 'Tried on', value: t.activeCustomers, hint: 'Made a picture' },
+    { label: 'Recharged', value: t.payingCustomers, hint: 'Paid for credits' },
+  ]
+  const share = (value: number) => (visits.visitors ? `${Math.round((value / visits.visitors) * 1000) / 10}% of visitors` : '')
+  const started = visits.firstDay && visits.firstDay > data.from.slice(0, 10) ? visits.firstDay : null
+  return (
+    <Card title="From visit to payment, in this period">
+      <ol className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {steps.map((step, index) => (
+          <li key={step.label} className="rounded-2xl bg-stone-50 p-3 ring-1 ring-stone-200">
+            <span className="block text-xs font-bold text-stone-500">{index + 1}. {step.label}</span>
+            <span className="block text-2xl font-black text-stone-900">{step.value.toLocaleString('en-IN')}</span>
+            <span className="block text-xs text-stone-500">{index === 0 ? step.hint : share(step.value) || step.hint}</span>
+          </li>
+        ))}
+      </ol>
+      <p className="mt-3 text-xs text-stone-500">
+        Each visitor counts once a day (no cookies: a person on two days, or on two phones, counts twice). Signed up,
+        tried on and recharged count accounts in this period, including people who first visited earlier.
+        {started && <> Visits are counted from {new Date(`${started}T00:00:00+05:30`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })}.</>}
+      </p>
+    </Card>
   )
 }

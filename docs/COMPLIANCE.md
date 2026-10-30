@@ -20,16 +20,28 @@ This is an engineering record, not legal advice: have a lawyer review it before 
 | DPDP Act 2023, s.6(4) and s.12 | Withdraw consent as easily as giving it; erasure | Account menu → Delete my account (`lib/server/deleteAccount.ts`, migration `20261029000600`): photos, account, credits, mobile number and sign-in deleted; recharges kept without the person; a one-way code of a verified number kept to month end to stop repeat free credits |
 | DPDP Act 2023, s.5 and s.6 (notice matches the purpose) | Say why the mobile number is collected and what is kept | Free credits only with a number verified by SMS code (migration `20261030000100`): Terms §4 and the Privacy Policy (English and Tamil) say so, give the purpose (one set of free credits per number a month) and the one-way code kept to month end after deleting the account or changing the number. Google or email accounts can use paid credits without a number, so giving it stays a choice |
 | Consumer Protection Act 2019 (no misleading statements) | What the Terms promise matches the service | Terms §4 no longer says every account gets free credits (terms version `2026-10-30.1`) |
+| DPDP Act 2023, s.5 and s.8(7) (website visits) | Say what is collected; keep it no longer than needed | Visits counted without cookies or a third party (`lib/server/visits.ts`, migration `20261030000200`): a one-way code of address and browser with a daily key, kept for that day only (`purge_site_visitors`, hourly); only counts per day stay. Privacy Policy (English and Tamil), terms version `2026-10-30.2` |
 | E-Commerce Rules 2020, rule 4(2) | Customer care phone number | `COMPANY.supportPhone` in Terms §1 and §10, Privacy Policy and the account menu |
 
 ## Coming into force on 13 May 2027 (DPDP Rules 2025, rules 3 and 5–16)
 
 - Tamil consent and Privacy Policy, and in-app account deletion: done (see the table above).
 - The Terms of Use are in English only; a Tamil version would help but is not required for the DPDP notice.
-- **Breach reporting** within 72 hours to the Data Protection Board (rule 7): keep a short runbook.
+- **Breach reporting** to customers and the Data Protection Board, detailed report within 72 hours (rule 7):
+  `docs/BREACH_RUNBOOK.md`.
 - **Grievance replies** within 90 days at most (rule 14): already within 7 days.
 
+## In force now, outside the code
+
+| Rule | What it asks | Status |
+|---|---|---|
+| CERT-In Directions, 28 April 2022 (IT Act s.70B) | Report cyber security incidents to CERT-In within 6 hours | `docs/BREACH_RUNBOOK.md` |
+| CERT-In Directions, 28 April 2022 | Keep ICT system logs for 180 days, within India | **Open**: set the Cloud Logging bucket retention to 180 days in asia-south1 / asia-south2 |
+
 ## Open items for the owner
+
+- [ ] **Breach runbook:** fill in the technical lead and backup in `docs/BREACH_RUNBOOK.md`.
+- [ ] **Logs for 180 days in India** (CERT-In, above). UduthiPaar needs the same.
 
 - [ ] **Tamil review:** have a native Tamil speaker read the consent screen (`CONSENT_SCREEN.ta` and
   `CONSENT_POINTS_TA` in `lib/legal.ts`) and the Tamil Privacy Policy (`components/legal/PrivacyContentTa.tsx`).

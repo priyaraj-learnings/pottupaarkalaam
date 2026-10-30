@@ -25,6 +25,9 @@ export function PrivacyContent() {
           <li><b>Payments:</b> the amount, date and UPI reference of your recharges, and the bank&rsquo;s credit message
             for that payment (which shows the payer&rsquo;s name or UPI ID).</li>
           <li><b>Usage:</b> your credits, try-ons and recharges, and basic technical logs (time, errors).</li>
+          <li><b>Website visits:</b> counted without cookies, to know how many people visit. From your internet address
+            and browser we make a one-way code with a key that changes every day, and keep it for that day only; after
+            that only the number of visitors per day stays. We do not store your internet address.</li>
         </ul>
       </section>
 

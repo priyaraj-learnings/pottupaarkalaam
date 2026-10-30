@@ -482,6 +482,9 @@ export async function purgeExpired(now = new Date()) {
   // Free-credit codes of deleted accounts from earlier months.
   const { error: carryError } = await supabaseAdmin.rpc('purge_free_use_carryover')
   if (carryError) console.error(JSON.stringify({ event: 'cleanup.carryover_failed', message: carryError.message }))
+  // Website visitor codes of earlier days (only the counts per day stay).
+  const { error: visitorsError } = await supabaseAdmin.rpc('purge_site_visitors')
+  if (visitorsError) console.error(JSON.stringify({ event: 'cleanup.visitors_failed', message: visitorsError.message }))
   const { data, error } = await supabaseAdmin.from('try_on_batches')
     .select('id, photo_path, partner_photo_path, garment_paths').is('purged_at', null).lte('expires_at', now.toISOString())
     .order('expires_at', { ascending: true }).limit(200)

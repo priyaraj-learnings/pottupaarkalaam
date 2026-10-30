@@ -3,6 +3,8 @@ import localFont from 'next/font/local'
 
 import './globals.css'
 
+import VisitCounter from '@/components/VisitCounter'
+
 // Tamil text (the name, போட்டுப்பார்க்கலாம்) in Noto Sans Tamil, kept in
 // app/fonts. Latin text uses the phone's own font.
 const notoTamil = localFont({
@@ -45,7 +47,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
     <html lang="en" className={`${notoTamil.variable} h-full antialiased`}>
-      <body className="min-h-full bg-ivory text-stone-900">{children}</body>
+      <body className="min-h-full bg-ivory text-stone-900">
+        {children}
+        <VisitCounter />
+      </body>
     </html>
   )
 }
