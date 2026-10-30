@@ -18,6 +18,8 @@ export type Account = {
   phoneAskedAt: string | null
   // The customer chose to show couple pictures.
   coupleOptIn: boolean
+  // A recharge approved this month: may add extra photos to a try.
+  paidThisMonth: boolean
 }
 
 export type AppSettings = {
@@ -35,6 +37,9 @@ export type AppSettings = {
   phoneWidget: { widgetId: string; tokenAuth: string } | null
   // Couple pictures: on for the whole app, and their price in paid credits.
   couple: { enabled: boolean; credits: number }
+  // A 4th and 5th photo per try for customers who recharged this month, each
+  // costing `credits` more (paid credits only).
+  extraPhotos: { enabled: boolean; credits: number }
 }
 
 type SettingsRow = {
@@ -48,6 +53,8 @@ type SettingsRow = {
   msg91_auth_key?: string | null
   couple_enabled?: boolean
   couple_credits?: number
+  extra_photos_enabled?: boolean
+  extra_photo_credits?: number
   free_credits_per_month: number
   standard_rate_inr: number
   bulk_rate_inr: number
@@ -59,7 +66,7 @@ type SettingsRow = {
 export function settingsFromRow(row: SettingsRow | null): AppSettings {
   if (!row) {
     return { upiId: null, upiQrText: null, upiAppButtons: false, payeeName: null, supportContact: null, pricing: DEFAULT_PRICING, phoneWidget: null,
-      couple: { enabled: false, credits: DEFAULT_COUPLE_CREDITS } }
+      couple: { enabled: false, credits: DEFAULT_COUPLE_CREDITS }, extraPhotos: { enabled: false, credits: 1 } }
   }
   // Never the auth key: these settings go to the browser.
   const widgetId = row.msg91_widget_id?.trim()
@@ -73,6 +80,7 @@ export function settingsFromRow(row: SettingsRow | null): AppSettings {
     supportContact: row.support_contact,
     phoneWidget,
     couple: { enabled: Boolean(row.couple_enabled), credits: row.couple_credits ?? DEFAULT_COUPLE_CREDITS },
+    extraPhotos: { enabled: Boolean(row.extra_photos_enabled), credits: row.extra_photo_credits ?? 1 },
     pricing: {
       freeCreditsPerMonth: row.free_credits_per_month,
       standardRateInr: row.standard_rate_inr,

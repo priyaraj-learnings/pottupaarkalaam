@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { hasGarmentProfile } from '@/lib/garments'
+import { garmentProfile, hasGarmentProfile } from '@/lib/garments'
 import { parseUpiQr, phoneKind, upiAppLinks, upiLink } from '@/lib/upi'
 import { buildCouplePrompt, buildPairPrompt, buildSinglePrompt } from '@/lib/prompts'
 import {
@@ -15,6 +15,7 @@ import {
   normalizeMobile,
   normalizeUtr,
   OFFERED_CATEGORIES,
+  paidCreditsNeeded,
   planLooks,
   quoteRecharge,
   rechargeChoices,
@@ -52,6 +53,7 @@ describe('pairs', () => {
     expect(plan).toEqual({
       ok: true,
       credits: 3,
+      extraCredits: 0,
       looks: [
         {
           kind: 'PAIR',
@@ -109,12 +111,13 @@ describe('prompts', () => {
   it('dresses each person of a couple in their own garment', () => {
     const couple = buildCouplePrompt({ category: 'KURTA', source: 'FABRIC' }, { category: 'SAREE', source: 'STITCHED' })
     expect(couple).toMatch(/IMAGE 1 is the man and IMAGE 3 is the woman/)
-    expect(couple).toMatch(/THE MAN \(IMAGE 1\) wears a .*kurta.*, made only from IMAGE 2/i)
-    expect(couple).toMatch(/THE WOMAN \(IMAGE 3\) wears a .*saree.*, made only from IMAGE 4/i)
+    expect(couple).toMatch(/THE MAN \(IMAGE 1\) wears an? .*kurta.*, made only from IMAGE 2/i)
+    expect(couple).toMatch(/THE WOMAN \(IMAGE 3\) wears an? .*saree.*, made only from IMAGE 4/i)
     expect(couple).toMatch(/IMAGE 4 is a photo of a READY-MADE, STITCHED saree/)
     expect(couple).toMatch(/onto the woman/)
     expect(couple).toMatch(/never dress one person in the other person's garment/)
-    expect(couple).toMatch(/SAREE-SPECIFIC DRAPING RULES/)
+    expect(couple).not.toMatch(/SAREE-SPECIFIC DRAPING RULES/)
+    expect(couple).toMatch(/READY-MADE PRESERVATION/)
   })
 })
 
@@ -235,5 +238,56 @@ describe('the business UPI QR', () => {
     const signed = upiLink({ upiId: 'a@ok', payeeName: null, amountInr: 40, note: 'x', qrText: 'upi://pay?pa=a@ok&mc=5411&sign=abc' })
     expect(signed).toContain('mc=5411')
     expect(signed).not.toContain('sign=')
+  })
+})
+
+describe('garment type in every prompt', () => {
+  it('describes the shape of every garment the app offers, and what it must not become', () => {
+    for (const category of OFFERED_CATEGORIES) {
+      const profile = garmentProfile(category.code)
+      expect(profile.shape.length, category.code).toBeGreaterThan(20)
+      expect(profile.never.length, category.code).toBeGreaterThan(1)
+      for (const source of ['FABRIC', 'STITCHED'] as const) {
+        const prompt = buildSinglePrompt({ category: category.code, source })
+        expect(prompt, category.code).toMatch(/Replace everything the customer is wearing/)
+        expect(prompt.trim().split('\n').pop(), category.code).toMatch(/^GARMENT TYPE CHECK: The customer chose an? /)
+        expect(prompt, category.code).not.toMatch(/\ba (?!one)[aeiou]/i)
+      }
+    }
+  })
+
+  it('keeps a chudidhar fabric from becoming a saree', () => {
+    const prompt = buildSinglePrompt({ category: 'CHUDIDHAR', source: 'FABRIC' })
+    expect(prompt).toMatch(/churidar trousers covering both legs/)
+    expect(prompt).toMatch(/does not decide the garment type: it is\na chudidhar/)
+    expect(prompt).toMatch(/It must not look like any of these: saree, half-saree, lehenga/)
+  })
+
+  it('checks both garments of a pair and of a couple', () => {
+    const pair = buildPairPrompt({ category: 'FORMAL_SHIRT', source: 'FABRIC' }, { category: 'DHOTI', source: 'FABRIC' }, 'BOTTOM')
+    expect(pair).toMatch(/GARMENT TYPE CHECK: For the main garment, the customer chose a shirt\.[^]*For the lower garment, the customer chose a dhoti/)
+    const couple = buildCouplePrompt({ category: 'KURTA', source: 'FABRIC' }, { category: 'CHUDIDHAR', source: 'FABRIC' })
+    expect(couple).toMatch(/For the woman, the customer chose a chudidhar/)
+    expect(couple).toMatch(/keep none of their current clothes/)
+  })
+})
+
+describe('extra photos', () => {
+  const saree = { category: 'SAREE', source: 'FABRIC' as const }
+
+  it('allow 3 photos normally and 5 with extra photos, the 4th and 5th costing extra', () => {
+    expect(planLooks(Array(4).fill(saree), [])).toMatchObject({ ok: false })
+    expect(planLooks(Array(3).fill(saree), [])).toMatchObject({ ok: true, credits: 3, extraCredits: 0 })
+    expect(planLooks(Array(4).fill(saree), [], { maxGarments: 5, extraCredits: 1 })).toMatchObject({ ok: true, credits: 5, extraCredits: 1 })
+    expect(planLooks(Array(5).fill(saree), [], { maxGarments: 5, extraCredits: 1 })).toMatchObject({ ok: true, credits: 7, extraCredits: 2 })
+    expect(planLooks(Array(6).fill(saree), [], { maxGarments: 5, extraCredits: 1 })).toMatchObject({ ok: false })
+  })
+
+  it('take the extra from paid credits only', () => {
+    // 5 photos (7 credits, 2 extra) with 5 free credits left: 2 paid credits.
+    expect(paidCreditsNeeded({ credits: 7, extraCredits: 2 }, 5)).toBe(2)
+    // With 3 free credits left: 2 normal + 2 extra = 4 paid credits.
+    expect(paidCreditsNeeded({ credits: 7, extraCredits: 2 }, 3)).toBe(4)
+    expect(paidCreditsNeeded({ credits: 3, extraCredits: 0 }, 3)).toBe(0)
   })
 })

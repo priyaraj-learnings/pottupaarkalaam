@@ -205,6 +205,8 @@ export async function updateSettings(adminId: string, body: unknown) {
   if (authKey) row.msg91_auth_key = authKey
   row.couple_enabled = input.coupleEnabled === true || input.coupleEnabled === 'true'
   row.couple_credits = whole(input.coupleCredits ?? DEFAULT_COUPLE_CREDITS, 'Credits per couple picture', 1, 50)
+  row.extra_photos_enabled = input.extraPhotosEnabled === true || input.extraPhotosEnabled === 'true'
+  row.extra_photo_credits = whole(input.extraPhotoCredits ?? 1, 'Extra credits for the 4th and 5th photo', 1, 10)
   const { error } = await supabaseAdmin.from('app_settings').update(row).eq('id', true)
   if (error) throw dbError(error, 'Unable to save settings')
   return { settings: await loadSettings(), aiRates: await loadAiRates() }

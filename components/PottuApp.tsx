@@ -282,7 +282,7 @@ export default function PottuApp() {
 
         <main className="px-4 pb-28 pt-2">
           <div className={shownTab === 'tryon' ? '' : 'hidden'}>
-            <TryOn account={current.account} onAccount={setAccount} onRecharge={() => setTab('recharge')}
+            <TryOn account={current.account} settings={current.settings} onAccount={setAccount} onRecharge={() => setTab('recharge')}
               onTermsNeeded={() => loadMe(session.user.id)}
               onVerifyMobile={current.settings.phoneWidget ? () => setAskMobile(true) : undefined} />
           </div>

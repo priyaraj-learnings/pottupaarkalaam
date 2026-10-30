@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 
-import LookCard from '@/components/LookCard'
+import { LookGallery } from '@/components/LookGallery'
 import { Button, Notice, Spinner, useToast } from '@/components/ui'
 import { api, errorMessage } from '@/lib/client/api'
 import { isFinished, type LookView } from '@/lib/client/types'
@@ -71,9 +71,7 @@ export default function History({ active, onTryOn }: { active: boolean; onTryOn:
       )}
       {looks && looks.length > 0 && (
         <>
-          <div className="grid grid-cols-2 gap-3">
-            {looks.map(look => <LookCard key={look.id} look={look} showDate />)}
-          </div>
+          <LookGallery looks={looks} showDate />
           <Button variant="danger" busy={deleting} onClick={deleteAll} className="w-full">Delete all my photos now</Button>
         </>
       )}

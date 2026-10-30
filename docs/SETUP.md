@@ -93,6 +93,13 @@ as per UPI risk policy"), but accepts a scan of its QR, also scanned from a phot
 Run `supabase/migrations/20261029000600_delete_account.sql` (UAT first, then production). Customers can then delete
 their account from the account menu; admins cannot (remove the admin role first).
 
+### 1.3c Extra photos for paying customers
+
+Run `supabase/migrations/20261029000900_extra_photos.sql` (UAT first, then production). A try takes up to 3 clothes
+photos; customers with a recharge approved this month can choose 4 or 5, and the 4th and 5th pictures cost extra
+credits each (1 by default, so 2 credits a picture), from paid credits only. `/admin` → **Settings** → *Extra photos
+for paying customers* turns it off or changes the extra.
+
 ### 1.4 Couple pictures (optional, paid)
 
 One picture of two people, him and her, each in their own new garment: a **Couple** tab between *Try on* and

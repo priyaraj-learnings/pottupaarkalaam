@@ -15,6 +15,8 @@ export type Account = {
   phoneAskedAt: string | null
   // Chose to show couple pictures (when the admin has them on).
   coupleOptIn: boolean
+  // A recharge approved this month: may add a 4th and 5th photo to a try.
+  paidThisMonth: boolean
 }
 
 export type AppSettings = {
@@ -31,6 +33,8 @@ export type AppSettings = {
   phoneWidget: { widgetId: string; tokenAuth: string } | null
   // Couple pictures: on for the app, and their price in paid credits.
   couple: { enabled: boolean; credits: number }
+  // Extra (4th and 5th) photos for paying customers, and their extra credits.
+  extraPhotos: { enabled: boolean; credits: number }
 }
 
 export type Me = {
