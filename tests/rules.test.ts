@@ -8,6 +8,7 @@ import {
   categoryLabel,
   coupleGarmentAllowed,
   DEFAULT_PRICING,
+  fabricOnly,
   formatMobile,
   freeCreditsReturnDay,
   GARMENT_CATEGORIES,
@@ -19,6 +20,7 @@ import {
   planLooks,
   quoteRecharge,
   rechargeChoices,
+  sourceFor,
 } from '@/lib/rules'
 
 describe('categories', () => {
@@ -159,6 +161,17 @@ describe('recharges', () => {
     // Pairs still possible with what is offered: shirt or kurta with veshti, coat with shirt.
     expect(canPair('FORMAL_SHIRT', 'DHOTI')).toBe(true)
     expect(canPair('COAT', 'KURTA')).toBe(true)
+  })
+
+  it('allows only unstitched fabric for a saree or veshti', () => {
+    expect(fabricOnly('SAREE')).toBe(true)
+    expect(fabricOnly('DHOTI')).toBe(true)
+    expect(fabricOnly('LEHENGA')).toBe(false)
+    expect(fabricOnly(null)).toBe(false)
+    expect(sourceFor('SAREE', 'STITCHED')).toBe('FABRIC')
+    expect(sourceFor('DHOTI', 'STITCHED')).toBe('FABRIC')
+    expect(sourceFor('LEHENGA', 'STITCHED')).toBe('STITCHED')
+    expect(sourceFor('KURTI', 'FABRIC')).toBe('FABRIC')
   })
 
   it('accepts only a 12-digit UPI reference', () => {

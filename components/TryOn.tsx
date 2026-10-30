@@ -10,7 +10,7 @@ import { api, ApiFailure, errorMessage } from '@/lib/client/api'
 import { shrinkPhoto } from '@/lib/client/photos'
 import { isFinished, type Account, type AppSettings, type LookView } from '@/lib/client/types'
 import { useLookPolling } from '@/lib/client/useLookPolling'
-import { canPair, categoryLabel, freeCreditsReturnDay, MAX_GARMENTS, MAX_GARMENTS_PAID, paidCreditsNeeded, planLooks, SOURCE_LABELS, type GarmentSource } from '@/lib/rules'
+import { canPair, categoryLabel, freeCreditsReturnDay, sourceFor, MAX_GARMENTS, MAX_GARMENTS_PAID, paidCreditsNeeded, planLooks, SOURCE_LABELS, type GarmentSource } from '@/lib/rules'
 
 type Item = { id: string; blob: Blob; url: string; category: string; source: GarmentSource }
 type Photo = { blob: Blob; url: string }
@@ -44,8 +44,6 @@ export default function TryOn({ account, settings, onAccount, onRecharge, onTerm
 }) {
   const toast = useToast()
   const [category, setCategory] = useState<string | null>(null)
-  // Step 1 changed after photos were added as the old choice: which one.
-  const [retagFrom, setRetagFrom] = useState<string | null>(null)
   const [source, setSource] = useState<GarmentSource>('FABRIC')
   const [items, setItems] = useState<Item[]>([])
   const [pairs, setPairs] = useState<Array<[string, string]>>([])
@@ -123,7 +121,6 @@ export default function TryOn({ account, settings, onAccount, onRecharge, onTerm
         added.push({ id: `item-${nextItemId++}`, blob, url: URL.createObjectURL(blob), category, source })
       }
       setItems(current => [...current, ...added].slice(0, limit))
-      setRetagFrom(null)
     } catch (photoError) {
       toast(errorMessage(photoError), 'error')
     } finally {
@@ -160,11 +157,11 @@ export default function TryOn({ account, settings, onAccount, onRecharge, onTerm
   }
 
   function changeItem(id: string, change: Partial<Pick<Item, 'category' | 'source'>>) {
-    changeItems(item => item.id === id, change)
+    changeItems(item => item.id === id, () => change)
   }
 
-  function changeItems(match: (item: Item) => boolean, change: Partial<Pick<Item, 'category' | 'source'>>) {
-    const next = items.map(item => (match(item) ? { ...item, ...change } : item))
+  function changeItems(match: (item: Item) => boolean, change: (item: Item) => Partial<Pick<Item, 'category' | 'source'>>) {
+    const next = items.map(item => (match(item) ? { ...item, ...change(item) } : item))
     setItems(next)
     // A pair that no longer makes sense is separated.
     setPairs(current => current.filter(([a, b]) => {
@@ -174,21 +171,37 @@ export default function TryOn({ account, settings, onAccount, onRecharge, onTerm
     }))
   }
 
-  // Each photo keeps the category it was added with, so changing step 1 alone
-  // would still make the old garment. Offer to change the photos added as the
-  // old choice (not always: step 1 also picks the next garment to add, e.g. a
-  // blouse after the saree).
+  // Step 1 describes the photos already added, so a change there changes them
+  // too (back from the pictures, Saree -> Lehenga makes a lehenga next time).
+  // Not when the new choice is worn with them as a pair (shirt, then veshti):
+  // that is the next garment to add. "Undo" on the toast keeps them as they were.
   function chooseCategory(code: string) {
-    const changed = category && code !== category && items.some(item => item.category === category)
-      && !items.some(item => item.category === code)
-    setRetagFrom(changed ? category : null)
+    const nextSource = sourceFor(code, source)
     setCategory(code)
+    setSource(nextSource)
+    if (!category || code === category) return
+    relabel(item => item.category === category && !canPair(item.category, code), categoryLabel(code),
+      item => ({ category: code, source: sourceFor(code, item.source) }))
   }
 
-  function retag() {
-    if (!retagFrom || !category) return
-    changeItems(item => item.category === retagFrom, { category })
-    setRetagFrom(null)
+  function chooseSource(next: GarmentSource) {
+    setSource(next)
+    if (category && next !== source) {
+      relabel(item => item.category === category && item.source === source, SOURCE_LABELS[next].toLowerCase(), () => ({ source: next }))
+    }
+  }
+
+  // Changes the matching photos (what: the new choice, for the toast).
+  function relabel(match: (item: Item) => boolean, what: string, change: (item: Item) => Partial<Pick<Item, 'category' | 'source'>>) {
+    const changed = items.filter(match)
+    if (!changed.length) return
+    const before = new Map(changed.map(item => [item.id, { category: item.category, source: item.source }]))
+    changeItems(item => before.has(item.id), change)
+    const numbers = items.flatMap((item, index) => (before.has(item.id) ? [`#${index + 1}`] : []))
+    toast(`${numbers.length === 1 ? 'Photo' : 'Photos'} ${numbers.join(', ')} changed to ${what}.`, 'info', {
+      label: 'Undo',
+      onClick: () => setItems(current => current.map(item => ({ ...item, ...before.get(item.id) }))),
+    })
   }
 
   // ---------------------------------------------------------------------------
@@ -256,7 +269,6 @@ export default function TryOn({ account, settings, onAccount, onRecharge, onTerm
   function tryMore() {
     setPairs([])
     setItems([])
-    setRetagFrom(null)
     setShowResults(false)
     setError(null)
   }
@@ -308,26 +320,8 @@ export default function TryOn({ account, settings, onAccount, onRecharge, onTerm
       )}
       <Card title={<StepTitle number={1} done={Boolean(category)}>What are you trying?</StepTitle>}>
         <CategoryChips value={category} onChange={chooseCategory} />
-        {retagFrom && category && (() => {
-          const numbers = items.flatMap((item, index) => (item.category === retagFrom ? [`#${index + 1}`] : []))
-          if (!numbers.length) return null
-          return (
-            <div className="mt-3">
-              <Notice tone="warning">
-                <p>
-                  {numbers.length === 1 ? 'Photo' : 'Photos'} {numbers.join(', ')} {numbers.length === 1 ? 'is' : 'are'} still
-                  marked <b>{categoryLabel(retagFrom)}</b>, so the picture would show {categoryLabel(retagFrom).toLowerCase()}.
-                </p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <Button onClick={retag} className="min-h-10 text-sm">Change to {categoryLabel(category)}</Button>
-                  <Button variant="ghost" onClick={() => setRetagFrom(null)} className="min-h-10 text-sm">Keep, I&rsquo;m adding another photo</Button>
-                </div>
-              </Notice>
-            </div>
-          )
-        })()}
         <div className="mt-4">
-          <SourceToggle value={source} onChange={setSource} />
+          <SourceToggle value={source} category={category} onChange={chooseSource} />
         </div>
       </Card>
 
@@ -490,8 +484,9 @@ export default function TryOn({ account, settings, onAccount, onRecharge, onTerm
       <Sheet open={Boolean(editingItem)} title="What is this photo?" onClose={() => setEditing(null)}>
         {editingItem && (
           <div className="space-y-4">
-            <CategoryChips value={editingItem.category} onChange={code => changeItem(editingItem.id, { category: code })} />
-            <SourceToggle value={editingItem.source} onChange={value => changeItem(editingItem.id, { source: value })} />
+            <CategoryChips value={editingItem.category}
+              onChange={code => changeItem(editingItem.id, { category: code, source: sourceFor(code, editingItem.source) })} />
+            <SourceToggle value={editingItem.source} category={editingItem.category} onChange={value => changeItem(editingItem.id, { source: value })} />
             <Button onClick={() => setEditing(null)} className="w-full">Done</Button>
           </div>
         )}

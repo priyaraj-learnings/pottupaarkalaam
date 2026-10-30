@@ -83,6 +83,19 @@ export function categoryLabel(code: string) {
   return GARMENT_CATEGORIES.find(category => category.code === code)?.label ?? code
 }
 
+// Worn as one unstitched length of cloth (a saree, a veshti): there is no
+// stitched version to photograph, so only "Unstitched fabric".
+export const FABRIC_ONLY_CATEGORIES: readonly string[] = ['SAREE', 'DHOTI']
+
+export function fabricOnly(category: string | null | undefined) {
+  return Boolean(category && FABRIC_ONLY_CATEGORIES.includes(category))
+}
+
+// The source to use for a category: always fabric for a saree or veshti.
+export function sourceFor(category: string | null | undefined, source: GarmentSource): GarmentSource {
+  return fabricOnly(category) ? 'FABRIC' : source
+}
+
 export const SOURCE_LABELS: Record<GarmentSource, string> = {
   FABRIC: 'Unstitched fabric',
   STITCHED: 'Stitched dress',

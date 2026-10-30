@@ -10,7 +10,7 @@ import { api, ApiFailure, errorMessage } from '@/lib/client/api'
 import { shrinkPhoto } from '@/lib/client/photos'
 import { isFinished, type Account, type AppSettings, type LookView } from '@/lib/client/types'
 import { useLookPolling } from '@/lib/client/useLookPolling'
-import { categoryLabel, type GarmentSource } from '@/lib/rules'
+import { categoryLabel, sourceFor, type GarmentSource } from '@/lib/rules'
 
 type Photo = { blob: Blob; url: string }
 type Person = { category: string | null; source: GarmentSource; garment: Photo | null; photo: Photo | null }
@@ -199,8 +199,9 @@ export default function Couple({ account, settings, onAccount, onRecharge, onRef
     return (
       <Card title={<StepTitle number={number} done={ready(person)}>{words.title}</StepTitle>}>
         <div className="space-y-4">
-          <CategoryChips onlyGroup={words.group} value={person.category} onChange={category => update(side, { category })} />
-          <SourceToggle value={person.source} onChange={source => update(side, { source })} />
+          <CategoryChips onlyGroup={words.group} value={person.category}
+            onChange={category => update(side, { category, source: sourceFor(category, person.source) })} />
+          <SourceToggle value={person.source} category={person.category} onChange={source => update(side, { source })} />
           <PhotoSlot
             label={`${words.his[0].toUpperCase()}${words.his.slice(1)} clothes`}
             help={!person.category ? `Choose what ${words.him} is trying first.`
