@@ -26,10 +26,21 @@ This is an engineering record, not legal advice: have a lawyer review it before 
 
 - Tamil consent and Privacy Policy, and in-app account deletion: done (see the table above).
 - The Terms of Use are in English only; a Tamil version would help but is not required for the DPDP notice.
-- **Breach reporting** within 72 hours to the Data Protection Board (rule 7): keep a short runbook.
+- **Breach reporting** to customers and the Data Protection Board, detailed report within 72 hours (rule 7):
+  `docs/BREACH_RUNBOOK.md`.
 - **Grievance replies** within 90 days at most (rule 14): already within 7 days.
 
+## In force now, outside the code
+
+| Rule | What it asks | Status |
+|---|---|---|
+| CERT-In Directions, 28 April 2022 (IT Act s.70B) | Report cyber security incidents to CERT-In within 6 hours | `docs/BREACH_RUNBOOK.md` |
+| CERT-In Directions, 28 April 2022 | Keep ICT system logs for 180 days, within India | **Open**: set the Cloud Logging bucket retention to 180 days in asia-south1 / asia-south2 |
+
 ## Open items for the owner
+
+- [ ] **Breach runbook:** fill in the technical lead and backup in `docs/BREACH_RUNBOOK.md`.
+- [ ] **Logs for 180 days in India** (CERT-In, above). UduthiPaar needs the same.
 
 - [ ] **Tamil review:** have a native Tamil speaker read the consent screen (`CONSENT_SCREEN.ta` and
   `CONSENT_POINTS_TA` in `lib/legal.ts`) and the Tamil Privacy Policy (`components/legal/PrivacyContentTa.tsx`).
