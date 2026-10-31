@@ -95,6 +95,8 @@ export type Overview = {
   unmatchedAlerts: Array<{ id: string; utr: string; amount_inr: number; sender: string | null; message: string | null; received_at: string }>
   paymentSms: { secretSet: boolean; senders: string[]; lastAlertAt: string | null }
   phoneLogin: { widgetId: string; tokenAuth: string; authKeySet: boolean }
+  // Telegram alerts for recharges to check: chatName null until connected.
+  telegram: { tokenSet: boolean; chatName: string | null }
 }
 
 export type CustomerRow = {

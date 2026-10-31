@@ -6,6 +6,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin'
 import { loadSettings } from '@/lib/server/account'
 import { ApiError, dbError, UUID } from '@/lib/server/http'
 import { indiaDay, visitsBetween } from '@/lib/server/visits'
+import { TELEGRAM_TOKEN, telegramStatus } from '@/lib/server/telegram'
 
 // =======================================================
 // ADMIN (/admin): the numbers (money received, AI cost,
@@ -85,7 +86,7 @@ async function loadAiRates(): Promise<AiRates> {
 
 // Settings, recharges to check and bank credits nobody claimed.
 export async function adminOverview() {
-  const [settings, aiRates, pending, recent, alerts, lastAlert, msg91] = await Promise.all([
+  const [settings, aiRates, pending, recent, alerts, lastAlert, msg91, telegram] = await Promise.all([
     loadSettings(),
     loadAiRates(),
     supabaseAdmin.from('recharges').select(RECHARGE_COLUMNS).eq('status', 'PENDING').order('created_at', { ascending: true }).limit(100),
@@ -94,6 +95,7 @@ export async function adminOverview() {
       .is('recharge_id', null).order('received_at', { ascending: false }).limit(30),
     supabaseAdmin.from('payment_alerts').select('received_at').order('received_at', { ascending: false }).limit(1),
     supabaseAdmin.from('app_settings').select('msg91_widget_id, msg91_token_auth, msg91_auth_key').eq('id', true).maybeSingle(),
+    telegramStatus(),
   ])
   if (pending.error) throw dbError(pending.error, 'Unable to load recharges')
   if (recent.error) throw dbError(recent.error, 'Unable to load recharges')
@@ -129,6 +131,8 @@ export async function adminOverview() {
       tokenAuth: msg91Row?.msg91_token_auth ?? '',
       authKeySet: Boolean(msg91Row?.msg91_auth_key),
     },
+    // Telegram alerts for recharges to check. The bot token is never sent back.
+    telegram,
   }
 }
 
@@ -204,6 +208,16 @@ export async function updateSettings(adminId: string, body: unknown) {
   // Write-only: an empty box keeps the saved key.
   const authKey = text(input.msg91AuthKey, 300)
   if (authKey) row.msg91_auth_key = authKey
+  // Telegram bot token, write-only too. A new bot means connecting again.
+  const telegramToken = text(input.telegramBotToken, 100)
+  if (telegramToken) {
+    if (!TELEGRAM_TOKEN.test(telegramToken)) {
+      throw new ApiError(400, 'INVALID_INPUT', 'That is not a bot token. @BotFather gives one like 123456789:AAH... (numbers, a colon, then letters).')
+    }
+    row.telegram_bot_token = telegramToken
+    row.telegram_chat_id = null
+    row.telegram_chat_name = null
+  }
   row.couple_enabled = input.coupleEnabled === true || input.coupleEnabled === 'true'
   row.couple_credits = whole(input.coupleCredits ?? DEFAULT_COUPLE_CREDITS, 'Credits per couple picture', 1, 50)
   row.extra_photos_enabled = input.extraPhotosEnabled === true || input.extraPhotosEnabled === 'true'
