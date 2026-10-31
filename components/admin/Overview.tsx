@@ -94,6 +94,7 @@ function Funnel({ data }: { data: Analytics }) {
   }
   const steps = [
     { label: 'Visitors', value: visits.visitors, hint: `${visits.pageViews.toLocaleString('en-IN')} page views` },
+    { label: 'Started a try-on', value: visits.starts, hint: 'Added a photo' },
     { label: 'Signed up', value: t.newCustomers, hint: 'New accounts' },
     { label: 'Tried on', value: t.activeCustomers, hint: 'Made a picture' },
     { label: 'Recharged', value: t.payingCustomers, hint: 'Paid for credits' },
@@ -102,7 +103,7 @@ function Funnel({ data }: { data: Analytics }) {
   const started = visits.firstDay && visits.firstDay > data.from.slice(0, 10) ? visits.firstDay : null
   return (
     <Card title="From visit to payment, in this period">
-      <ol className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <ol className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         {steps.map((step, index) => (
           <li key={step.label} className="rounded-2xl bg-stone-50 p-3 ring-1 ring-stone-200">
             <span className="block text-xs font-bold text-stone-500">{index + 1}. {step.label}</span>
@@ -112,8 +113,9 @@ function Funnel({ data }: { data: Analytics }) {
         ))}
       </ol>
       <p className="mt-3 text-xs text-stone-500">
-        Each visitor counts once a day (no cookies: a person on two days, or on two phones, counts twice). Signed up,
-        tried on and recharged count accounts in this period, including people who first visited earlier.
+        Each visitor counts once a day (no cookies: a person on two days, or on two phones, counts twice); so does starting
+        a try-on (adding a first photo, with or without an account). Signed up, tried on and recharged count accounts in
+        this period, including people who first visited earlier.
         {started && <> Visits are counted from {new Date(`${started}T00:00:00+05:30`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })}.</>}
       </p>
     </Card>

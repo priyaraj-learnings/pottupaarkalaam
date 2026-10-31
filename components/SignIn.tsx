@@ -3,8 +3,6 @@
 import Link from 'next/link'
 import { useEffect, useState, type FormEvent } from 'react'
 
-import { InstallApp } from '@/components/InstallApp'
-import { LogoMark, Wordmark } from '@/components/Logo'
 import { Button, Notice } from '@/components/ui'
 import { errorMessage } from '@/lib/client/api'
 import { openMsg91Widget } from '@/lib/client/msg91'
@@ -21,35 +19,15 @@ function GoogleIcon() {
   )
 }
 
-const STEPS = [
-  { icon: '📷', text: 'Photograph the fabric or dress' },
-  { icon: '🤳', text: 'Add your photo' },
-  { icon: '✨', text: 'See yourself wearing it' },
-]
-
-// notice: shown above the sign-in buttons (for example after deleting an account).
-export default function SignIn({ notice }: { notice?: string }) {
+// The sign-in choices, for the sheet that opens at "Try on" (or "Sign in"):
+// mobile number first (one code gives the account, the verified number and
+// the free credits), then Google, then email.
+export function SignInOptions({ phoneWidget }: { phoneWidget: { widgetId: string; tokenAuth: string } | null }) {
   const [mode, setMode] = useState<'choose' | 'email' | 'code'>('choose')
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  // The MSG91 widget's public settings, when mobile number sign-in is set up.
-  const [phoneWidget, setPhoneWidget] = useState<{ widgetId: string; tokenAuth: string } | null>(null)
-  const [freeTryOns, setFreeTryOns] = useState<number | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    fetch('/api/sign-in-options', { cache: 'no-store' })
-      .then(response => (response.ok ? response.json() : null))
-      .then(options => {
-        if (cancelled || !options) return
-        if (options.phone) setPhoneWidget(options.phone)
-        if (Number.isInteger(options.freeCreditsPerMonth)) setFreeTryOns(options.freeCreditsPerMonth)
-      })
-      .catch(() => {})
-    return () => { cancelled = true }
-  }, [])
 
   // The widget confirmed the code: swap its token for a session.
   async function finishPhone(accessToken: string) {
@@ -90,7 +68,7 @@ export default function SignIn({ notice }: { notice?: string }) {
       options: { redirectTo: `${window.location.origin}/` },
     })
     if (signInError) {
-      setError('Google sign-in is not available right now. Please use your email.')
+      setError('Google sign-in is not available right now. Please use your mobile number or email.')
       setBusy(false)
     }
   }
@@ -121,79 +99,80 @@ export default function SignIn({ notice }: { notice?: string }) {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col">
-      <section className="brand-hero rounded-b-[2.5rem] px-6 pb-10 pt-[calc(2.5rem+env(safe-area-inset-top))] text-white">
-        <div className="flex items-center gap-3">
-          <LogoMark size={64} tile className="shadow-lg shadow-brand-800/30" />
-          <Wordmark large light />
-        </div>
-        <p className="mt-6 text-2xl font-extrabold leading-snug">See yourself in it before you stitch or buy.</p>
-        <ol className="mt-6 space-y-3">
-          {STEPS.map((step, index) => (
-            <li key={step.text} className="flex items-center gap-3 rounded-2xl bg-white/15 px-4 py-3 text-[15px] font-semibold backdrop-blur">
-              <span className="text-xl" aria-hidden="true">{step.icon}</span>
-              <span>{index + 1}. {step.text}</span>
-            </li>
-          ))}
-        </ol>
-        <p className="mt-5 inline-block rounded-full bg-white px-4 py-1.5 text-sm font-extrabold text-brand-700">
-          {freeTryOns ? `${freeTryOns} free try-on${freeTryOns === 1 ? '' : 's'} every month` : 'Free try-ons every month'}
-        </p>
-      </section>
+    <div className="flex flex-col gap-3">
+      {error && <Notice tone="error">{error}</Notice>}
 
-      <section className="flex flex-1 flex-col gap-3 px-6 py-8">
-        {notice && <Notice tone="success">{notice}</Notice>}
-        {error && <Notice tone="error">{error}</Notice>}
-
-        {mode === 'choose' && (
-          <>
-            <Button variant="secondary" busy={busy} onClick={google} className="w-full text-base">
-              <GoogleIcon /> Continue with Google
-            </Button>
-            {phoneWidget && (
-              <Button variant="secondary" disabled={busy} onClick={mobile} className="w-full text-base">
-                <span aria-hidden="true">📱</span> Sign in with mobile number
+      {mode === 'choose' && (
+        <>
+          {phoneWidget && (
+            <>
+              <Button busy={busy} onClick={mobile} className="w-full text-base">
+                <span aria-hidden="true">📱</span> Continue with mobile number
               </Button>
-            )}
-            <Button variant="ghost" onClick={() => setMode('email')} className="w-full">Sign in with email instead</Button>
-          </>
-        )}
+              <p className="-mt-1 text-center text-xs text-stone-500">One SMS code. Your free pictures start straight away.</p>
+            </>
+          )}
+          <Button variant="secondary" busy={busy && !phoneWidget} disabled={busy && Boolean(phoneWidget)} onClick={google} className="w-full text-base">
+            <GoogleIcon /> Continue with Google
+          </Button>
+          <Button variant="ghost" onClick={() => setMode('email')} className="w-full">Use email instead</Button>
+        </>
+      )}
 
-        {mode === 'email' && (
-          <form onSubmit={sendCode} className="flex flex-col gap-3">
-            <label className="text-sm font-bold text-stone-700" htmlFor="email">Your email</label>
-            <input
-              id="email" type="email" required autoComplete="email" inputMode="email" value={email}
-              onChange={event => setEmail(event.target.value)}
-              className="min-h-12 rounded-2xl border border-stone-300 px-4 text-base outline-none focus:border-brand-500"
-              placeholder="you@example.com"
-            />
-            <Button type="submit" busy={busy} className="w-full">Send me a code</Button>
-            <Button variant="ghost" onClick={() => setMode('choose')}>Back</Button>
-          </form>
-        )}
+      {mode === 'email' && (
+        <form onSubmit={sendCode} className="flex flex-col gap-3">
+          <label className="text-sm font-bold text-stone-700" htmlFor="email">Your email</label>
+          <input
+            id="email" type="email" required autoComplete="email" inputMode="email" value={email}
+            onChange={event => setEmail(event.target.value)}
+            className="min-h-12 rounded-2xl border border-stone-300 px-4 text-base outline-none focus:border-brand-500"
+            placeholder="you@example.com"
+          />
+          <Button type="submit" busy={busy} className="w-full">Send me a code</Button>
+          <Button variant="ghost" onClick={() => setMode('choose')}>Back</Button>
+        </form>
+      )}
 
-        {mode === 'code' && (
-          <form onSubmit={verify} className="flex flex-col gap-3">
-            <p className="text-sm text-stone-600">We sent a code to <b>{email}</b>. It may take a minute; check spam too.</p>
-            <label className="text-sm font-bold text-stone-700" htmlFor="code">Code from the email</label>
-            <input
-              id="code" required autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6,8}" maxLength={8} value={code}
-              onChange={event => setCode(event.target.value.replace(/\D/g, ''))}
-              className="min-h-14 rounded-2xl border border-stone-300 px-4 text-center text-2xl font-bold tracking-[0.4em] outline-none focus:border-brand-500"
-            />
-            <Button type="submit" busy={busy} disabled={code.length < 6} className="w-full">Sign in</Button>
-            <Button variant="ghost" onClick={() => { setMode('email'); setCode('') }}>Use a different email</Button>
-          </form>
-        )}
+      {mode === 'code' && (
+        <form onSubmit={verify} className="flex flex-col gap-3">
+          <p className="text-sm text-stone-600">We sent a code to <b>{email}</b>. It may take a minute; check spam too.</p>
+          <label className="text-sm font-bold text-stone-700" htmlFor="code">Code from the email</label>
+          <input
+            id="code" required autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6,8}" maxLength={8} value={code}
+            onChange={event => setCode(event.target.value.replace(/\D/g, ''))}
+            className="min-h-14 rounded-2xl border border-stone-300 px-4 text-center text-2xl font-bold tracking-[0.4em] outline-none focus:border-brand-500"
+          />
+          <Button type="submit" busy={busy} disabled={code.length < 6} className="w-full">Sign in</Button>
+          <Button variant="ghost" onClick={() => { setMode('email'); setCode('') }}>Use a different email</Button>
+        </form>
+      )}
 
-        <InstallApp className="mt-4" />
-
-        <p className="mt-auto pt-6 text-center text-xs text-stone-500">
-          By continuing you agree to our <Link href="/terms" className="font-semibold underline">Terms</Link> and{' '}
-          <Link href="/privacy" className="font-semibold underline">Privacy Policy</Link>.
-        </p>
-      </section>
-    </main>
+      <p className="pt-1 text-center text-xs text-stone-500">
+        By continuing you agree to our <Link href="/terms" className="font-semibold underline">Terms</Link> and{' '}
+        <Link href="/privacy" className="font-semibold underline">Privacy Policy</Link>.
+      </p>
+    </div>
   )
+}
+
+export type SignInOptionsData = { phone: { widgetId: string; tokenAuth: string } | null; freeCreditsPerMonth: number | null }
+
+// The public sign-in options (before anyone is signed in).
+export function useSignInOptions(): SignInOptionsData {
+  const [options, setOptions] = useState<SignInOptionsData>({ phone: null, freeCreditsPerMonth: null })
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/sign-in-options', { cache: 'no-store' })
+      .then(response => (response.ok ? response.json() : null))
+      .then(result => {
+        if (cancelled || !result) return
+        setOptions({
+          phone: result.phone ?? null,
+          freeCreditsPerMonth: Number.isInteger(result.freeCreditsPerMonth) ? result.freeCreditsPerMonth : null,
+        })
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+  return options
 }
