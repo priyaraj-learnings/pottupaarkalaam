@@ -2,6 +2,7 @@
 
 import { useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 
+import { SubTabs, useSubTab, type SubTab } from '@/components/admin/SubTabs'
 import type { Overview } from '@/components/admin/types'
 import { Button, Card, formatWhen, Notice, Spinner, useToast } from '@/components/ui'
 import { api, errorMessage } from '@/lib/client/api'
@@ -88,7 +89,10 @@ function UpiQrField({ value, upiId, onChange }: { value: string; upiId: string; 
 // name with spaces or without digits.
 const looksLikeWidgetId = (value: string) => /^[A-Za-z0-9]{12,}$/.test(value.trim()) && /\d/.test(value)
 
-function SettingsForm({ overview, onSaved }: { overview: Overview; onSaved: () => void }) {
+// section: the sub-tab shown. Every card stays in the form, so "Save settings"
+// saves the fields of all sub-tabs.
+function SettingsForm({ overview, onSaved, section }: { overview: Overview; onSaved: () => void; section: SettingsSection }) {
+  const show = (part: SettingsSection) => (section === part ? '' : 'hidden')
   const toast = useToast()
   const { settings, aiRates, phoneLogin } = overview
   const [form, setForm] = useState<Record<string, string>>({
@@ -134,7 +138,7 @@ function SettingsForm({ overview, onSaved }: { overview: Overview; onSaved: () =
 
   return (
     <form onSubmit={save} className="space-y-4">
-      <Card title="Where customers pay">
+      <Card title="Where customers pay" className={show('payments')}>
         <div className="space-y-3">
           {!settings.upiId && <Notice tone="warning">No UPI ID yet: customers see &ldquo;Recharge is opening soon&rdquo; instead of the pay button and QR.</Notice>}
           <Notice tone="info">Use inaivu IT&rsquo;s <b>business</b> UPI ID. After saving, make a ₹50 test recharge from your own phone and check the money reaches the right account.</Notice>
@@ -163,7 +167,7 @@ function SettingsForm({ overview, onSaved }: { overview: Overview; onSaved: () =
         </div>
       </Card>
 
-      <Card title="Prices and free credits">
+      <Card title="Prices and free credits" className={show('prices')}>
         <div className="grid gap-3 sm:grid-cols-2">
           {field('freeCreditsPerMonth', 'Free credits a month', { inputMode: 'numeric' })}
           {field('standardRateInr', 'Price per credit (₹)', { inputMode: 'numeric' })}
@@ -174,7 +178,7 @@ function SettingsForm({ overview, onSaved }: { overview: Overview; onSaved: () =
         </div>
       </Card>
 
-      <Card title="Extra photos for paying customers">
+      <Card title="Extra photos for paying customers" className={show('prices')}>
         <div className="space-y-3">
           <p className="text-sm text-stone-600">
             A try takes up to 3 clothes photos. Customers with a recharge approved this month can choose 4 or 5; the 4th and
@@ -198,7 +202,7 @@ function SettingsForm({ overview, onSaved }: { overview: Overview; onSaved: () =
         </div>
       </Card>
 
-      <Card title="Couple pictures">
+      <Card title="Couple pictures" className={show('prices')}>
         <div className="space-y-3">
           <p className="text-sm text-stone-600">
             A &ldquo;Couple&rdquo; tab: his garment and photo, her garment and photo, and one picture of the two of them.
@@ -223,7 +227,7 @@ function SettingsForm({ overview, onSaved }: { overview: Overview; onSaved: () =
         </div>
       </Card>
 
-      <Card title="Mobile number sign-in (MSG91)">
+      <Card title="Mobile number sign-in (MSG91)" className={show('signin')}>
         <div className="space-y-3">
           <p className="text-sm text-stone-600">
             Adds &ldquo;Sign in with mobile number&rdquo; to the sign-in screen, using your MSG91 OTP widget (MSG91 → OTP →
@@ -264,11 +268,11 @@ function SettingsForm({ overview, onSaved }: { overview: Overview; onSaved: () =
         </div>
       </Card>
 
-      <TelegramAlerts status={overview.telegram} tokenField={field('telegramBotToken', `Bot token${overview.telegram.tokenSet ? ' (saved; paste a new one to change the bot)' : ''}`, {
+      <TelegramAlerts hidden={section !== 'payments'} status={overview.telegram} tokenField={field('telegramBotToken', `Bot token${overview.telegram.tokenSet ? ' (saved; paste a new one to change the bot)' : ''}`, {
         type: 'password', autoComplete: 'off', placeholder: overview.telegram.tokenSet ? '••••••••' : '123456789:AAH...',
       })} onChanged={onSaved} />
 
-      <Card title="AI prices (for the cost reports)">
+      <Card title="AI prices (for the cost reports)" className={show('ai')}>
         <p className="mb-3 text-sm text-stone-500">
           From openai.com/api/pricing for the image model in use (US dollars per 1 million tokens). Every report is
           recalculated from the tokens OpenAI reported when you change these.
@@ -364,19 +368,31 @@ function PaymentSmsCard({ status }: { status: Overview['paymentSms'] }) {
   )
 }
 
+type SettingsSection = 'payments' | 'prices' | 'signin' | 'ai'
+
+const SETTINGS_TABS: ReadonlyArray<SubTab<SettingsSection>> = [
+  { id: 'payments', label: 'Payments' },
+  { id: 'prices', label: 'Prices & features' },
+  { id: 'signin', label: 'Sign-in' },
+  { id: 'ai', label: 'AI costs' },
+]
+
 export default function SettingsTab({ overview, onSaved }: { overview: Overview | null; onSaved: () => void }) {
+  const [section, setSection] = useSubTab('pp-admin-settings-tab', SETTINGS_TABS)
   if (!overview) return <div className="flex justify-center py-16 text-brand-600"><Spinner className="h-8 w-8" /></div>
   return (
     <div className="space-y-4">
-      <SettingsForm key={JSON.stringify(overview.settings) + JSON.stringify(overview.aiRates) + JSON.stringify(overview.phoneLogin)} overview={overview} onSaved={onSaved} />
-      <PaymentSmsCard status={overview.paymentSms} />
+      <SubTabs tabs={SETTINGS_TABS} active={section} onChange={setSection} label="Settings sections" />
+      <SettingsForm key={JSON.stringify(overview.settings) + JSON.stringify(overview.aiRates) + JSON.stringify(overview.phoneLogin)} overview={overview} onSaved={onSaved} section={section} />
+      {section === 'payments' && <PaymentSmsCard status={overview.paymentSms} />}
     </div>
   )
 }
 
 // Telegram alerts when a recharge needs checking (lib/server/telegram.ts).
 // The token is saved with the form; Connect, Test and Turn off act at once.
-function TelegramAlerts({ status, tokenField, onChanged }: {
+function TelegramAlerts({ status, tokenField, onChanged, hidden }: {
+  hidden: boolean
   status: Overview['telegram']
   tokenField: React.ReactNode
   onChanged: () => void
@@ -398,7 +414,7 @@ function TelegramAlerts({ status, tokenField, onChanged }: {
   }
 
   return (
-    <Card title="Recharge alerts on Telegram">
+    <Card title="Recharge alerts on Telegram" className={hidden ? 'hidden' : ''}>
       <div className="space-y-3 text-sm text-stone-700">
         <p>
           A Telegram message whenever a recharge is waiting for you to approve, even when /admin is closed. Free. It shows the
