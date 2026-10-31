@@ -102,6 +102,7 @@ function SettingsForm({ overview, onSaved }: { overview: Overview; onSaved: () =
     msg91WidgetId: phoneLogin.widgetId,
     msg91TokenAuth: phoneLogin.tokenAuth,
     msg91AuthKey: '',
+    telegramBotToken: '',
     coupleEnabled: String(settings.couple.enabled),
     extraPhotosEnabled: String(settings.extraPhotos.enabled),
     extraPhotoCredits: String(settings.extraPhotos.credits),
@@ -263,6 +264,10 @@ function SettingsForm({ overview, onSaved }: { overview: Overview; onSaved: () =
         </div>
       </Card>
 
+      <TelegramAlerts status={overview.telegram} tokenField={field('telegramBotToken', `Bot token${overview.telegram.tokenSet ? ' (saved; paste a new one to change the bot)' : ''}`, {
+        type: 'password', autoComplete: 'off', placeholder: overview.telegram.tokenSet ? '••••••••' : '123456789:AAH...',
+      })} onChanged={onSaved} />
+
       <Card title="AI prices (for the cost reports)">
         <p className="mb-3 text-sm text-stone-500">
           From openai.com/api/pricing for the image model in use (US dollars per 1 million tokens). Every report is
@@ -366,5 +371,58 @@ export default function SettingsTab({ overview, onSaved }: { overview: Overview 
       <SettingsForm key={JSON.stringify(overview.settings) + JSON.stringify(overview.aiRates) + JSON.stringify(overview.phoneLogin)} overview={overview} onSaved={onSaved} />
       <PaymentSmsCard status={overview.paymentSms} />
     </div>
+  )
+}
+
+// Telegram alerts when a recharge needs checking (lib/server/telegram.ts).
+// The token is saved with the form; Connect, Test and Turn off act at once.
+function TelegramAlerts({ status, tokenField, onChanged }: {
+  status: Overview['telegram']
+  tokenField: React.ReactNode
+  onChanged: () => void
+}) {
+  const toast = useToast()
+  const [busy, setBusy] = useState<string | null>(null)
+
+  async function act(action: 'connect' | 'test' | 'disconnect') {
+    setBusy(action)
+    try {
+      await api('/api/admin/telegram', { method: 'POST', json: { action, adminUrl: `${window.location.origin}/admin` } })
+      toast(action === 'connect' ? 'Connected: check Telegram for the confirmation.' : action === 'test' ? 'Test alert sent.' : 'Telegram alerts turned off.')
+      onChanged()
+    } catch (actionError) {
+      toast(errorMessage(actionError), 'error')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  return (
+    <Card title="Recharge alerts on Telegram">
+      <div className="space-y-3 text-sm text-stone-700">
+        <p>
+          A Telegram message whenever a recharge is waiting for you to approve, even when /admin is closed. Free. It shows the
+          amount and the last 4 digits of the UTR, never the customer&rsquo;s name, email or number.
+        </p>
+        <Notice tone={status.chatName ? 'success' : 'info'}>
+          {status.chatName ? <>On: alerts go to <b>{status.chatName}</b>.</> : status.tokenSet ? 'Bot saved: now connect the chat (step 3).' : 'Off: follow the steps below.'}
+        </Notice>
+        <ol className="list-decimal space-y-2 pl-5">
+          <li>In Telegram, open <b>@BotFather</b>, send <code>/newbot</code>, and give it a name (e.g. <i>PottuPaarkalaam Alerts</i>) and a
+            username ending in <i>bot</i>. BotFather replies with a <b>token</b>: paste it below and press <b>Save settings</b>.</li>
+          <li>On the phone that should get the alerts, open the new bot in Telegram (BotFather sends its link) and press
+            <b> Start</b>. Any Telegram account can do this. For several people, make a Telegram group, add the bot, and send
+            a message in the group.</li>
+          <li>Press <b>Connect</b>: the app links the chat that messaged the bot last, and the bot replies &ldquo;Connected&rdquo;.</li>
+        </ol>
+        <div className="max-w-md">{tokenField}</div>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="secondary" busy={busy === 'connect'} disabled={!status.tokenSet || Boolean(busy)} onClick={() => void act('connect')} className="min-h-10 text-sm">Connect</Button>
+          <Button type="button" variant="secondary" busy={busy === 'test'} disabled={!status.chatName || Boolean(busy)} onClick={() => void act('test')} className="min-h-10 text-sm">Send a test alert</Button>
+          {status.chatName && <Button type="button" variant="ghost" busy={busy === 'disconnect'} disabled={Boolean(busy)} onClick={() => void act('disconnect')} className="min-h-10 text-sm">Turn off</Button>}
+        </div>
+        <p className="text-xs text-stone-500">To send alerts to a different person or group: have them message the bot, then press Connect again.</p>
+      </div>
+    </Card>
   )
 }
