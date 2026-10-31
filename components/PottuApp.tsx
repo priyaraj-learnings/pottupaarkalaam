@@ -12,7 +12,7 @@ import { LegalOverlay, type LegalDoc } from '@/components/LegalOverlay'
 import { LogoMark, Wordmark } from '@/components/Logo'
 import MobileAsk, { MobileForm, savePhone, shouldAskForMobile, VerifyMobile, VerifyMobileForm } from '@/components/MobileNumber'
 import Recharge from '@/components/Recharge'
-import SignIn from '@/components/SignIn'
+import GuestApp from '@/components/GuestApp'
 import TermsConsent from '@/components/TermsConsent'
 import TryOn from '@/components/TryOn'
 import { Button, Notice, Sheet, Spinner, ToastProvider, useToast } from '@/components/ui'
@@ -216,7 +216,8 @@ export default function PottuApp() {
   }, [])
 
   if (session === undefined) return <Splash />
-  if (!session) return <SignIn notice={signInNotice} />
+  // Not signed in: start trying on; sign-in is asked for at "Try on".
+  if (!session) return <GuestApp notice={signInNotice} />
 
   const current = me && me.userId === session.user.id ? me : null
   if (!current) {

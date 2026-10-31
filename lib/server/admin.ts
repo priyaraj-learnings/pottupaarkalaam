@@ -249,11 +249,13 @@ export async function adminAnalytics(period: Period) {
 
 // Visitors (once a day each) and page views in the period, and per day.
 // null until the site_visits migration has run.
-export function visitTotals(days: Array<{ day: string; visitors: number; page_views: number }> | null) {
+export function visitTotals(days: Array<{ day: string; visitors: number; page_views: number; starts?: number }> | null) {
   if (!days) return null
   return {
     visitors: days.reduce((sum, day) => sum + day.visitors, 0),
     pageViews: days.reduce((sum, day) => sum + day.page_views, 0),
+    // Visitors who added a first photo (once a day each).
+    starts: days.reduce((sum, day) => sum + (day.starts ?? 0), 0),
     firstDay: days[0]?.day ?? null,
     days: days.map(day => ({ day: day.day, visitors: day.visitors })),
   }

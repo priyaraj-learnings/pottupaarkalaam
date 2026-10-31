@@ -35,12 +35,13 @@ export function visitorCode(ip: string, userAgent: string, day: string, secret: 
   return createHmac('sha256', `pp-visits:${day}:${secret}`).update(`${ip}|${userAgent}`, 'utf8').digest('hex')
 }
 
-export async function recordVisit(request: Request, now = new Date()) {
+// kind 'start': the visitor added a first photo ("Started a try-on").
+export async function recordVisit(request: Request, now = new Date(), kind: 'view' | 'start' = 'view') {
   const userAgent = (request.headers.get('user-agent') ?? '').slice(0, 400)
   if (isBot(userAgent)) return { counted: false }
   const secret = process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
   const code = visitorCode(clientIpFromHeaders(request.headers), userAgent, indiaDay(now), secret)
-  const { error } = await supabaseAdmin.rpc('record_site_visit', { p_visitor_code: code })
+  const { error } = await supabaseAdmin.rpc(kind === 'start' ? 'record_try_on_start' : 'record_site_visit', { p_visitor_code: code })
   // Counting must never break a page: log and carry on.
   if (error) {
     console.error(JSON.stringify({ event: 'visits.record_failed', message: error.message }))
@@ -51,12 +52,16 @@ export async function recordVisit(request: Request, now = new Date()) {
 
 // Visitors and page views per India day, from..to (inclusive dates).
 export async function visitsBetween(fromDay: string, toDay: string) {
-  const { data, error } = await supabaseAdmin.from('site_visit_days')
-    .select('day, visitors, page_views').gte('day', fromDay).lte('day', toDay).order('day', { ascending: true })
+  type Day = { day: string; visitors: number; page_views: number; starts?: number }
+  const select = (columns: string) => supabaseAdmin.from('site_visit_days')
+    .select(columns).gte('day', fromDay).lte('day', toDay).order('day', { ascending: true })
+  let { data, error } = await select('day, visitors, page_views, starts')
+  // Before the try-on starts migration: visits without starts.
+  if (error && /starts/.test(error.message)) ({ data, error } = await select('day, visitors, page_views'))
   // Before the migration runs: no visit numbers rather than a broken page.
   if (error) {
     console.error(JSON.stringify({ event: 'visits.load_failed', message: error.message }))
     return null
   }
-  return (data ?? []) as Array<{ day: string; visitors: number; page_views: number }>
+  return (data ?? []) as unknown as Day[]
 }

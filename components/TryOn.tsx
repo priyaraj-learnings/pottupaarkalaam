@@ -1,15 +1,18 @@
 'use client'
 
-import { useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 
 import { CameraCapture, cameraAvailable } from '@/components/CameraCapture'
 import { CategoryChips, SourceToggle } from '@/components/CategoryPicker'
+import { InstallAfterPicture } from '@/components/InstallApp'
 import { LookGallery } from '@/components/LookGallery'
 import { Button, Card, Notice, Sheet, useToast } from '@/components/ui'
 import { api, ApiFailure, errorMessage } from '@/lib/client/api'
 import { shrinkPhoto } from '@/lib/client/photos'
 import { isFinished, type Account, type AppSettings, type LookView } from '@/lib/client/types'
 import { useLookPolling } from '@/lib/client/useLookPolling'
+import { clearDraft, loadDraft, saveDraft } from '@/lib/client/tryOnDraft'
+import { countTryOnStart } from '@/lib/client/visits'
 import { canPair, categoryLabel, freeCreditsReturnDay, sourceFor, MAX_GARMENTS, MAX_GARMENTS_PAID, paidCreditsNeeded, planLooks, SOURCE_LABELS, type GarmentSource } from '@/lib/rules'
 
 type Item = { id: string; blob: Blob; url: string; category: string; source: GarmentSource }
@@ -22,6 +25,20 @@ type CreateResponse = {
 
 let nextItemId = 0
 
+// Before signing in (guest): no credits yet, no extra photos.
+const GUEST_ACCOUNT: Account = {
+  credits: 0, freeCreditsPerMonth: 0, freeLeft: 0, termsVersion: null, termsAcceptedAt: null, phone: null,
+  phoneVerified: true, offersOk: false, phoneAskedAt: null, coupleOptIn: false, paidThisMonth: false,
+}
+const GUEST_EXTRA_PHOTOS = { enabled: false, credits: 1 }
+
+export type GuestTryOn = {
+  // Free pictures a month (from the public sign-in options), for the offer line.
+  freeCreditsPerMonth: number | null
+  // "Try on" with everything ready: the draft is saved; open sign-in.
+  onSignIn: () => void
+}
+
 function StepTitle({ number, children, done }: { number: number; children: React.ReactNode; done?: boolean }) {
   return (
     <span className="flex items-center gap-2">
@@ -33,16 +50,20 @@ function StepTitle({ number, children, done }: { number: number; children: React
   )
 }
 
-export default function TryOn({ account, settings, onAccount, onRecharge, onTermsNeeded, onVerifyMobile }: {
-  account: Account
-  settings: AppSettings
+// guest: a visitor who has not signed in; account and settings are null.
+export default function TryOn({ account: signedInAccount, settings, onAccount, onRecharge, onTermsNeeded, onVerifyMobile, guest }: {
+  account: Account | null
+  settings: AppSettings | null
   onAccount: (account: Account) => void
   onRecharge: () => void
   onTermsNeeded: () => void
   // Opens the SMS code check, where mobile numbers can be verified.
   onVerifyMobile?: () => void
+  guest?: GuestTryOn
 }) {
   const toast = useToast()
+  const account = signedInAccount ?? GUEST_ACCOUNT
+  const extraPhotos = settings?.extraPhotos ?? GUEST_EXTRA_PHOTOS
   const [category, setCategory] = useState<string | null>(null)
   const [source, setSource] = useState<GarmentSource>('FABRIC')
   const [items, setItems] = useState<Item[]>([])
@@ -64,8 +85,8 @@ export default function TryOn({ account, settings, onAccount, onRecharge, onTerm
   const selfieGallery = useRef<HTMLInputElement>(null)
 
   // Extra (4th and 5th) photos: for customers who recharged this month.
-  const extraAllowed = settings.extraPhotos.enabled && account.paidThisMonth
-  const extraCredits = settings.extraPhotos.credits
+  const extraAllowed = extraPhotos.enabled && account.paidThisMonth
+  const extraCredits = extraPhotos.credits
   const planOptions = useMemo(() => ({ maxGarments: extraAllowed ? MAX_GARMENTS_PAID : MAX_GARMENTS, extraCredits }), [extraAllowed, extraCredits])
   const [chosenLimit, setLimit] = useState(MAX_GARMENTS)
   const limit = extraAllowed ? Math.max(chosenLimit, items.length) : MAX_GARMENTS
@@ -87,7 +108,7 @@ export default function TryOn({ account, settings, onAccount, onRecharge, onTerm
   // "Try on" was tapped with something missing: say what, until it is added.
   const [showMissing, setShowMissing] = useState(false)
   const needed = plan.ok ? plan.credits : 0
-  const short = plan.ok && (needed > available || paidCreditsNeeded(plan, account.freeLeft) > account.credits)
+  const short = !guest && plan.ok && (needed > available || paidCreditsNeeded(plan, account.freeLeft) > account.credits)
   const room = limit - items.length
 
   const partnerOf = (id: string) => {
@@ -129,6 +150,7 @@ export default function TryOn({ account, settings, onAccount, onRecharge, onTerm
         added.push({ id: `item-${nextItemId++}`, blob, url: URL.createObjectURL(blob), category, source })
       }
       setItems(current => [...current, ...added].slice(0, limit))
+      countTryOnStart()
     } catch (photoError) {
       toast(errorMessage(photoError), 'error')
     } finally {
@@ -148,6 +170,7 @@ export default function TryOn({ account, settings, onAccount, onRecharge, onTerm
       const blob = await shrinkPhoto(file, 2048, 0.9)
       if (photo) URL.revokeObjectURL(photo.url)
       setPhoto({ blob, url: URL.createObjectURL(blob) })
+      countTryOnStart()
     } catch (photoError) {
       toast(errorMessage(photoError), 'error')
     } finally {
@@ -216,13 +239,15 @@ export default function TryOn({ account, settings, onAccount, onRecharge, onTerm
   // Try on
   // ---------------------------------------------------------------------------
 
-  async function submit(chosen: Item[], chosenPairs: Array<[string, string]>, replaceLookId?: string) {
-    if (!photo) return
+  // usePhoto: the customer's photo when it is not in state yet (a resumed draft).
+  async function submit(chosen: Item[], chosenPairs: Array<[string, string]>, replaceLookId?: string, usePhoto?: Photo) {
+    const photo_ = usePhoto ?? photo
+    if (!photo_) return
     setSubmitting(true)
     setError(null)
     try {
       const form = new FormData()
-      form.append('photo', new File([photo.blob], 'photo.jpg', { type: 'image/jpeg' }))
+      form.append('photo', new File([photo_.blob], 'photo.jpg', { type: 'image/jpeg' }))
       chosen.forEach((item, index) => form.append('garment', new File([item.blob], `garment-${index}.jpg`, { type: 'image/jpeg' })))
       form.append('garments', JSON.stringify(chosen.map(item => ({ category: item.category, source: item.source }))))
       const pairIndexes = chosenPairs.map(([a, b]) => [chosen.findIndex(item => item.id === a), chosen.findIndex(item => item.id === b)])
@@ -278,8 +303,50 @@ export default function TryOn({ account, settings, onAccount, onRecharge, onTerm
       return
     }
     setShowMissing(false)
+    if (guest) {
+      void startSignIn()
+      return
+    }
     void submit(items, pairs)
   }
+
+  // Before signing in: keep the choices and photos on this phone, then sign in.
+  async function startSignIn() {
+    if (!photo || !guest) return
+    await saveDraft({
+      category, source, photo: photo.blob,
+      items: items.map(item => ({ blob: item.blob, category: item.category, source: item.source })),
+      pairs: pairs.map(([a, b]) => [indexOf(a), indexOf(b)] as [number, number]),
+    }).catch(() => undefined)
+    guest.onSignIn()
+  }
+
+  // Signed in after starting as a guest: take the photos back and make the
+  // picture at once (once; the draft is removed).
+  const resumed = useRef(false)
+  useEffect(() => {
+    // A ref, not a cancel flag: React runs effects twice in development.
+    if (guest || resumed.current) return
+    resumed.current = true
+    void loadDraft().then(async draft => {
+      if (!draft) return
+      await clearDraft()
+      const restored: Item[] = draft.items.map(item => ({ id: `item-${nextItemId++}`, blob: item.blob, url: URL.createObjectURL(item.blob), category: item.category, source: item.source }))
+      const restoredPairs = draft.pairs
+        .filter(([a, b]) => restored[a] && restored[b])
+        .map(([a, b]) => [restored[a].id, restored[b].id] as [string, string])
+      const restoredPhoto = { blob: draft.photo, url: URL.createObjectURL(draft.photo) }
+      setCategory(draft.category)
+      setSource(draft.source)
+      setItems(restored)
+      setPairs(restoredPairs)
+      setPhoto(restoredPhoto)
+      toast('Making your picture now.')
+      await submit(restored, restoredPairs, undefined, restoredPhoto)
+    })
+    // Once, when the signed-in try-on screen first opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function retry(look: LookView) {
     const from = retryFrom[look.id]
@@ -312,6 +379,7 @@ export default function TryOn({ account, settings, onAccount, onRecharge, onTerm
           </p>
         </div>
         <LookGallery looks={results} onRetry={look => (retryFrom[look.id] ? () => retry(look) : undefined)} />
+        {results.some(look => look.status === 'COMPLETED' && look.imageUrl) && <InstallAfterPicture />}
         <div className="grid grid-cols-1 gap-2">
           <Button onClick={tryMore} className="w-full">Try other clothes</Button>
           <Button variant="secondary" onClick={() => { setShowResults(false); setError(null) }} className="w-full">Back to these clothes</Button>
@@ -325,7 +393,7 @@ export default function TryOn({ account, settings, onAccount, onRecharge, onTerm
 
   return (
     <div className="space-y-4 pb-36">
-      {!account.phoneVerified && (
+      {!guest && !account.phoneVerified && (
         <Notice tone={available === 0 ? 'warning' : 'info'}>
           <b>{account.freeCreditsPerMonth} free credits every month need a verified mobile number</b> (one account per
           number).{' '}
@@ -335,7 +403,7 @@ export default function TryOn({ account, settings, onAccount, onRecharge, onTerm
           {available === 0 && <>{' '}Or <button type="button" onClick={onRecharge} className="font-extrabold underline">recharge</button>.</>}
         </Notice>
       )}
-      {account.phoneVerified && available === 0 && (
+      {!guest && account.phoneVerified && available === 0 && (
         <Notice tone="warning">
           <b>You have used this month&rsquo;s {account.freeCreditsPerMonth} free credits.</b> They come back on {freeCreditsBack}.
           To keep trying on now,{' '}
@@ -367,7 +435,7 @@ export default function TryOn({ account, settings, onAccount, onRecharge, onTerm
               each, from paid credits.
             </p>
           </div>
-        ) : settings.extraPhotos.enabled ? (
+        ) : extraPhotos.enabled ? (
           <p className="mb-3 text-xs text-stone-500">
             Up to {MAX_GARMENTS} photos a try.{' '}
             <button type="button" onClick={onRecharge} className="font-bold text-brand-700 underline">Recharge</button> this month to add up to {MAX_GARMENTS_PAID}.
@@ -444,7 +512,7 @@ export default function TryOn({ account, settings, onAccount, onRecharge, onTerm
       )}
 
       {/* Summary and the Try on button, above the tab bar. */}
-      <div className="fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-30 px-3">
+      <div className={`fixed inset-x-0 z-30 px-3 ${guest ? 'bottom-[calc(0.75rem+env(safe-area-inset-bottom))]' : 'bottom-[calc(4.25rem+env(safe-area-inset-bottom))]'}`}>
         <div className="mx-auto max-w-md space-y-2 rounded-3xl bg-white/95 p-3 shadow-xl ring-1 ring-stone-200 backdrop-blur">
           {showMissing && missing && <Notice tone="error">{missing}</Notice>}
           {error && (
@@ -456,10 +524,12 @@ export default function TryOn({ account, settings, onAccount, onRecharge, onTerm
           <div className="flex items-center justify-between gap-2 px-1 text-sm">
             <span className="font-semibold text-stone-700">
               {plan.ok
-                ? `${plan.looks.length} picture${plan.looks.length === 1 ? '' : 's'} · ${needed} credit${needed === 1 ? '' : 's'}${plan.extraCredits ? ` (${plan.extraCredits} extra, paid)` : ''}`
+                ? `${plan.looks.length} picture${plan.looks.length === 1 ? '' : 's'}${guest ? '' : ` · ${needed} credit${needed === 1 ? '' : 's'}`}${plan.extraCredits ? ` (${plan.extraCredits} extra, paid)` : ''}`
                 : missing ? 'Add clothes and your photo' : plan.message}
             </span>
-            <span className={`font-bold ${short ? 'text-red-700' : 'text-stone-500'}`}>You have {available}</span>
+            {guest
+              ? <span className="font-bold text-emerald-700">{guest.freeCreditsPerMonth ? `${guest.freeCreditsPerMonth} free a month` : 'Free to start'}</span>
+              : <span className={`font-bold ${short ? 'text-red-700' : 'text-stone-500'}`}>You have {available}</span>}
           </div>
           {short ? (
             <Button onClick={onRecharge} className="w-full">Recharge to try on</Button>
