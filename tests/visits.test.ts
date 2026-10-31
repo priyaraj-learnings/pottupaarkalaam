@@ -40,8 +40,8 @@ describe('website visit counting', () => {
   it('adds up visitors and page views for the admin, or nothing before the migration', () => {
     expect(visitTotals(null)).toBeNull()
     expect(visitTotals([
-      { day: '2026-10-30', visitors: 12, page_views: 30 },
+      { day: '2026-10-30', visitors: 12, page_views: 30, starts: 5 },
       { day: '2026-10-31', visitors: 8, page_views: 11 },
-    ])).toEqual({ visitors: 20, pageViews: 41, firstDay: '2026-10-30', days: [{ day: '2026-10-30', visitors: 12 }, { day: '2026-10-31', visitors: 8 }] })
+    ])).toEqual({ visitors: 20, pageViews: 41, starts: 5, firstDay: '2026-10-30', days: [{ day: '2026-10-30', visitors: 12 }, { day: '2026-10-31', visitors: 8 }] })
   })
 })

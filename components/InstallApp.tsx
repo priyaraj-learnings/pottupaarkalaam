@@ -76,3 +76,43 @@ export function InstallApp({ className = '' }: { className?: string }) {
     </div>
   )
 }
+
+const OFFERED_KEY = 'pp-install-offered'
+
+// After the first picture: "Install app", once per phone (until installed or
+// "Not now"). Nothing when the phone cannot install or already has it.
+export function InstallAfterPicture() {
+  const state = useInstall()
+  const [hidden, setHidden] = useState(() => {
+    try {
+      return typeof window !== 'undefined' && localStorage.getItem(OFFERED_KEY) === 'dismissed'
+    } catch {
+      return false
+    }
+  })
+  const [showSteps, setShowSteps] = useState(false)
+  if (state === 'none' || hidden) return null
+
+  function dismiss() {
+    setHidden(true)
+    try {
+      localStorage.setItem(OFFERED_KEY, 'dismissed')
+    } catch {
+      // Private mode: hidden for this visit.
+    }
+  }
+
+  return (
+    <div className="rounded-3xl bg-marigold-50 p-4 ring-1 ring-marigold-200">
+      <p className="text-base font-extrabold text-marigold-900">📲 Keep PottuPaarkalaam on your home screen</p>
+      <p className="mt-1 text-sm text-marigold-900">Open it in one tap next time you are at the shop, like any app. No Play Store needed.</p>
+      {state === 'iphone' && showSteps && (
+        <p className="mt-2 text-sm text-marigold-900">In Safari, tap <b>Share</b> (the square with an arrow), then <b>Add to Home Screen</b>.</p>
+      )}
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button onClick={() => (state === 'prompt' ? void install() : setShowSteps(value => !value))} className="min-h-10 text-sm">Install app</Button>
+        <Button variant="ghost" onClick={dismiss} className="min-h-10 text-sm">Not now</Button>
+      </div>
+    </div>
+  )
+}

@@ -7,6 +7,8 @@ import { downloadCsv, money, type Overview, type Period, type Recharge } from '@
 import { Button, Card, formatWhen, Notice, Spinner, useToast } from '@/components/ui'
 import { api, errorMessage } from '@/lib/client/api'
 import { customerCode } from '@/lib/upi'
+import { SubTabs, useSubTab, type SubTab } from '@/components/admin/SubTabs'
+import { inView, PAYMENT_VIEWS, viewTotals, type PaymentView } from '@/components/admin/paymentViews'
 
 const STATUS = {
   APPROVED: { label: 'Added', className: 'bg-emerald-100 text-emerald-800' },
@@ -67,22 +69,28 @@ function exportPayments(rows: Recharge[], period: Period) {
     ]))
 }
 
+type PaymentsSection = 'check' | 'all' | 'bank'
+const PAYMENTS_TABS: ReadonlyArray<SubTab<PaymentsSection>> = [{ id: 'check', label: 'To check' }, { id: 'all', label: 'All payments' }, { id: 'bank', label: 'Bank credits' }]
+
 export default function Payments({ active, overview, onChanged }: { active: boolean; overview: Overview | null; onChanged: () => void }) {
   const [period, setPeriod] = useState<Period>('this-month')
-  const [status, setStatus] = useState<'' | Recharge['status']>('')
+  const [section, setSection] = useSubTab('pp-admin-payments-tab', PAYMENTS_TABS)
+  // A tile over the table: which payments to list.
+  const [view, setView] = useState<PaymentView>('ALL')
   const [filter, setFilter] = useState('')
   const [rows, setRows] = useState<Recharge[] | null>(null)
   const [error, setError] = useState('')
 
   const load = useCallback(async () => {
     try {
-      const params = new URLSearchParams({ period, ...(status ? { status } : {}) })
+      // Every status: the tiles count them all and filter on this device.
+      const params = new URLSearchParams({ period })
       setRows((await api<{ payments: Recharge[] }>(`/api/admin/payments?${params}`)).payments)
       setError('')
     } catch (loadError) {
       setError(errorMessage(loadError))
     }
-  }, [period, status])
+  }, [period])
 
   useEffect(() => {
     if (!active) return
@@ -90,21 +98,30 @@ export default function Payments({ active, overview, onChanged }: { active: bool
     return () => clearTimeout(timer)
   }, [active, load])
 
+  const totals = useMemo(() => viewTotals(rows ?? []), [rows])
   const shown = useMemo(() => {
     const needle = filter.trim().toLowerCase()
-    return (rows ?? []).filter(row => !needle || (row.user_email ?? '').toLowerCase().includes(needle) || row.utr.includes(needle))
-  }, [rows, filter])
+    return (rows ?? []).filter(row => inView(row, view) && (!needle || (row.user_email ?? '').toLowerCase().includes(needle) || row.utr.includes(needle)))
+  }, [rows, filter, view])
   const received = shown.filter(row => row.status === 'APPROVED').reduce((sum, row) => sum + row.amount_inr, 0)
+
+  const paymentTabs: ReadonlyArray<SubTab<PaymentsSection>> = [
+    { id: 'check', label: 'To check', badge: overview?.pending.length ?? 0 },
+    { id: 'all', label: 'All payments' },
+    { id: 'bank', label: 'Bank credits', badge: overview?.unmatchedAlerts.length ?? 0 },
+  ]
 
   return (
     <div className="space-y-4">
-      <Card title={`Recharges to check (${overview?.pending.length ?? 0})`}>
+      <SubTabs tabs={paymentTabs} active={section} onChange={setSection} label="Payments sections" />
+
+      <Card title={`Recharges to check (${overview?.pending.length ?? 0})`} className={section === 'check' ? '' : 'hidden'}>
         {!overview ? <Spinner className="h-5 w-5 text-brand-600" /> : overview.pending.length === 0
           ? <p className="text-sm text-stone-500">Nothing waiting.</p>
           : <ul className="divide-y divide-stone-100">{overview.pending.map(recharge => <PendingRow key={recharge.id} recharge={recharge} onDone={() => { onChanged(); void load() }} />)}</ul>}
       </Card>
 
-      <Card title="Bank credits nobody has claimed">
+      <Card title="Bank credits nobody has claimed" className={section === 'bank' ? '' : 'hidden'}>
         <p className="mb-2 text-sm text-stone-500">Payments your bank reported that no customer has entered yet. They are matched automatically when the customer enters the UTR.</p>
         {!overview || overview.unmatchedAlerts.length === 0 ? <p className="text-sm text-stone-500">None.</p> : (
           <ul className="divide-y divide-stone-100 text-sm">
@@ -118,17 +135,24 @@ export default function Payments({ active, overview, onChanged }: { active: bool
         )}
       </Card>
 
-      <Card title="All payments">
+      <Card title="All payments" className={section === 'all' ? '' : 'hidden'}>
         <div className="space-y-3">
           <PeriodPicker value={period} onChange={setPeriod} />
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5" role="group" aria-label="Show payments">
+            {PAYMENT_VIEWS.map(option => {
+              const selected = view === option.id
+              const total = totals[option.id]
+              return (
+                <button key={option.id} type="button" aria-pressed={selected} onClick={() => setView(current => (current === option.id && option.id !== 'ALL' ? 'ALL' : option.id))}
+                  className={`rounded-2xl p-3 text-left ring-1 ${selected ? 'bg-stone-900 text-white ring-stone-900' : 'bg-white ring-stone-200'}`}>
+                  <span className={`block text-xs font-bold ${selected ? 'text-stone-300' : 'text-stone-500'}`}>{option.label}</span>
+                  <span className="block text-2xl font-black tabular-nums">{rows ? total.count : '—'}</span>
+                  <span className={`block text-xs ${selected ? 'text-stone-300' : 'text-stone-500'}`}>{rows ? money(total.amountInr) : option.hint}</span>
+                </button>
+              )
+            })}
+          </div>
           <div className="flex flex-wrap gap-2">
-            <select value={status} onChange={event => setStatus(event.target.value as typeof status)} aria-label="Status"
-              className="min-h-10 rounded-xl border border-stone-300 bg-white px-3 font-semibold">
-              <option value="">All statuses</option>
-              <option value="APPROVED">Added</option>
-              <option value="PENDING">Checking</option>
-              <option value="REJECTED">Rejected</option>
-            </select>
             <input type="search" value={filter} onChange={event => setFilter(event.target.value)} placeholder="Email or UTR" aria-label="Filter by email or UTR"
               className="min-h-10 min-w-0 flex-1 rounded-xl border border-stone-300 px-3" />
             <Button variant="secondary" disabled={!shown.length} onClick={() => exportPayments(shown, period)} className="min-h-10 text-sm">Export CSV</Button>
@@ -136,11 +160,14 @@ export default function Payments({ active, overview, onChanged }: { active: bool
           {error && <Notice tone="error">{error}</Notice>}
           {rows === null ? <div className="flex justify-center py-6 text-brand-600"><Spinner className="h-6 w-6" /></div> : (
             <>
-              <p className="text-sm text-stone-600">{shown.length} payment{shown.length === 1 ? '' : 's'} · <b>{money(received)}</b> added</p>
+              <p className="text-sm text-stone-600">
+                <b>{PAYMENT_VIEWS.find(option => option.id === view)?.label}</b>: {shown.length} payment{shown.length === 1 ? '' : 's'}
+                {view !== 'PENDING' && view !== 'REJECTED' && <> · <b>{money(received)}</b> added</>}
+              </p>
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[36rem] text-sm">
                   <thead className="text-left text-xs uppercase tracking-wide text-stone-500">
-                    <tr><th className="py-2 pr-2">When</th><th className="py-2 pr-2">Customer</th><th className="py-2 pr-2 text-right">Amount</th><th className="py-2 pr-2 text-right">Credits</th><th className="py-2 pr-2">UTR</th><th className="py-2">Status</th></tr>
+                    <tr><th className="py-2 pr-2">When</th><th className="py-2 pr-2">Customer</th><th className="py-2 pr-2 text-right">Amount</th><th className="py-2 pr-2 text-right">Credits</th><th className="py-2 pr-2">UTR</th><th className="py-2 pr-2">Status</th><th className="py-2">Checked</th></tr>
                   </thead>
                   <tbody className="tabular-nums">
                     {shown.map(row => (
@@ -150,11 +177,12 @@ export default function Payments({ active, overview, onChanged }: { active: bool
                         <td className="py-2 pr-2 text-right font-bold">{money(row.amount_inr)}</td>
                         <td className="py-2 pr-2 text-right">{row.credits}</td>
                         <td className="py-2 pr-2 font-mono text-xs">{row.utr}</td>
-                        <td className="py-2">
+                        <td className="py-2 pr-2">
                           <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${STATUS[row.status].className}`}>{STATUS[row.status].label}</span>
                           {row.status === 'APPROVED' && <span className="ml-1 text-xs text-stone-500">{row.auto_verified ? 'auto' : 'by you'}</span>}
                           {row.rejection_reason && <span className="block text-xs text-stone-500">{row.rejection_reason}</span>}
                         </td>
+                        <td className="py-2 whitespace-nowrap text-xs text-stone-500">{row.reviewed_at ? formatWhen(row.reviewed_at) : '—'}</td>
                       </tr>
                     ))}
                   </tbody>

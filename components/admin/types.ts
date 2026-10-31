@@ -58,6 +58,8 @@ export type Analytics = {
     // Each visitor once a day: someone who comes on two days counts twice.
     visitors: number
     pageViews: number
+    // Added a first photo (counted once a day each, like visitors).
+    starts: number
     // The first day with any visit in the period (counting started 30 Oct 2026).
     firstDay: string | null
     days: Array<{ day: string; visitors: number }>

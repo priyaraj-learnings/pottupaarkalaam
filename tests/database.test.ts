@@ -540,6 +540,18 @@ describe('website visits', () => {
     expect(await today()).toEqual({ visitors: 2, page_views: 3 })
   })
 
+  it('counts a started try-on once a visitor a day, and the visitor too if new', async () => {
+    const starts = async () => (await db.query<{ visitors: number; starts: number }>(
+      `select visitors, starts from public.site_visit_days where day = (now() at time zone 'Asia/Kolkata')::date`)).rows[0]
+    await db.query('delete from public.site_visit_days')
+    await db.query('select public.record_site_visit($1)', [code(10)])
+    await db.query('select public.record_try_on_start($1)', [code(10)])
+    await db.query('select public.record_try_on_start($1)', [code(10)])
+    // Straight to a photo without a page view first: a visitor and a start.
+    await db.query('select public.record_try_on_start($1)', [code(11)])
+    expect(await starts()).toEqual({ visitors: 2, starts: 2 })
+  })
+
   it('refuses anything but a 64-character code', async () => {
     await expect(db.query('select public.record_site_visit($1)', ['203.0.113.9'])).rejects.toThrow()
   })
@@ -561,6 +573,7 @@ describe('database permissions', () => {
         await expect(db.query('select * from public.free_use_carryover')).rejects.toThrow(/permission denied/)
         await expect(db.query(`select public.record_site_visit('${'0'.repeat(64)}')`)).rejects.toThrow(/permission denied/)
         await expect(db.query('select * from public.site_visit_days')).rejects.toThrow(/permission denied/)
+        await expect(db.query(`select public.record_try_on_start('${'0'.repeat(64)}')`)).rejects.toThrow(/permission denied/)
       } finally {
         await db.exec('reset role')
       }
