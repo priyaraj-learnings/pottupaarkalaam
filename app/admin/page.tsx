@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Customers from '@/components/admin/Customers'
 import Overview, { PeriodPicker } from '@/components/admin/Overview'
 import Payments from '@/components/admin/Payments'
+import { AlertsButton, useRechargeAlerts } from '@/components/admin/RechargeAlerts'
 import SettingsTab from '@/components/admin/SettingsTab'
 import type { Analytics, Overview as OverviewData, Period } from '@/components/admin/types'
 import { LogoMark, Wordmark } from '@/components/Logo'
@@ -81,10 +82,10 @@ function AdminConsole({ onBlocked }: { onBlocked: () => void }) {
 
   useEffect(() => {
     const first = setTimeout(loadOverview, 0)
-    // New recharges and bank alerts arrive all day.
+    // New recharges and bank alerts arrive all day (RechargeAlerts beeps for new ones).
     const timer = setInterval(() => {
       void loadOverview()
-    }, 60_000)
+    }, 30_000)
     return () => {
       clearTimeout(first)
       clearInterval(timer)
@@ -95,12 +96,18 @@ function AdminConsole({ onBlocked }: { onBlocked: () => void }) {
     if (blocked) onBlocked()
   }, [blocked, onBlocked])
 
+  const openPayments = useCallback(() => setTab('payments'), [])
+  const alerts = useRechargeAlerts(overview?.pending, openPayments)
+
   if (blocked) return <NotAllowed />
 
   const waiting = overview?.pending.length ?? 0
 
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <AlertsButton on={alerts.on} onToggle={() => void alerts.toggle()} />
+      </div>
       <nav aria-label="Admin sections" className="grid grid-cols-4 gap-1 rounded-2xl bg-white p-1 ring-1 ring-stone-200">
         {TABS.map(item => (
           <button
