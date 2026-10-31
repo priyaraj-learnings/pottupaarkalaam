@@ -7,6 +7,7 @@ import { downloadCsv, money, type Overview, type Period, type Recharge } from '@
 import { Button, Card, formatWhen, Notice, Spinner, useToast } from '@/components/ui'
 import { api, errorMessage } from '@/lib/client/api'
 import { customerCode } from '@/lib/upi'
+import { SubTabs, useSubTab, type SubTab } from '@/components/admin/SubTabs'
 import { inView, PAYMENT_VIEWS, viewTotals, type PaymentView } from '@/components/admin/paymentViews'
 
 const STATUS = {
@@ -68,8 +69,12 @@ function exportPayments(rows: Recharge[], period: Period) {
     ]))
 }
 
+type PaymentsSection = 'check' | 'all' | 'bank'
+const PAYMENTS_TABS: ReadonlyArray<SubTab<PaymentsSection>> = [{ id: 'check', label: 'To check' }, { id: 'all', label: 'All payments' }, { id: 'bank', label: 'Bank credits' }]
+
 export default function Payments({ active, overview, onChanged }: { active: boolean; overview: Overview | null; onChanged: () => void }) {
   const [period, setPeriod] = useState<Period>('this-month')
+  const [section, setSection] = useSubTab('pp-admin-payments-tab', PAYMENTS_TABS)
   // A tile over the table: which payments to list.
   const [view, setView] = useState<PaymentView>('ALL')
   const [filter, setFilter] = useState('')
@@ -100,15 +105,23 @@ export default function Payments({ active, overview, onChanged }: { active: bool
   }, [rows, filter, view])
   const received = shown.filter(row => row.status === 'APPROVED').reduce((sum, row) => sum + row.amount_inr, 0)
 
+  const paymentTabs: ReadonlyArray<SubTab<PaymentsSection>> = [
+    { id: 'check', label: 'To check', badge: overview?.pending.length ?? 0 },
+    { id: 'all', label: 'All payments' },
+    { id: 'bank', label: 'Bank credits', badge: overview?.unmatchedAlerts.length ?? 0 },
+  ]
+
   return (
     <div className="space-y-4">
-      <Card title={`Recharges to check (${overview?.pending.length ?? 0})`}>
+      <SubTabs tabs={paymentTabs} active={section} onChange={setSection} label="Payments sections" />
+
+      <Card title={`Recharges to check (${overview?.pending.length ?? 0})`} className={section === 'check' ? '' : 'hidden'}>
         {!overview ? <Spinner className="h-5 w-5 text-brand-600" /> : overview.pending.length === 0
           ? <p className="text-sm text-stone-500">Nothing waiting.</p>
           : <ul className="divide-y divide-stone-100">{overview.pending.map(recharge => <PendingRow key={recharge.id} recharge={recharge} onDone={() => { onChanged(); void load() }} />)}</ul>}
       </Card>
 
-      <Card title="Bank credits nobody has claimed">
+      <Card title="Bank credits nobody has claimed" className={section === 'bank' ? '' : 'hidden'}>
         <p className="mb-2 text-sm text-stone-500">Payments your bank reported that no customer has entered yet. They are matched automatically when the customer enters the UTR.</p>
         {!overview || overview.unmatchedAlerts.length === 0 ? <p className="text-sm text-stone-500">None.</p> : (
           <ul className="divide-y divide-stone-100 text-sm">
@@ -122,7 +135,7 @@ export default function Payments({ active, overview, onChanged }: { active: bool
         )}
       </Card>
 
-      <Card title="All payments">
+      <Card title="All payments" className={section === 'all' ? '' : 'hidden'}>
         <div className="space-y-3">
           <PeriodPicker value={period} onChange={setPeriod} />
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-5" role="group" aria-label="Show payments">
