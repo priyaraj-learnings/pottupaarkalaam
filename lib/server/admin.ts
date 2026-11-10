@@ -6,6 +6,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin'
 import { loadSettings } from '@/lib/server/account'
 import { ApiError, dbError, UUID } from '@/lib/server/http'
 import { indiaDay, visitsBetween } from '@/lib/server/visits'
+import { emailStatus } from '@/lib/server/email'
 import { TELEGRAM_TOKEN, telegramStatus } from '@/lib/server/telegram'
 
 // =======================================================
@@ -86,7 +87,7 @@ async function loadAiRates(): Promise<AiRates> {
 
 // Settings, recharges to check and bank credits nobody claimed.
 export async function adminOverview() {
-  const [settings, aiRates, pending, recent, alerts, lastAlert, msg91, telegram] = await Promise.all([
+  const [settings, aiRates, pending, recent, alerts, lastAlert, msg91, telegram, email] = await Promise.all([
     loadSettings(),
     loadAiRates(),
     supabaseAdmin.from('recharges').select(RECHARGE_COLUMNS).eq('status', 'PENDING').order('created_at', { ascending: true }).limit(100),
@@ -96,6 +97,7 @@ export async function adminOverview() {
     supabaseAdmin.from('payment_alerts').select('received_at').order('received_at', { ascending: false }).limit(1),
     supabaseAdmin.from('app_settings').select('msg91_widget_id, msg91_token_auth, msg91_auth_key').eq('id', true).maybeSingle(),
     telegramStatus(),
+    emailStatus(),
   ])
   if (pending.error) throw dbError(pending.error, 'Unable to load recharges')
   if (recent.error) throw dbError(recent.error, 'Unable to load recharges')
@@ -133,6 +135,8 @@ export async function adminOverview() {
     },
     // Telegram alerts for recharges to check. The bot token is never sent back.
     telegram,
+    // The monthly email (Resend). The API key is never sent back.
+    email,
   }
 }
 
@@ -222,6 +226,8 @@ export async function updateSettings(adminId: string, body: unknown) {
   row.couple_credits = whole(input.coupleCredits ?? DEFAULT_COUPLE_CREDITS, 'Credits per couple picture', 1, 50)
   row.extra_photos_enabled = input.extraPhotosEnabled === true || input.extraPhotosEnabled === 'true'
   row.extra_photo_credits = whole(input.extraPhotoCredits ?? 1, 'Extra credits for the 4th and 5th photo', 1, 10)
+  if (input.referralCredits !== undefined) row.referral_credits = whole(input.referralCredits, 'Invite credits', 0, 20)
+  if (input.referralMaxPerPerson !== undefined) row.referral_max_per_person = whole(input.referralMaxPerPerson, 'Friends per person', 0, 100)
   const { error } = await supabaseAdmin.from('app_settings').update(row).eq('id', true)
   if (error) throw dbError(error, 'Unable to save settings')
   return { settings: await loadSettings(), aiRates: await loadAiRates() }

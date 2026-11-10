@@ -13,10 +13,12 @@ import { LogoMark, Wordmark } from '@/components/Logo'
 import MobileAsk, { MobileForm, savePhone, shouldAskForMobile, VerifyMobile, VerifyMobileForm } from '@/components/MobileNumber'
 import Recharge from '@/components/Recharge'
 import GuestApp from '@/components/GuestApp'
+import { EmailChoices, InviteCard, useReferralClaim } from '@/components/Growth'
 import TermsConsent from '@/components/TermsConsent'
 import TryOn from '@/components/TryOn'
 import { Button, Notice, Sheet, Spinner, ToastProvider, useToast } from '@/components/ui'
 import { api, errorMessage } from '@/lib/client/api'
+import { captureReferral } from '@/lib/client/referral'
 import { COMPANY } from '@/lib/legal'
 import type { Account, AppSettings, Me } from '@/lib/client/types'
 import { formatMobile, termsDue, TERMS_VERSION } from '@/lib/rules'
@@ -157,6 +159,13 @@ export default function PottuApp() {
   // Worked out when the account first loads, so "Not now" sticks for this visit.
   const [askMobile, setAskMobile] = useState(false)
   const askedMobileFor = useRef<string | null>(null)
+  // Opened from a friend's invite link (?ref=CODE), remembered until sign-in.
+  const [invited, setInvited] = useState(false)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setInvited(Boolean(captureReferral())), 0)
+    return () => clearTimeout(timer)
+  }, [])
 
   useEffect(() => {
     // Also fires once at start with the saved session (INITIAL_SESSION).
@@ -208,6 +217,11 @@ export default function PottuApp() {
     setMe(current => (current ? { ...current, account } : current))
   }, [])
 
+  const reload = useCallback(() => {
+    if (userId) void loadMe(userId)
+  }, [userId, loadMe])
+  const referral = useReferralClaim(me && me.userId === userId ? me.account : null, reload)
+
   const signOut = useCallback(async () => {
     setMenuOpen(false)
     await supabase.auth.signOut()
@@ -217,7 +231,7 @@ export default function PottuApp() {
 
   if (session === undefined) return <Splash />
   // Not signed in: start trying on; sign-in is asked for at "Try on".
-  if (!session) return <GuestApp notice={signInNotice} />
+  if (!session) return <GuestApp notice={signInNotice} invited={invited} />
 
   const current = me && me.userId === session.user.id ? me : null
   if (!current) {
@@ -282,6 +296,16 @@ export default function PottuApp() {
         </header>
 
         <main className="px-4 pb-28 pt-2">
+          {referral.note && (
+            <div className="mb-3">
+              <Notice tone={referral.note.tone}>
+                <span className="flex items-start justify-between gap-2">
+                  <span>{referral.note.text}</span>
+                  <button type="button" onClick={referral.dismiss} aria-label="Close" className="shrink-0 font-black">✕</button>
+                </span>
+              </Notice>
+            </div>
+          )}
           <div className={shownTab === 'tryon' ? '' : 'hidden'}>
             <TryOn account={current.account} settings={current.settings} onAccount={setAccount} onRecharge={() => setTab('recharge')}
               onTermsNeeded={() => loadMe(session.user.id)}
@@ -318,7 +342,9 @@ export default function PottuApp() {
           <div className="space-y-3">
             <p className="text-sm text-stone-600">Signed in as <b>{current.user.email ?? (current.user.phone ? `+91 ${formatMobile(current.user.phone)}` : '')}</b></p>
             <p className="text-xs text-stone-500">Your customer code: <b>{customerCode(session.user.id)}</b></p>
+            <InviteCard account={current.account} maxFriends={current.settings.referralMaxPerPerson} />
             <MobileRow account={current.account} widget={current.settings.phoneWidget} onAccount={setAccount} />
+            {current.user.email && <EmailChoices account={current.account} onAccount={setAccount} />}
             {current.settings.couple.enabled && (
               <CoupleRow account={current.account} settings={current.settings} onAccount={setAccount} onTurnedOn={() => {
                 setMenuOpen(false)

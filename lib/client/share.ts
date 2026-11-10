@@ -1,6 +1,6 @@
 'use client'
 
-const SHARE_TEXT = 'I tried this on with PottuPaarkalaam: pp.inaivuit.com'
+import { shareMessage, whatsAppLink } from '@/lib/client/referral'
 
 function isApple() {
   return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
@@ -34,14 +34,36 @@ export async function saveToGallery(blob: Blob, fileName: string): Promise<'shar
   return 'downloaded'
 }
 
-// WhatsApp, Instagram... through the phone's share sheet.
-export async function shareImage(blob: Blob, fileName: string): Promise<'shared' | 'cancelled' | 'unsupported'> {
+// WhatsApp (or Instagram...) through the phone's share sheet, with the words
+// and the customer's invite link. Where pictures cannot be shared (most
+// computers): saves the picture and opens WhatsApp with the words, to attach it.
+export async function shareImage(blob: Blob, fileName: string): Promise<'shared' | 'cancelled' | 'whatsapp'> {
   const file = new File([blob], fileName, { type: blob.type || 'image/jpeg' })
-  if (!navigator.canShare?.({ files: [file] })) return 'unsupported'
-  try {
-    await navigator.share({ files: [file], text: SHARE_TEXT })
-    return 'shared'
-  } catch (error) {
-    return isCancel(error) ? 'cancelled' : 'unsupported'
+  const text = shareMessage()
+  if (navigator.canShare?.({ files: [file], text })) {
+    try {
+      await navigator.share({ files: [file], text })
+      return 'shared'
+    } catch (error) {
+      if (isCancel(error)) return 'cancelled'
+    }
   }
+  await saveToGallery(blob, fileName)
+  window.open(whatsAppLink(text), '_blank', 'noopener')
+  return 'whatsapp'
+}
+
+// An invite without a picture: the share sheet, else WhatsApp.
+export async function shareInvite(): Promise<'shared' | 'cancelled' | 'whatsapp'> {
+  const text = shareMessage()
+  if (navigator.share) {
+    try {
+      await navigator.share({ text })
+      return 'shared'
+    } catch (error) {
+      if (isCancel(error)) return 'cancelled'
+    }
+  }
+  window.open(whatsAppLink(text), '_blank', 'noopener')
+  return 'whatsapp'
 }
