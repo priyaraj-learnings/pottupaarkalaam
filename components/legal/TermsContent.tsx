@@ -58,6 +58,12 @@ export function TermsContent() {
             be transferred to another account, sold, or exchanged for cash, except for the refunds in section 5.</li>
           <li>The prices shown in the app are the full prices: nothing is added when you pay.</li>
           <li>If a picture cannot be made, its credits are returned automatically.</li>
+          <li><b>Invite friends:</b> when someone opens PottuPaarkalaam for the first time with your invite link, makes an
+            account within 7 days and verifies their mobile number, you and they each get the invite credits shown in the
+            app, for up to the number of friends shown there. A mobile number earns invite credits once, ever. Invite credits
+            are paid credits given free: they follow these terms but are not refunded in cash. Inviting yourself, or making
+            accounts or using numbers just to collect invite credits, is not allowed: we may then remove those credits. We
+            may change or end the invite offer at any time; credits already given stay.</li>
         </ul>
       </section>
 
@@ -89,6 +95,8 @@ export function TermsContent() {
             copy is in your hands. Once a picture leaves the app, {COMPANY.name} and PottuPaarkalaam cannot control or delete
             it, and are not responsible for how it is kept, copied, changed, shared or used, by you or by anyone you share it
             with.</li>
+          <li>A picture you share from the app comes with a message and your invite link. You can change or remove the
+            message before sending it. Send invites only to people who would want them, not as bulk or unwanted messages.</li>
           <li>Pictures can look real. Share only pictures of yourself, or of a person who has agreed to it, and never in a
             way that misleads, embarrasses or harms anyone.</li>
           <li>Every picture is marked as made by AI: it carries a visible &ldquo;AI-generated · PottuPaarkalaam&rdquo; label

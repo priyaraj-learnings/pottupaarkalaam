@@ -580,3 +580,108 @@ describe('database permissions', () => {
     }
   })
 })
+
+describe('email choices', () => {
+  it('records the email offers tick and the monthly email choice', async () => {
+    const user = await newUser('offers@example.com')
+    expect(await account(user)).toMatchObject({ emailOffersOk: false, monthlyEmailOk: true })
+    expect(await one('select public.set_email_offers($1, true) as r', [user])).toMatchObject({ emailOffersOk: true })
+    const { rows } = await db.query<{ at: string | null }>('select email_offers_ok_at as at from public.accounts where user_id = $1', [user])
+    expect(rows[0].at).not.toBeNull()
+    expect(await one('select public.set_monthly_email($1, false) as r', [user])).toMatchObject({ monthlyEmailOk: false })
+  })
+})
+
+describe('refer a friend', () => {
+  const code = async (userId: string) => (await account(userId)).referralCode as string
+  const claim = (userId: string, referral: string) => one<Result>('select public.claim_referral($1, $2) as r', [userId, referral])
+  const credits = async (userId: string) => (await account(userId)).credits
+
+  it('gives both 2 credits once the friend verifies a mobile number', async () => {
+    const inviter = await newUser('inviter@example.com')
+    const friend = await newUser('friend@example.com', { verified: false })
+    const inviteCode = await code(inviter)
+    expect(inviteCode).toMatch(/^[0-9A-F]{8}$/)
+    expect(await claim(friend, inviteCode.toLowerCase())).toEqual({ rewarded: false, reason: 'NOT_VERIFIED' })
+    await db.query('select public.verify_phone($1, $2)', [friend, '+919111111111'])
+    expect(await one('select public.settle_referral($1) as r', [friend])).toEqual({ rewarded: true, credits: 2 })
+    expect(await credits(friend)).toBe(2)
+    expect(await credits(inviter)).toBe(2)
+    expect(await account(inviter)).toMatchObject({ friendsJoined: 1 })
+    // Only once.
+    expect(await one('select public.settle_referral($1) as r', [friend])).toEqual({ rewarded: false, reason: 'ALREADY_REWARDED' })
+    expect(await claim(friend, inviteCode)).toEqual({ rewarded: false, reason: 'ALREADY_REWARDED' })
+    const { rows } = await db.query<{ n: number }>(`select count(*)::int as n from public.credit_ledger where kind = 'REFERRAL'`)
+    expect(rows[0].n).toBe(2)
+  })
+
+  it('refuses own codes, unknown codes and old accounts', async () => {
+    const someone = await newUser('self@example.com')
+    expect(await claim(someone, await code(someone))).toEqual({ rewarded: false, reason: 'OWN_CODE' })
+    expect(await claim(someone, 'NOPE1234')).toEqual({ rewarded: false, reason: 'UNKNOWN_CODE' })
+    const old = await newUser('old@example.com')
+    await db.query(`update public.accounts set created_at = now() - interval '8 days' where user_id = $1`, [old])
+    expect(await claim(old, await code(someone))).toEqual({ rewarded: false, reason: 'NOT_NEW' })
+  })
+
+  it('rewards a mobile number once, ever, and stops at the limit', async () => {
+    const inviter = await newUser('limit@example.com')
+    const inviteCode = await code(inviter)
+    const first = await newUser('again1@example.com', { verified: false })
+    await claim(first, inviteCode)
+    await db.query('select public.verify_phone($1, $2)', [first, '+919222222222'])
+    expect(await one('select public.settle_referral($1) as r', [first])).toMatchObject({ rewarded: true })
+    // The same number on a new account (after moving the first away).
+    await db.query('select public.verify_phone($1, $2)', [first, '+919222222223'])
+    const second = await newUser('again2@example.com', { verified: false })
+    await db.query('select public.verify_phone($1, $2)', [second, '+919222222222'])
+    expect(await claim(second, inviteCode)).toEqual({ rewarded: false, reason: 'NUMBER_USED' })
+
+    await db.query('update public.app_settings set referral_max_per_person = 1 where id')
+    try {
+      const third = await newUser('again3@example.com')
+      expect(await claim(third, inviteCode)).toEqual({ rewarded: false, reason: 'LIMIT' })
+    } finally {
+      await db.query('update public.app_settings set referral_max_per_person = 10 where id')
+    }
+  })
+})
+
+describe('monthly email', () => {
+  it('picks each eligible account once a month', async () => {
+    const batch = () => db.query<{ email: string }>('select email from public.take_monthly_email_batch(500)')
+    const pick = async () => (await batch()).rows.map(row => row.email)
+    const wants = await newUser('monthly@example.com')
+    const phone = await newUser('pp-phone-919333333333@inaivuit.com')
+    const unverified = await newUser('monthly-unverified@example.com', { verified: false })
+    const usedAll = await newUser('monthly-used@example.com')
+    const out = await newUser('monthly-out@example.com')
+    for (const user of [wants, phone, unverified, usedAll, out]) {
+      await one('select public.get_account($1, $2) as r', [user, TERMS])
+      await db.query(`update public.accounts set created_at = now() - interval '40 days' where user_id = $1`, [user])
+    }
+    await db.query(`update public.accounts set free_month = (date_trunc('month', now() at time zone 'Asia/Kolkata') - interval '1 month')::date,
+      free_used = 5 where user_id = $1`, [usedAll])
+    await db.query('select public.set_monthly_email($1, false)', [out])
+
+    expect(await pick()).toEqual([])
+    await db.query('update public.app_settings set monthly_email_enabled = true where id')
+    try {
+      const emails = await pick()
+      expect(emails).toContain('monthly@example.com')
+      for (const skipped of ['pp-phone-919333333333@inaivuit.com', 'monthly-unverified@example.com', 'monthly-used@example.com', 'monthly-out@example.com']) {
+        expect(emails).not.toContain(skipped)
+      }
+      expect(await pick()).not.toContain('monthly@example.com')
+      // At most 95 a day: with today's sends counted, the rest wait for tomorrow.
+      const later = await newUser('monthly-later@example.com')
+      await one('select public.get_account($1, $2) as r', [later, TERMS])
+      await db.query(`update public.accounts set created_at = now() - interval '40 days' where user_id = $1`, [later])
+      expect((await db.query('select email from public.take_monthly_email_batch(500, 1)')).rows).toEqual([])
+      await db.query(`update public.accounts set monthly_email_sent_at = now() - interval '2 days' where monthly_email_sent_at is not null`)
+      expect((await db.query<{ email: string }>('select email from public.take_monthly_email_batch(500, 1)')).rows.map(row => row.email)).toEqual(['monthly-later@example.com'])
+    } finally {
+      await db.query('update public.app_settings set monthly_email_enabled = false where id')
+    }
+  })
+})

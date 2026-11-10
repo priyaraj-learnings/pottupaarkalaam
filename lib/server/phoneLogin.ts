@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { normalizeMobile, phoneLoginEmail } from '@/lib/rules'
+import { settleReferral } from '@/lib/server/growth'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { ApiError, dbError } from '@/lib/server/http'
 
@@ -117,5 +118,6 @@ export async function phoneSignIn(body: unknown) {
   if ((verified.data as { error?: string } | null)?.error === 'PHONE_TAKEN') {
     throw new ApiError(409, 'PHONE_TAKEN', 'This mobile number belongs to a PottuPaarkalaam account you made with Google or email. Sign in that way instead.')
   }
+  await settleReferral(userId)
   return { tokenHash, type: 'magiclink' as const }
 }

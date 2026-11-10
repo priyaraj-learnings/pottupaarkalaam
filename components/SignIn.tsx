@@ -155,11 +155,11 @@ export function SignInOptions({ phoneWidget }: { phoneWidget: { widgetId: string
   )
 }
 
-export type SignInOptionsData = { phone: { widgetId: string; tokenAuth: string } | null; freeCreditsPerMonth: number | null }
+export type SignInOptionsData = { phone: { widgetId: string; tokenAuth: string } | null; freeCreditsPerMonth: number | null; referralCredits: number }
 
 // The public sign-in options (before anyone is signed in).
 export function useSignInOptions(): SignInOptionsData {
-  const [options, setOptions] = useState<SignInOptionsData>({ phone: null, freeCreditsPerMonth: null })
+  const [options, setOptions] = useState<SignInOptionsData>({ phone: null, freeCreditsPerMonth: null, referralCredits: 0 })
   useEffect(() => {
     let cancelled = false
     fetch('/api/sign-in-options', { cache: 'no-store' })
@@ -169,6 +169,7 @@ export function useSignInOptions(): SignInOptionsData {
         setOptions({
           phone: result.phone ?? null,
           freeCreditsPerMonth: Number.isInteger(result.freeCreditsPerMonth) ? result.freeCreditsPerMonth : null,
+          referralCredits: Number.isInteger(result.referralCredits) ? result.referralCredits : 0,
         })
       })
       .catch(() => {})

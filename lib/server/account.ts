@@ -4,6 +4,7 @@ import { DEFAULT_COUPLE_CREDITS, DEFAULT_PRICING, formatMobile, normalizeMobile,
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import type { SignedInUser } from '@/lib/server/auth'
 import { ApiError, dbError } from '@/lib/server/http'
+import { settleReferral } from '@/lib/server/growth'
 import { msg91Settings, verifyMsg91Token } from '@/lib/server/phoneLogin'
 
 export type Account = {
@@ -20,6 +21,15 @@ export type Account = {
   coupleOptIn: boolean
   // A recharge approved this month: may add extra photos to a try.
   paidThisMonth: boolean
+  // "Send me offers and news by email" (separate from offersOk: WhatsApp / SMS).
+  emailOffersOk: boolean
+  // The monthly "your free pictures are back" email (off = unsubscribed).
+  monthlyEmailOk: boolean
+  // Refer a friend: the invite code (link pp.inaivuit.com/?ref=CODE), the
+  // credits each side gets, and how many friends have joined through it.
+  referralCode: string
+  referralCredits: number
+  friendsJoined: number
 }
 
 export type AppSettings = {
@@ -40,6 +50,10 @@ export type AppSettings = {
   // A 4th and 5th photo per try for customers who recharged this month, each
   // costing `credits` more (paid credits only).
   extraPhotos: { enabled: boolean; credits: number }
+  // Refer a friend: credits each side gets (0: off), for up to
+  // referralMaxPerPerson friends each.
+  referralCredits: number
+  referralMaxPerPerson: number
 }
 
 type SettingsRow = {
@@ -55,6 +69,8 @@ type SettingsRow = {
   couple_credits?: number
   extra_photos_enabled?: boolean
   extra_photo_credits?: number
+  referral_credits?: number
+  referral_max_per_person?: number
   free_credits_per_month: number
   standard_rate_inr: number
   bulk_rate_inr: number
@@ -66,7 +82,7 @@ type SettingsRow = {
 export function settingsFromRow(row: SettingsRow | null): AppSettings {
   if (!row) {
     return { upiId: null, upiQrText: null, upiAppButtons: false, payeeName: null, supportContact: null, pricing: DEFAULT_PRICING, phoneWidget: null,
-      couple: { enabled: false, credits: DEFAULT_COUPLE_CREDITS }, extraPhotos: { enabled: false, credits: 1 } }
+      couple: { enabled: false, credits: DEFAULT_COUPLE_CREDITS }, extraPhotos: { enabled: false, credits: 1 }, referralCredits: 0, referralMaxPerPerson: 0 }
   }
   // Never the auth key: these settings go to the browser.
   const widgetId = row.msg91_widget_id?.trim()
@@ -81,6 +97,8 @@ export function settingsFromRow(row: SettingsRow | null): AppSettings {
     phoneWidget,
     couple: { enabled: Boolean(row.couple_enabled), credits: row.couple_credits ?? DEFAULT_COUPLE_CREDITS },
     extraPhotos: { enabled: Boolean(row.extra_photos_enabled), credits: row.extra_photo_credits ?? 1 },
+    referralCredits: row.referral_credits ?? 0,
+    referralMaxPerPerson: row.referral_max_per_person ?? 0,
     pricing: {
       freeCreditsPerMonth: row.free_credits_per_month,
       standardRateInr: row.standard_rate_inr,
@@ -152,6 +170,11 @@ export async function verifyMobile(userId: string, accessToken: string, offersOk
   if (error) throw dbError(error, 'Unable to save your mobile number')
   const result = data as { account?: Account; error?: string }
   if (result.error === 'PHONE_TAKEN') throw new ApiError(409, 'PHONE_TAKEN', PHONE_TAKEN_MESSAGE)
+  // Joined through a friend's invite: both get their credits now.
+  if ((await settleReferral(userId))?.rewarded) {
+    const again = await supabaseAdmin.rpc('get_account', { p_user_id: userId, p_accept_terms_version: null })
+    if (!again.error) return again.data as Account
+  }
   return result.account as Account
 }
 

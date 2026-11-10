@@ -111,6 +111,8 @@ function SettingsForm({ overview, onSaved, section }: { overview: Overview; onSa
     extraPhotosEnabled: String(settings.extraPhotos.enabled),
     extraPhotoCredits: String(settings.extraPhotos.credits),
     coupleCredits: String(settings.couple.credits),
+    referralCredits: String(settings.referralCredits),
+    referralMaxPerPerson: String(settings.referralMaxPerPerson),
   })
   const [busy, setBusy] = useState(false)
 
@@ -224,6 +226,20 @@ function SettingsForm({ overview, onSaved, section }: { overview: Overview; onSa
               It sends 4 photos to the AI instead of 2, so it costs a little more to make than a single picture (see the cost reports).
             </p>
           )}
+        </div>
+      </Card>
+
+      <Card title="Refer a friend" className={show('prices')}>
+        <div className="space-y-3">
+          <p className="text-sm text-stone-600">
+            Every customer has an invite link (account menu → Invite friends; pictures shared on WhatsApp carry it too). When a
+            new customer joins with it within 7 days and verifies their mobile number, both get these credits. A mobile number
+            earns this once, ever. 0 turns invites off.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {field('referralCredits', 'Credits for each side', { inputMode: 'numeric' })}
+            {field('referralMaxPerPerson', 'Most friends per person', { inputMode: 'numeric' })}
+          </div>
         </div>
       </Card>
 
@@ -368,12 +384,13 @@ function PaymentSmsCard({ status }: { status: Overview['paymentSms'] }) {
   )
 }
 
-type SettingsSection = 'payments' | 'prices' | 'signin' | 'ai'
+type SettingsSection = 'payments' | 'prices' | 'signin' | 'email' | 'ai'
 
 const SETTINGS_TABS: ReadonlyArray<SubTab<SettingsSection>> = [
   { id: 'payments', label: 'Payments' },
   { id: 'prices', label: 'Prices & features' },
   { id: 'signin', label: 'Sign-in' },
+  { id: 'email', label: 'Email' },
   { id: 'ai', label: 'AI costs' },
 ]
 
@@ -385,6 +402,7 @@ export default function SettingsTab({ overview, onSaved }: { overview: Overview 
       <SubTabs tabs={SETTINGS_TABS} active={section} onChange={setSection} label="Settings sections" />
       <SettingsForm key={JSON.stringify(overview.settings) + JSON.stringify(overview.aiRates) + JSON.stringify(overview.phoneLogin)} overview={overview} onSaved={onSaved} section={section} />
       {section === 'payments' && <PaymentSmsCard status={overview.paymentSms} />}
+      {section === 'email' && <EmailCard status={overview.email} onChanged={onSaved} />}
     </div>
   )
 }
@@ -438,6 +456,74 @@ function TelegramAlerts({ status, tokenField, onChanged, hidden }: {
           {status.chatName && <Button type="button" variant="ghost" busy={busy === 'disconnect'} disabled={Boolean(busy)} onClick={() => void act('disconnect')} className="min-h-10 text-sm">Turn off</Button>}
         </div>
         <p className="text-xs text-stone-500">To send alerts to a different person or group: have them message the bot, then press Connect again.</p>
+      </div>
+    </Card>
+  )
+}
+
+// The monthly "your free pictures are back" email (lib/server/email.ts), sent
+// with Resend. Saved on its own (not with "Save settings").
+function EmailCard({ status, onChanged }: { status: Overview['email']; onChanged: () => void }) {
+  const toast = useToast()
+  const [apiKey, setApiKey] = useState('')
+  const [from, setFrom] = useState(status.from || 'PottuPaarkalaam <hello@inaivuit.com>')
+  const [monthly, setMonthly] = useState(status.monthlyEnabled)
+  const [busy, setBusy] = useState<'' | 'save' | 'test'>('')
+
+  async function act(action: 'save' | 'test') {
+    setBusy(action)
+    try {
+      await api('/api/admin/email', { method: 'POST', json: action === 'save'
+        ? { action, apiKey, from, monthlyEnabled: monthly, appUrl: window.location.origin }
+        : { action } })
+      toast(action === 'save' ? 'Email settings saved.' : 'Test email sent to your admin email address.')
+      if (action === 'save') setApiKey('')
+      onChanged()
+    } catch (actionError) {
+      toast(errorMessage(actionError), 'error')
+    } finally {
+      setBusy('')
+    }
+  }
+
+  return (
+    <Card title="Monthly email: “your free pictures are back”">
+      <div className="space-y-3 text-sm text-stone-700">
+        <p>
+          On the 1st of each month (from 10 am), one email to customers who signed in with Google or email, have a verified
+          mobile number and did not use all of last month&rsquo;s free pictures. At most 95 a day (the free Resend plan
+          sends 100 a day): a longer list goes out over the next days. It carries their invite link and a one-click
+          &ldquo;Stop these emails&rdquo; link. Customers can also switch it off in their account menu.
+        </p>
+        <Notice tone={status.monthlyEnabled ? 'success' : 'info'}>
+          {status.monthlyEnabled ? <>On{status.sentThisMonth > 0 ? <>: sent to <b>{status.sentThisMonth}</b> customers this month.</> : '.'}</> : status.keySet ? 'Key saved; the monthly email is off.' : 'Off: follow the steps below.'}
+        </Notice>
+        <ol className="list-decimal space-y-2 pl-5">
+          <li>Make a free account at <b>resend.com</b> (3,000 emails a month free). Under <b>Domains</b>, add <i>inaivuit.com</i> and add the
+            DNS records it shows at your domain provider, so emails come from your own address and are not marked as spam.</li>
+          <li>Under <b>API Keys</b>, create a key with &ldquo;Sending access&rdquo; and paste it below.</li>
+          <li>Press <b>Save</b>, then <b>Send me a test</b>, and check your inbox. Then tick the monthly email on and Save.</li>
+        </ol>
+        <div className="grid max-w-xl gap-3">
+          <label className="block text-sm font-bold text-stone-700">
+            Resend API key{status.keySet ? ' (saved; paste a new one to change it)' : ''}
+            <input value={apiKey} onChange={event => setApiKey(event.target.value)} type="password" autoComplete="off" placeholder="re_…"
+              className="mt-1 min-h-11 w-full rounded-xl border border-stone-300 px-3 font-normal" />
+          </label>
+          <label className="block text-sm font-bold text-stone-700">
+            From (an address on the domain you verified in Resend)
+            <input value={from} onChange={event => setFrom(event.target.value)}
+              className="mt-1 min-h-11 w-full rounded-xl border border-stone-300 px-3 font-normal" />
+          </label>
+          <label className="flex items-start gap-3 rounded-xl bg-stone-50 p-3">
+            <input type="checkbox" checked={monthly} onChange={event => setMonthly(event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-brand-600" />
+            <span><b>Send the monthly email</b></span>
+          </label>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" busy={busy === 'save'} disabled={busy !== ''} onClick={() => void act('save')} className="min-h-10 text-sm">Save</Button>
+          <Button type="button" variant="secondary" busy={busy === 'test'} disabled={busy !== '' || !status.keySet} onClick={() => void act('test')} className="min-h-10 text-sm">Send me a test</Button>
+        </div>
       </div>
     </Card>
   )
