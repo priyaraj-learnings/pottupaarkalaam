@@ -19,7 +19,8 @@ alter table public.accounts
   add column if not exists email_offers_ok_at timestamptz,
   add column if not exists referral_code text,
   add column if not exists monthly_email_opt_out boolean not null default false,
-  add column if not exists monthly_email_sent_month date;
+  add column if not exists monthly_email_sent_month date,
+  add column if not exists monthly_email_sent_at timestamptz;
 
 update public.accounts set referral_code = upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8))
 where referral_code is null;
@@ -206,18 +207,26 @@ end $$;
 -- real email (not a mobile-number sign-in) and a verified number (free
 -- pictures need one), made before this month, that did not use all of last
 -- month's free pictures, did not unsubscribe and were not sent it this month.
--- Marks them as sent (at most once a month, even if sending fails).
-create or replace function public.take_monthly_email_batch(p_limit integer default 100)
+-- Marks them as sent (at most once a month, even if sending fails). At most
+-- p_daily_limit a day (India time; the email service's free plan sends 100 a
+-- day), so a long list goes out over the next days.
+drop function if exists public.take_monthly_email_batch(integer);
+create or replace function public.take_monthly_email_batch(p_limit integer default 100, p_daily_limit integer default 95)
 returns table (user_id uuid, email text, name text, free_credits integer, referral_code text)
 language plpgsql security definer set search_path = public, pg_temp as $$
 #variable_conflict use_column
 declare
   v_month date := date_trunc('month', now() at time zone 'Asia/Kolkata')::date;
   v_last date := (date_trunc('month', now() at time zone 'Asia/Kolkata') - interval '1 month')::date;
+  v_today timestamptz := date_trunc('day', now() at time zone 'Asia/Kolkata') at time zone 'Asia/Kolkata';
+  v_room integer;
   v_settings public.app_settings;
 begin
   select * into v_settings from public.app_settings where id;
   if not v_settings.monthly_email_enabled or v_settings.free_credits_per_month <= 0 then return; end if;
+  select greatest(0, coalesce(p_daily_limit, 95) - count(*)) into v_room
+  from public.accounts a where a.monthly_email_sent_at >= v_today;
+  if v_room <= 0 then return; end if;
   return query
   with picked as (
     select a.user_id from public.accounts a
@@ -231,10 +240,10 @@ begin
       and u.email is not null and u.email like '%@%'
       and u.email not like 'pp-phone-%@inaivuit.com'
     order by a.created_at
-    limit greatest(0, least(coalesce(p_limit, 100), 500))
+    limit least(greatest(0, least(coalesce(p_limit, 100), 500)), v_room)
     for update of a skip locked
   ), marked as (
-    update public.accounts a set monthly_email_sent_month = v_month
+    update public.accounts a set monthly_email_sent_month = v_month, monthly_email_sent_at = now()
     from picked where a.user_id = picked.user_id
     returning a.user_id, a.referral_code
   )
@@ -245,9 +254,9 @@ begin
 end $$;
 
 revoke all on function public.set_monthly_email(uuid, boolean) from public, anon, authenticated;
-revoke all on function public.take_monthly_email_batch(integer) from public, anon, authenticated;
+revoke all on function public.take_monthly_email_batch(integer, integer) from public, anon, authenticated;
 grant execute on function public.set_monthly_email(uuid, boolean) to service_role;
-grant execute on function public.take_monthly_email_batch(integer) to service_role;
+grant execute on function public.take_monthly_email_batch(integer, integer) to service_role;
 
 -- As in 20261029000100_mobile_number.sql, plus the email offers tick (for the
 -- customer list and its CSV).

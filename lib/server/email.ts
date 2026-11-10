@@ -16,12 +16,16 @@ import { ApiError, dbError } from '@/lib/server/http'
 // from 10 am), "your free pictures are back", to customers who
 // did not use all of last month's (take_monthly_email_batch in
 // the database decides who, and marks them sent). It is
-// account news about their free credits, with a one-click
+// account news about their free credits, at most 95 a day (Resend's
+// free plan sends 100 a day; the rest go out on the next days), with a one-click
 // unsubscribe link in every email (List-Unsubscribe too).
 // =======================================================
 
 const API = 'https://api.resend.com/emails'
 const DEFAULT_APP_URL = 'https://pp.inaivuit.com'
+// Monthly emails a day (India time). Resend's free plan sends 100 a day; this
+// leaves room for test emails.
+export const DAILY_LIMIT = 95
 // "Name <hello@example.com>" or a bare address.
 export const FROM_ADDRESS = /^([^<>@\n]{1,80}<[^<>@\s]+@[^<>@\s]+\.[^<>@\s]+>|[^<>@\s]+@[^<>@\s]+\.[^<>@\s]+)$/
 
@@ -179,7 +183,7 @@ export async function sendMonthlyEmails(now = new Date(), limit = 100) {
     if (!monthlySendingOpen(now)) return { sent: 0, failed: 0 }
     const row = await settings()
     if (!row.monthly_email_enabled || !row.resend_api_key || !row.email_from) return { sent: 0, failed: 0 }
-    const { data, error } = await supabaseAdmin.rpc('take_monthly_email_batch', { p_limit: limit })
+    const { data, error } = await supabaseAdmin.rpc('take_monthly_email_batch', { p_limit: limit, p_daily_limit: DAILY_LIMIT })
     if (error) throw dbError(error, 'Unable to pick the monthly email list')
     const base = appUrl(row)
     const month = Number(firstOfMonthIndia(now).slice(5, 7)) - 1

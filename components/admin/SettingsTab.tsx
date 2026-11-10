@@ -491,7 +491,8 @@ function EmailCard({ status, onChanged }: { status: Overview['email']; onChanged
       <div className="space-y-3 text-sm text-stone-700">
         <p>
           On the 1st of each month (from 10 am), one email to customers who signed in with Google or email, have a verified
-          mobile number and did not use all of last month&rsquo;s free pictures. It carries their invite link and a one-click
+          mobile number and did not use all of last month&rsquo;s free pictures. At most 95 a day (the free Resend plan
+          sends 100 a day): a longer list goes out over the next days. It carries their invite link and a one-click
           &ldquo;Stop these emails&rdquo; link. Customers can also switch it off in their account menu.
         </p>
         <Notice tone={status.monthlyEnabled ? 'success' : 'info'}>

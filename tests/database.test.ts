@@ -673,6 +673,13 @@ describe('monthly email', () => {
         expect(emails).not.toContain(skipped)
       }
       expect(await pick()).not.toContain('monthly@example.com')
+      // At most 95 a day: with today's sends counted, the rest wait for tomorrow.
+      const later = await newUser('monthly-later@example.com')
+      await one('select public.get_account($1, $2) as r', [later, TERMS])
+      await db.query(`update public.accounts set created_at = now() - interval '40 days' where user_id = $1`, [later])
+      expect((await db.query('select email from public.take_monthly_email_batch(500, 1)')).rows).toEqual([])
+      await db.query(`update public.accounts set monthly_email_sent_at = now() - interval '2 days' where monthly_email_sent_at is not null`)
+      expect((await db.query<{ email: string }>('select email from public.take_monthly_email_batch(500, 1)')).rows.map(row => row.email)).toEqual(['monthly-later@example.com'])
     } finally {
       await db.query('update public.app_settings set monthly_email_enabled = false where id')
     }
