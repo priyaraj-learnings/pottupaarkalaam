@@ -99,6 +99,7 @@ export type Overview = {
   phoneLogin: { widgetId: string; tokenAuth: string; authKeySet: boolean }
   // Telegram alerts for recharges to check: chatName null until connected.
   telegram: { tokenSet: boolean; chatName: string | null }
+  email: { keySet: boolean; from: string; monthlyEnabled: boolean; sentThisMonth: number }
 }
 
 export type CustomerRow = {
@@ -108,6 +109,8 @@ export type CustomerRow = {
   provider: string | null
   phone: string | null
   offersOk: boolean
+  // Ticked "Send me offers and news by email".
+  emailOffersOk?: boolean
   joinedAt: string
   lastSignInAt: string | null
   lastPictureAt: string | null

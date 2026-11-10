@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 
 // Small building blocks shared by the screens.
 
-type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'ghost' | 'danger'; busy?: boolean }
+type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'whatsapp'; busy?: boolean }
 
 export function Button({ variant = 'primary', busy = false, className = '', children, disabled, ...rest }: ButtonProps) {
   const look = {
@@ -12,6 +12,7 @@ export function Button({ variant = 'primary', busy = false, className = '', chil
     secondary: 'border border-brand-200 bg-white text-brand-700',
     ghost: 'text-brand-700',
     danger: 'border border-red-200 bg-white text-red-700',
+    whatsapp: 'bg-[#25D366] text-white shadow-sm',
   }[variant]
   return (
     <button

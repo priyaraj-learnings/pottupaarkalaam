@@ -30,7 +30,7 @@ runbook, where the shops tell their customers.)
 2. **Contain** (technical lead, first hour):
    - Rotate exposed secrets (Google Cloud Secret Manager): `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`,
      `CRON_SECRET`, `PAYMENT_WEBHOOK_SECRET` (then update `PP_SECRET` in the Gmail forwarder script), and the
-     MSG91 auth key in /admin Settings.
+     MSG91 auth key, Telegram bot token and Resend API key in /admin Settings.
    - Revoke sessions of affected users (Supabase Auth), remove a compromised admin from `app_admins`.
    - If storage was exposed, make sure the `try-on-photos` bucket is private and signed links have expired; take a
      broken feature offline rather than leave it open.

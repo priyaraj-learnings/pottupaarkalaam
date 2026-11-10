@@ -23,6 +23,7 @@ import {
 } from '@/lib/rules'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { getAccount, loadSettings } from '@/lib/server/account'
+import { sendMonthlyEmails } from '@/lib/server/email'
 import type { SignedInUser } from '@/lib/server/auth'
 import { cloudTasksConfig, enqueueLook } from '@/lib/server/cloudTasks'
 import { ApiError, dbError, UUID } from '@/lib/server/http'
@@ -500,5 +501,7 @@ export async function purgeExpired(now = new Date()) {
       console.error(JSON.stringify({ event: 'cleanup.batch_failed', batchId: batch.id, message: purgeError instanceof Error ? purgeError.message : String(purgeError) }))
     }
   }
-  return { recovered, batches, failed }
+  // On the 1st of the month: "your free pictures are back" (lib/server/email.ts).
+  const monthlyEmail = await sendMonthlyEmails(now)
+  return { recovered, batches, failed, monthlyEmail }
 }

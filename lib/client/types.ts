@@ -17,6 +17,14 @@ export type Account = {
   coupleOptIn: boolean
   // A recharge approved this month: may add a 4th and 5th photo to a try.
   paidThisMonth: boolean
+  // "Send me offers and news by email".
+  emailOffersOk: boolean
+  // The monthly "your free pictures are back" email.
+  monthlyEmailOk: boolean
+  // Refer a friend: invite link pp.inaivuit.com/?ref=<referralCode>.
+  referralCode: string
+  referralCredits: number
+  friendsJoined: number
 }
 
 export type AppSettings = {
@@ -35,6 +43,9 @@ export type AppSettings = {
   couple: { enabled: boolean; credits: number }
   // Extra (4th and 5th) photos for paying customers, and their extra credits.
   extraPhotos: { enabled: boolean; credits: number }
+  // Refer a friend: credits each side gets (0: off), up to this many friends.
+  referralCredits: number
+  referralMaxPerPerson: number
 }
 
 export type Me = {

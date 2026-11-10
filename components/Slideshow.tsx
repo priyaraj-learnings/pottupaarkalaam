@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { lookTitle, useLookActions } from '@/components/LookCard'
+import { lookTitle, useLookActions, WhatsAppIcon } from '@/components/LookCard'
 import { Button } from '@/components/ui'
 import type { LookView } from '@/lib/client/types'
 
@@ -89,7 +89,7 @@ export function Slideshow({ looks, start, onClose }: { looks: LookView[]; start:
         )}
         <div className="mx-auto grid max-w-sm grid-cols-2 gap-2">
           <Button busy={busy === 'save'} disabled={busy !== ''} onClick={save}>Save</Button>
-          <Button variant="secondary" busy={busy === 'share'} disabled={busy !== ''} onClick={share} className="bg-white/10 text-white ring-0">Share</Button>
+          <Button variant="whatsapp" busy={busy === 'share'} disabled={busy !== ''} onClick={share}><WhatsAppIcon /> WhatsApp</Button>
         </div>
       </div>
     </div>

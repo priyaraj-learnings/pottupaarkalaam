@@ -25,6 +25,10 @@ export function PrivacyContent() {
           <li><b>Payments:</b> the amount, date and UPI reference of your recharges, and the bank&rsquo;s credit message
             for that payment (which shows the payer&rsquo;s name or UPI ID).</li>
           <li><b>Usage:</b> your credits, try-ons and recharges, and basic technical logs (time, errors).</li>
+          <li><b>Email choices:</b> whether you want the monthly email and offers and news by email, and when you
+            changed that.</li>
+          <li><b>Invites:</b> your invite code, and if you joined with a friend&rsquo;s invite link, which account invited
+            you and whether the invite credits were given.</li>
           <li><b>Website visits:</b> counted without cookies, to know how many people visit. From your internet address
             and browser we make a one-way code with a key that changes every day, and keep it for that day only; after
             that only the number of visitors per day stays. We do not store your internet address.</li>
@@ -41,6 +45,13 @@ export function PrivacyContent() {
           <li>To call or message you about your payments, pictures or account, if you gave your mobile number.</li>
           <li>To send you offers and news on WhatsApp or SMS, only if you ticked the box for it. You can untick it or
             remove your number any time from the account menu.</li>
+          <li>To send you offers and news by email (new features, festival offers), only if you ticked &ldquo;Send me
+            offers and news by email&rdquo;. You can untick it any time from the account menu.</li>
+          <li>Once a month, on the 1st, to email you that your free pictures are back, if you did not use all of last
+            month&rsquo;s. Every such email has a &ldquo;Stop these emails&rdquo; link, and you can switch it off in the
+            account menu (&ldquo;Monthly email&rdquo;).</li>
+          <li>To give the invite credits to you and the friend who invited you (or whom you invited) once, and to stop the
+            same mobile number earning them twice. The friend who invited you sees only how many friends joined, not who.</li>
         </ul>
         <p>We do not sell your data, show advertising, or use your photos to train AI models.</p>
       </section>
@@ -59,6 +70,9 @@ export function PrivacyContent() {
           <li><b>After you delete your account or change your verified number:</b> if you used free credits this month
             with a verified mobile number, we keep a one-way code made from that number (not the number itself) until the end of the month, so the same
             number does not get that month&rsquo;s free credits twice. Then it is deleted.</li>
+          <li><b>Invites:</b> if your verified number earned invite credits, we keep a one-way code made from it (not the
+            number itself) for as long as invites give credits, even after you delete your account, so the same number does
+            not earn them twice.</li>
         </ul>
       </section>
 
@@ -81,7 +95,8 @@ export function PrivacyContent() {
         </p>
         <ul>
           <li>We use your name and email only to create your account, sign you in, show who is signed in and contact you
-            about your account, payments and complaints. We do not use the profile picture.</li>
+            about your account, payments and complaints, for the monthly free-pictures email (which you can stop), and for
+            offers and news by email only if you ticked the box for it. We do not use the profile picture.</li>
           <li>They are stored with your account in our sign-in system (Supabase) and kept while your account is open.</li>
           <li>We do not sell or share them, use them for advertising, or use them to train AI models. People at
             {' '}{COMPANY.name} see them only to help you when you ask, for security, or when the law requires it.</li>
@@ -99,6 +114,7 @@ export function PrivacyContent() {
           <li><b>OpenAI</b> (USA) makes the pictures from your photos. Under OpenAI&rsquo;s API terms it does not use
             them to train its models, and may keep them for up to 30 days to detect abuse.</li>
           <li><b>MSG91</b> (India) sends the code by SMS when you sign in with your mobile number or verify your number.</li>
+          <li><b>Resend</b> (USA) sends our emails: it receives your email address, name and the email&rsquo;s contents.</li>
           <li><b>Supabase</b> stores your account, photos and records; <b>Google Cloud</b> runs the app; Google
             signs you in if you choose Google.</li>
         </ul>
@@ -108,7 +124,7 @@ export function PrivacyContent() {
         <h2>Your rights</h2>
         <ul>
           <li><b>Delete your account yourself:</b> account menu → <b>Delete my account</b>. This withdraws your consent and
-            deletes at once your photos and pictures, your account, mobile number, offers choice and credits, and your
+            deletes at once your photos and pictures, your account, mobile number, offers and email choices, invite code and credits, and your
             sign-in. Only what is described under &ldquo;How long we keep it&rdquo; stays.</li>
           <li>You can also ask to see, correct or delete your personal data, or withdraw your consent, by writing to
             {' '}{COMPANY.privacyEmail} or calling {COMPANY.supportPhone}.</li>

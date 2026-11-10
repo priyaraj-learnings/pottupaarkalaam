@@ -17,7 +17,8 @@ import { Notice, Sheet, ToastProvider } from '@/components/ui'
 // =======================================================
 
 // notice: shown at the top (for example after deleting an account).
-export default function GuestApp({ notice }: { notice?: string }) {
+// invited: opened from a friend's invite link.
+export default function GuestApp({ notice, invited = false }: { notice?: string; invited?: boolean }) {
   const options = useSignInOptions()
   // 'tryon': opened by "Try on" (their picture is waiting); 'plain': "Sign in".
   const [sheet, setSheet] = useState<'tryon' | 'plain' | null>(null)
@@ -39,6 +40,11 @@ export default function GuestApp({ notice }: { notice?: string }) {
 
         <main className="px-4 pt-2">
           {notice && <div className="mb-3"><Notice tone="success">{notice}</Notice></div>}
+          {invited && options.referralCredits > 0 && (
+            <p className="mb-3 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-900 ring-1 ring-emerald-200">
+              🎁 A friend invited you: join and verify your mobile number, and you both get {options.referralCredits} extra free pictures.
+            </p>
+          )}
 
           <section className="mb-4 overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-stone-200/70">
             <div className="px-4 pb-3 pt-4">

@@ -29,9 +29,10 @@ async function exportCustomers(search: string, sort: string) {
     if (!result.users.length || users.length >= result.total) break
   }
   downloadCsv('pottupaarkalaam-customers.csv',
-    ['Name', 'Email', 'Mobile (+91)', 'Offers OK', 'Customer code', 'Joined', 'Last picture', 'Paid (Rs)', 'Pictures', 'Paid credits left'],
+    ['Name', 'Email', 'Mobile (+91)', 'Offers OK', 'Email offers OK', 'Customer code', 'Joined', 'Last picture', 'Paid (Rs)', 'Pictures', 'Paid credits left'],
     users.map(user => [
       user.name, isPhoneLoginEmail(user.email) ? '' : user.email, user.phone ? formatMobile(user.phone) : '', user.phone ? (user.offersOk ? 'yes' : 'no') : '',
+      isPhoneLoginEmail(user.email) ? '' : (user.emailOffersOk ? 'yes' : 'no'),
       customerCode(user.userId), user.joinedAt, user.lastPictureAt ?? '', user.paidInr, user.pictures, user.credits,
     ]))
   return users.length
