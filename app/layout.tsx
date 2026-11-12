@@ -3,6 +3,7 @@ import localFont from 'next/font/local'
 
 import './globals.css'
 
+import { HtmlLang } from '@/components/HtmlLang'
 import VisitCounter from '@/components/VisitCounter'
 
 // Tamil text (the name, போட்டுப்பார்க்கலாம்) in Noto Sans Tamil, kept in
@@ -49,6 +50,7 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
     <html lang="en" className={`${notoTamil.variable} h-full antialiased`}>
       <body className="min-h-full bg-ivory text-stone-900">
         {children}
+        <HtmlLang />
         <VisitCounter />
       </body>
     </html>

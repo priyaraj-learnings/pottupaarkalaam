@@ -63,3 +63,30 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .pp-shimmer { animation: none; }
 }
+
+/* Tamil letters are taller and wider than English ones, so with the same sizes
+   Tamil screens look heavy. When Tamil is chosen (<html lang="ta">, set by
+   components/HtmlLang.tsx), the text is about 1-2px smaller and bold is a step
+   lighter. Text boxes stay at 16px, or iPhones zoom in when they are tapped. */
+html[lang="ta"] {
+  --text-xs: 0.6875rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-lg: 1.03125rem;
+  --text-xl: 1.125rem;
+  --text-2xl: 1.3125rem;
+  --text-3xl: 1.625rem;
+}
+html[lang="ta"] .text-\[15px\] { font-size: 14px; }
+html[lang="ta"] .text-\[13px\] { font-size: 12px; }
+html[lang="ta"] .font-black { font-weight: 800; }
+html[lang="ta"] .font-extrabold { font-weight: 700; }
+html[lang="ta"] :is(input, textarea, select).text-base { font-size: 1rem; }
+/* The brand name keeps its English size and weight. */
+html[lang="ta"] .brand-text { font-weight: 900; }
+
+/* Nothing may push the page wider than the phone (for example very large text
+   settings): the page never slides sideways. "clip" keeps the sticky header. */
+body {
+  overflow-x: clip;
+}
