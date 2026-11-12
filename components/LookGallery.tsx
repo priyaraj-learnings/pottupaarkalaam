@@ -6,6 +6,7 @@ import LookCard from '@/components/LookCard'
 import { Slideshow } from '@/components/Slideshow'
 import { Button } from '@/components/ui'
 import { VoteShare } from '@/components/VoteShare'
+import { useT } from '@/lib/client/language'
 import type { LookView } from '@/lib/client/types'
 
 // The pictures as a grid (as before), with "Slideshow" and a tap on any
@@ -15,6 +16,7 @@ export function LookGallery({ looks, showDate = false, onRetry }: {
   showDate?: boolean
   onRetry?: (look: LookView) => (() => void) | undefined
 }) {
+  const t = useT()
   const [open, setOpen] = useState<number | null>(null)
   const finished = looks.filter(look => look.status === 'COMPLETED' && look.imageUrl)
   const close = useCallback(() => setOpen(null), [])
@@ -23,7 +25,7 @@ export function LookGallery({ looks, showDate = false, onRetry }: {
     <div className="space-y-3">
       {finished.length > 0 && (
         <Button variant="secondary" onClick={() => setOpen(0)} className="min-h-10 w-full text-sm">
-          ▶ Slideshow{finished.length > 1 ? ` (${finished.length} pictures)` : ''}
+          ▶ {t('Slideshow', 'ஸ்லைடுஷோ')}{finished.length > 1 ? t(` (${finished.length} pictures)`, ` (${finished.length} படங்கள்)`) : ''}
         </Button>
       )}
       <VoteShare looks={finished} />
