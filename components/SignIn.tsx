@@ -5,6 +5,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 
 import { Button, Notice } from '@/components/ui'
 import { errorMessage } from '@/lib/client/api'
+import { useLanguage, useT } from '@/lib/client/language'
 import { openMsg91Widget } from '@/lib/client/msg91'
 import { pendingReferral } from '@/lib/client/referral'
 import { supabase } from '@/lib/supabase/browser'
@@ -24,6 +25,8 @@ function GoogleIcon() {
 // mobile number first (one code gives the account, the verified number and
 // the free credits), then Google, then email.
 export function SignInOptions({ phoneWidget }: { phoneWidget: { widgetId: string; tokenAuth: string } | null }) {
+  const t = useT()
+  const ta = useLanguage() === 'ta'
   const [mode, setMode] = useState<'choose' | 'email' | 'code'>('choose')
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
@@ -41,9 +44,9 @@ export function SignInOptions({ phoneWidget }: { phoneWidget: { widgetId: string
         body: JSON.stringify({ accessToken }),
       })
       const result = await response.json().catch(() => null) as { tokenHash?: string; type?: 'magiclink'; error?: { message?: string } } | null
-      if (!response.ok || !result?.tokenHash) throw new Error(result?.error?.message ?? 'Sign-in did not work. Please try again.')
+      if (!response.ok || !result?.tokenHash) throw new Error(result?.error?.message ?? t('Sign-in did not work. Please try again.', 'உள்நுழைய முடியவில்லை. மீண்டும் முயற்சி செய்யுங்கள்.'))
       const { error: verifyError } = await supabase.auth.verifyOtp({ token_hash: result.tokenHash, type: result.type ?? 'magiclink' })
-      if (verifyError) throw new Error('Sign-in did not work. Please try again.')
+      if (verifyError) throw new Error(t('Sign-in did not work. Please try again.', 'உள்நுழைய முடியவில்லை. மீண்டும் முயற்சி செய்யுங்கள்.'))
       // Signed in: the app takes over from here.
     } catch (phoneError) {
       setError(errorMessage(phoneError))
@@ -69,7 +72,7 @@ export function SignInOptions({ phoneWidget }: { phoneWidget: { widgetId: string
       options: { redirectTo: `${window.location.origin}/` },
     })
     if (signInError) {
-      setError('Google sign-in is not available right now. Please use your mobile number or email.')
+      setError(t('Google sign-in is not available right now. Please use your mobile number or email.', 'Google மூலம் இப்போது உள்நுழைய முடியாது. உங்கள் மொபைல் எண் அல்லது email-ஐப் பயன்படுத்துங்கள்.'))
       setBusy(false)
     }
   }
@@ -84,7 +87,7 @@ export function SignInOptions({ phoneWidget }: { phoneWidget: { widgetId: string
     })
     setBusy(false)
     if (sendError) {
-      setError(/rate|seconds/i.test(sendError.message) ? 'Please wait a minute before asking for another code.' : 'The code could not be sent. Check the email address.')
+      setError(/rate|seconds/i.test(sendError.message) ? t('Please wait a minute before asking for another code.', 'இன்னொரு குறியீடு கேட்கும் முன் ஒரு நிமிடம் காத்திருங்கள்.') : t('The code could not be sent. Check the email address.', 'குறியீட்டை அனுப்ப முடியவில்லை. email முகவரியைச் சரிபாருங்கள்.'))
       return
     }
     setMode('code')
@@ -96,7 +99,7 @@ export function SignInOptions({ phoneWidget }: { phoneWidget: { widgetId: string
     setError('')
     const { error: verifyError } = await supabase.auth.verifyOtp({ email: email.trim(), token: code.trim(), type: 'email' })
     setBusy(false)
-    if (verifyError) setError('That code is not right or has expired. Please try again.')
+    if (verifyError) setError(t('That code is not right or has expired. Please try again.', 'அந்தக் குறியீடு தவறு அல்லது காலாவதியாகிவிட்டது. மீண்டும் முயற்சி செய்யுங்கள்.'))
   }
 
   return (
@@ -108,49 +111,60 @@ export function SignInOptions({ phoneWidget }: { phoneWidget: { widgetId: string
           {phoneWidget && (
             <>
               <Button busy={busy} onClick={mobile} className="w-full text-base">
-                <span aria-hidden="true">📱</span> Continue with mobile number
+                <span aria-hidden="true">📱</span> {t('Continue with mobile number', 'மொபைல் எண் மூலம் தொடருங்கள்')}
               </Button>
-              <p className="-mt-1 text-center text-xs text-stone-500">One SMS code. Your free pictures start straight away.</p>
+              <p className="-mt-1 text-center text-xs text-stone-500">{t('One SMS code. Your free pictures start straight away.', 'ஒரு SMS குறியீடு போதும். உங்கள் இலவசப் படங்கள் உடனே தொடங்கும்.')}</p>
             </>
           )}
           <Button variant="secondary" busy={busy && !phoneWidget} disabled={busy && Boolean(phoneWidget)} onClick={google} className="w-full text-base">
-            <GoogleIcon /> Continue with Google
+            <GoogleIcon /> {t('Continue with Google', 'Google மூலம் தொடருங்கள்')}
           </Button>
-          <Button variant="ghost" onClick={() => setMode('email')} className="w-full">Use email instead</Button>
+          <Button variant="ghost" onClick={() => setMode('email')} className="w-full">{t('Use email instead', 'பதிலாக email பயன்படுத்து')}</Button>
         </>
       )}
 
       {mode === 'email' && (
         <form onSubmit={sendCode} className="flex flex-col gap-3">
-          <label className="text-sm font-bold text-stone-700" htmlFor="email">Your email</label>
+          <label className="text-sm font-bold text-stone-700" htmlFor="email">{t('Your email', 'உங்கள் email')}</label>
           <input
             id="email" type="email" required autoComplete="email" inputMode="email" value={email}
             onChange={event => setEmail(event.target.value)}
             className="min-h-12 rounded-2xl border border-stone-300 px-4 text-base outline-none focus:border-brand-500"
             placeholder="you@example.com"
           />
-          <Button type="submit" busy={busy} className="w-full">Send me a code</Button>
-          <Button variant="ghost" onClick={() => setMode('choose')}>Back</Button>
+          <Button type="submit" busy={busy} className="w-full">{t('Send me a code', 'குறியீடு அனுப்பு')}</Button>
+          <Button variant="ghost" onClick={() => setMode('choose')}>{t('Back', 'பின்செல்')}</Button>
         </form>
       )}
 
       {mode === 'code' && (
         <form onSubmit={verify} className="flex flex-col gap-3">
-          <p className="text-sm text-stone-600">We sent a code to <b>{email}</b>. It may take a minute; check spam too.</p>
-          <label className="text-sm font-bold text-stone-700" htmlFor="code">Code from the email</label>
+          <p className="text-sm text-stone-600">{ta
+            ? <><b>{email}</b> முகவரிக்கு ஒரு குறியீடு அனுப்பியுள்ளோம். வர ஒரு நிமிடம் ஆகலாம்; spam-இலும் பாருங்கள்.</>
+            : <>We sent a code to <b>{email}</b>. It may take a minute; check spam too.</>}</p>
+          <label className="text-sm font-bold text-stone-700" htmlFor="code">{t('Code from the email', 'email-இல் வந்த குறியீடு')}</label>
           <input
             id="code" required autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6,8}" maxLength={8} value={code}
             onChange={event => setCode(event.target.value.replace(/\D/g, ''))}
             className="min-h-14 rounded-2xl border border-stone-300 px-4 text-center text-2xl font-bold tracking-[0.4em] outline-none focus:border-brand-500"
           />
-          <Button type="submit" busy={busy} disabled={code.length < 6} className="w-full">Sign in</Button>
-          <Button variant="ghost" onClick={() => { setMode('email'); setCode('') }}>Use a different email</Button>
+          <Button type="submit" busy={busy} disabled={code.length < 6} className="w-full">{t('Sign in', 'உள்நுழை')}</Button>
+          <Button variant="ghost" onClick={() => { setMode('email'); setCode('') }}>{t('Use a different email', 'வேறு email பயன்படுத்து')}</Button>
         </form>
       )}
 
       <p className="pt-1 text-center text-xs text-stone-500">
-        By continuing you agree to our <Link href="/terms" className="font-semibold underline">Terms</Link> and{' '}
-        <Link href="/privacy" className="font-semibold underline">Privacy Policy</Link>.
+        {ta ? (
+          <>
+            தொடர்வதன் மூலம் எங்கள் <Link href="/terms" className="font-semibold underline">பயன்பாட்டு விதிமுறைகள்</Link> மற்றும்{' '}
+            <Link href="/privacy" className="font-semibold underline">தனியுரிமைக் கொள்கை</Link>-க்கு ஒப்புக்கொள்கிறீர்கள்.
+          </>
+        ) : (
+          <>
+            By continuing you agree to our <Link href="/terms" className="font-semibold underline">Terms</Link> and{' '}
+            <Link href="/privacy" className="font-semibold underline">Privacy Policy</Link>.
+          </>
+        )}
       </p>
     </div>
   )
