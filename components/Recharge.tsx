@@ -20,7 +20,7 @@ const STATUS = {
 // The bulk saving in words: "Half price" at ₹5 vs ₹10, "37% off" at ₹5 vs ₹8.
 function bulkSaving(pricing: Pricing, t: Translate) {
   const off = Math.floor((1 - pricing.bulkRateInr / pricing.standardRateInr) * 100)
-  return off === 50 ? t('Half price', 'பாதி விலை') : t(`${off}% off`, `${off}% தள்ளுபடி`)
+  return off === 50 ? t('Half price', 'பாதி விலை') : t(`${off}% off`, `${off}% குறைவு`)
 }
 
 type Step = 'amount' | 'pay' | 'reference' | 'done'
@@ -229,10 +229,11 @@ export default function Recharge({ active, account, settings, userCode, onAccoun
   return (
     <div className="space-y-4">
       <div ref={top} className="scroll-mt-24">
-        <div className="flex items-end justify-between gap-3">
+        <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-1">
           <h1 className="text-2xl font-black">{t('Recharge', 'ரீசார்ஜ்')}</h1>
-          <p className="text-right text-sm text-stone-600">
-            {t('You have', 'உங்களிடம்')} <b className="text-brand-700">{account.freeLeft + account.credits}</b> {t('credits', 'கிரெடிட்கள் உள்ளன')}
+          <p className="min-w-0 text-right text-sm text-stone-600">
+            {t('You have', 'உங்களிடம்')} <b className="text-brand-700">{account.freeLeft + account.credits}</b>{' '}
+            {account.freeLeft + account.credits === 1 ? t('credit', 'கிரெடிட் உள்ளது') : t('credits', 'கிரெடிட்கள் உள்ளன')}
             <span className="block text-xs text-stone-500">{t(`${account.freeLeft} free · ${account.credits} paid`, `${account.freeLeft} இலவசம் · ${account.credits} பணம் செலுத்தியவை`)}</span>
           </p>
         </div>
@@ -271,9 +272,9 @@ export default function Recharge({ active, account, settings, userCode, onAccoun
                         onClick={() => { setAmount(choice); setCustom('') }}
                         className={`rounded-2xl border-2 p-2 text-center ${selected ? 'border-brand-500 bg-brand-50' : 'border-stone-200 bg-white'}`}>
                         <span className="block text-lg font-black">{formatInr(choice)}</span>
-                        <span className="block text-xs text-stone-500">{credits.ok ? t(`${credits.credits} credits`, `${credits.credits} கிரெடிட்கள்`) : ''}</span>
+                        <span className="block whitespace-nowrap text-xs text-stone-500">{credits.ok ? t(`${credits.credits} credits`, `${credits.credits} கிரெடிட்`) : ''}</span>
                         {choice >= pricing.bulkMinRechargeInr && pricing.bulkRateInr < pricing.standardRateInr && (
-                          <span className="block text-[11px] font-bold text-emerald-700">{bulkSaving(pricing, t)}</span>
+                          <span className="block whitespace-nowrap text-[11px] font-bold text-emerald-700">{bulkSaving(pricing, t)}</span>
                         )}
                       </button>
                     )
