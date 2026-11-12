@@ -58,6 +58,10 @@ export function TermsContent() {
             be transferred to another account, sold, or exchanged for cash, except for the refunds in section 5.</li>
           <li>The prices shown in the app are the full prices: nothing is added when you pay.</li>
           <li>If a picture cannot be made, its credits are returned automatically.</li>
+          <li><b>Starter pack:</b> when offered, your first recharge can be the starter pack shown in the app (its price and
+            credits), even below the smallest recharge. Once per account; its credits are paid credits like any other.</li>
+          <li><b>Sample models:</b> you may try clothes on the sample models shown in the app instead of your own photo. Use
+            those pictures only to decide what to buy or stitch, never to present them as the model wearing your product.</li>
           <li><b>Invite friends:</b> when someone opens PottuPaarkalaam for the first time with your invite link, makes an
             account within 7 days and verifies their mobile number, you and they each get the invite credits shown in the
             app, for up to the number of friends shown there. A mobile number earns invite credits once, ever. Invite credits

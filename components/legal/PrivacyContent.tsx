@@ -28,7 +28,10 @@ export function PrivacyContent() {
           <li><b>Email choices:</b> whether you want the monthly email and offers and news by email, and when you
             changed that.</li>
           <li><b>Invites:</b> your invite code, and if you joined with a friend&rsquo;s invite link, which account invited
-            you and whether the invite credits were given.</li>
+            you and whether the invite credits were given. If you came from a shop&rsquo;s PottuPaarkalaam poster, which shop
+            (so we know which shops bring customers; the shop does not see who you are).</li>
+          <li><b>Notifications:</b> if you tap &ldquo;Notify me&rdquo;, the address your browser gives us for sending this
+            phone a &ldquo;your picture is ready&rdquo; notification. The notification carries no personal data.</li>
           <li><b>Website visits:</b> counted without cookies, to know how many people visit. From your internet address
             and browser we make a one-way code with a key that changes every day, and keep it for that day only; after
             that only the number of visitors per day stays. We do not store your internet address.</li>
@@ -50,6 +53,9 @@ export function PrivacyContent() {
           <li>Once a month, on the 1st, to email you that your free pictures are back, if you did not use all of last
             month&rsquo;s. Every such email has a &ldquo;Stop these emails&rdquo; link, and you can switch it off in the
             account menu (&ldquo;Monthly email&rdquo;).</li>
+          <li>To tell your phone when your pictures are ready, only if you turned it on. You can turn it off in your
+            phone&rsquo;s or browser&rsquo;s notification settings.</li>
+          <li>The photo check (light, sharpness, face) runs on your phone: nothing extra is sent to us for it.</li>
           <li>To give the invite credits to you and the friend who invited you (or whom you invited) once, and to stop the
             same mobile number earning them twice. The friend who invited you sees only how many friends joined, not who.</li>
         </ul>
@@ -114,6 +120,8 @@ export function PrivacyContent() {
           <li><b>OpenAI</b> (USA) makes the pictures from your photos. Under OpenAI&rsquo;s API terms it does not use
             them to train its models, and may keep them for up to 30 days to detect abuse.</li>
           <li><b>MSG91</b> (India) sends the code by SMS when you sign in with your mobile number or verify your number.</li>
+          <li>Your browser&rsquo;s push service (<b>Google</b>, <b>Apple</b>, <b>Mozilla</b> or <b>Microsoft</b>) delivers
+            picture-ready notifications, if you turned them on.</li>
           <li><b>Resend</b> (USA) sends our emails: it receives your email address, name and the email&rsquo;s contents.</li>
           <li><b>Supabase</b> stores your account, photos and records; <b>Google Cloud</b> runs the app; Google
             signs you in if you choose Google.</li>
