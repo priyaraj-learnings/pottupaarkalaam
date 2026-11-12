@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { lookTitle, useLookActions, WhatsAppIcon } from '@/components/LookCard'
 import { Button } from '@/components/ui'
+import { useCategoryName } from '@/lib/client/categoryNames'
+import { useT } from '@/lib/client/language'
 import type { LookView } from '@/lib/client/types'
 
 // The finished pictures full screen, one at a time: ◀ ▶ buttons, swiping,
@@ -14,6 +16,8 @@ export function Slideshow({ looks, start, onClose }: { looks: LookView[]; start:
   const touchX = useRef<number | null>(null)
   const look = looks[index]
   const { busy, save, share } = useLookActions(look)
+  const t = useT()
+  const name = useCategoryName()
 
   const previous = useCallback(() => setIndex(current => Math.max(0, current - 1)), [])
   const next = useCallback(() => setIndex(current => Math.min(looks.length - 1, current + 1)), [looks.length])
@@ -38,14 +42,15 @@ export function Slideshow({ looks, start, onClose }: { looks: LookView[]; start:
   }, [onClose, previous, next])
 
   if (!look?.imageUrl) return null
+  const title = lookTitle(look, name, t)
   const arrow = 'absolute top-1/2 flex h-14 w-14 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-3xl font-bold text-white ring-1 ring-white/30 backdrop-blur disabled:opacity-0'
 
   return (
-    <div role="dialog" aria-modal="true" aria-label="Pictures, full screen" className="fixed inset-0 z-[80] flex flex-col bg-black text-white">
+    <div role="dialog" aria-modal="true" aria-label={t('Pictures, full screen', 'படங்கள், முழுத் திரையில்')} className="fixed inset-0 z-[80] flex flex-col bg-black text-white">
       <div className="flex items-center justify-between gap-2 px-3 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))]">
-        <button type="button" onClick={() => window.history.back()} aria-label="Close" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/15 text-lg">✕</button>
+        <button type="button" onClick={() => window.history.back()} aria-label={t('Close', 'மூடு')} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/15 text-lg">✕</button>
         <div className="min-w-0 text-center">
-          <p className="truncate text-sm font-bold">{lookTitle(look)}</p>
+          <p className="truncate text-sm font-bold">{title}</p>
           <p className="text-xs text-white/70" aria-live="polite">{index + 1} / {looks.length}</p>
         </div>
         <span className="w-10 shrink-0" />
@@ -64,11 +69,11 @@ export function Slideshow({ looks, start, onClose }: { looks: LookView[]; start:
         }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img key={look.id} src={look.imageUrl} alt={lookTitle(look)} className="h-full w-full object-contain" draggable={false} />
+        <img key={look.id} src={look.imageUrl} alt={title} className="h-full w-full object-contain" draggable={false} />
         {looks.length > 1 && (
           <>
-            <button type="button" onClick={previous} disabled={index === 0} aria-label="Previous picture" className={`${arrow} left-2`}>‹</button>
-            <button type="button" onClick={next} disabled={index === looks.length - 1} aria-label="Next picture" className={`${arrow} right-2`}>›</button>
+            <button type="button" onClick={previous} disabled={index === 0} aria-label={t('Previous picture', 'முந்தைய படம்')} className={`${arrow} left-2`}>‹</button>
+            <button type="button" onClick={next} disabled={index === looks.length - 1} aria-label={t('Next picture', 'அடுத்த படம்')} className={`${arrow} right-2`}>›</button>
           </>
         )}
         {/* The neighbours load in the background, so moving is instant. */}
@@ -88,7 +93,7 @@ export function Slideshow({ looks, start, onClose }: { looks: LookView[]; start:
           </div>
         )}
         <div className="mx-auto grid max-w-sm grid-cols-2 gap-2">
-          <Button busy={busy === 'save'} disabled={busy !== ''} onClick={save}>Save</Button>
+          <Button busy={busy === 'save'} disabled={busy !== ''} onClick={save}>{t('Save', 'சேமி')}</Button>
           <Button variant="whatsapp" busy={busy === 'share'} disabled={busy !== ''} onClick={share}><WhatsAppIcon /> WhatsApp</Button>
         </div>
       </div>

@@ -304,3 +304,18 @@ describe('extra photos', () => {
     expect(paidCreditsNeeded({ credits: 3, extraCredits: 0 }, 3)).toBe(0)
   })
 })
+
+describe('occasion backgrounds and the starter pack', async () => {
+  const { withBackground } = await import('@/lib/prompts')
+  const { quoteRecharge: quote, DEFAULT_PRICING: pricing } = await import('@/lib/rules')
+  it('adds the scene only for a known background', () => {
+    expect(withBackground('PROMPT', null)).toBe('PROMPT')
+    expect(withBackground('PROMPT', 'MOON')).toBe('PROMPT')
+    expect(withBackground('PROMPT', 'TEMPLE')).toMatch(/^PROMPT\n\nBACKGROUND: .*temple/)
+  })
+  it('quotes the starter pack below the smallest recharge, only when offered', () => {
+    expect(quote(25, pricing)).toMatchObject({ ok: false })
+    expect(quote(25, pricing, { amountInr: 25, credits: 4 })).toEqual({ ok: true, rateInr: 7, credits: 4 })
+    expect(quote(400, pricing, { amountInr: 25, credits: 4 })).toEqual({ ok: true, rateInr: 8, credits: 50 })
+  })
+})

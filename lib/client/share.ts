@@ -37,9 +37,8 @@ export async function saveToGallery(blob: Blob, fileName: string): Promise<'shar
 // WhatsApp (or Instagram...) through the phone's share sheet, with the words
 // and the customer's invite link. Where pictures cannot be shared (most
 // computers): saves the picture and opens WhatsApp with the words, to attach it.
-export async function shareImage(blob: Blob, fileName: string): Promise<'shared' | 'cancelled' | 'whatsapp'> {
+export async function shareImage(blob: Blob, fileName: string, text = shareMessage()): Promise<'shared' | 'cancelled' | 'whatsapp'> {
   const file = new File([blob], fileName, { type: blob.type || 'image/jpeg' })
-  const text = shareMessage()
   if (navigator.canShare?.({ files: [file], text })) {
     try {
       await navigator.share({ files: [file], text })

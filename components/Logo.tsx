@@ -16,10 +16,12 @@ export function LogoMark({ size = 40, tile = false, className = '' }: { size?: n
   return <Image src="/logo.svg" alt="" width={size} height={size} loading="eager" className={`shrink-0 ${className}`} />
 }
 
+// In the app header the name is a little smaller on narrow phones, so the
+// language, credits and account buttons fit beside it.
 export function Wordmark({ large = false, light = false }: { large?: boolean; light?: boolean }) {
   return (
     <span className="flex min-w-0 flex-col leading-tight">
-      <span className={`${large ? 'text-3xl' : 'text-lg'} font-black tracking-tight ${light ? 'text-white' : 'brand-text'}`}>
+      <span className={`${large ? 'text-3xl' : 'text-base min-[400px]:text-lg'} font-black tracking-tight ${light ? 'text-white' : 'brand-text'}`}>
         PottuPaarkalaam
       </span>
       <span lang="ta" className={`font-tamil ${large ? 'text-base' : 'text-[11px]'} font-semibold ${light ? 'text-brand-50' : 'text-stone-500'}`}>

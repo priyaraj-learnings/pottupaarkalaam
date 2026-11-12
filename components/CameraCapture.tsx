@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+import { useLanguage, useT } from '@/lib/client/language'
+
 // The in-app camera: a live preview with Off / 3 / 5 / 10 second timers.
 // Laptop and desktop browsers ignore <input capture> and open the file picker,
 // so "Take photo" uses this everywhere. If the browser has no camera or the
@@ -49,7 +51,10 @@ function CameraView({ title, facing: startFacing, onCapture, onClose, onFallback
   const [countdown, setCountdown] = useState<number | null>(null)
   const [ready, setReady] = useState(false)
   const [flash, setFlash] = useState(false)
-  const [error, setError] = useState('')
+  // What went wrong ('' when nothing), shown in the chosen language.
+  const [error, setError] = useState<'' | 'blocked' | 'missing' | 'failed' | 'capture'>('')
+  const t = useT()
+  const ta = useLanguage() === 'ta'
   const [canSwitch, setCanSwitch] = useState(false)
 
   const stopCountdown = useCallback(() => {
@@ -79,11 +84,9 @@ function CameraView({ title, facing: startFacing, onCapture, onClose, onFallback
     }).catch((cameraError: unknown) => {
       if (cancelled) return
       const name = cameraError instanceof DOMException ? cameraError.name : ''
-      setError(name === 'NotAllowedError'
-        ? 'The camera is blocked for this site. Allow it in your browser’s site settings, or use another way below.'
-        : name === 'NotFoundError' || name === 'OverconstrainedError'
-          ? 'No camera was found on this device.'
-          : 'The camera could not be started. Close other apps using it and try again, or use another way below.')
+      setError(name === 'NotAllowedError' ? 'blocked'
+        : name === 'NotFoundError' || name === 'OverconstrainedError' ? 'missing'
+          : 'failed')
     })
     return () => {
       cancelled = true
@@ -112,7 +115,7 @@ function CameraView({ title, facing: startFacing, onCapture, onClose, onFallback
     navigator.vibrate?.(40)
     canvas.toBlob(blob => {
       if (!blob) {
-        setError('The photo could not be taken. Please try again.')
+        setError('capture')
         return
       }
       onCapture(new File([blob], `camera-${Date.now()}.jpg`, { type: 'image/jpeg' }))
@@ -152,14 +155,23 @@ function CameraView({ title, facing: startFacing, onCapture, onClose, onFallback
   }
 
   const mirrored = facing === 'user'
+  const errorText = {
+    '': '',
+    blocked: t('The camera is blocked for this site. Allow it in your browser’s site settings, or use another way below.',
+      'இந்தத் தளத்துக்குக் கேமரா தடுக்கப்பட்டுள்ளது. உங்கள் பிரவுசரின் தள அமைப்புகளில் அனுமதி கொடுங்கள், அல்லது கீழே உள்ள வேறு வழியைப் பயன்படுத்துங்கள்.'),
+    missing: t('No camera was found on this device.', 'இந்தச் சாதனத்தில் கேமரா எதுவும் இல்லை.'),
+    failed: t('The camera could not be started. Close other apps using it and try again, or use another way below.',
+      'கேமராவைத் தொடங்க முடியவில்லை. அதைப் பயன்படுத்தும் மற்ற செயலிகளை மூடிவிட்டு மீண்டும் முயற்சி செய்யுங்கள், அல்லது கீழே உள்ள வேறு வழியைப் பயன்படுத்துங்கள்.'),
+    capture: t('The photo could not be taken. Please try again.', 'புகைப்படம் எடுக்க முடியவில்லை. மீண்டும் முயற்சி செய்யுங்கள்.'),
+  }[error]
 
   return (
     <div role="dialog" aria-modal="true" aria-label={title} className="fixed inset-0 z-[70] flex flex-col bg-black text-white">
       <div className="flex items-center justify-between gap-2 px-3 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))]">
-        <button type="button" onClick={onClose} aria-label="Close camera" className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-lg">✕</button>
+        <button type="button" onClick={onClose} aria-label={t('Close camera', 'கேமராவை மூடு')} className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-lg">✕</button>
         <span className="min-w-0 truncate text-sm font-bold">{title}</span>
         {canSwitch ? (
-          <button type="button" onClick={switchCamera} aria-label="Switch camera"
+          <button type="button" onClick={switchCamera} aria-label={t('Switch camera', 'கேமராவை மாற்று')}
             disabled={countdown !== null} className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-lg disabled:opacity-40">🔄</button>
         ) : <span className="w-10" />}
       </div>
@@ -167,11 +179,11 @@ function CameraView({ title, facing: startFacing, onCapture, onClose, onFallback
       <div className="relative min-h-0 flex-1 overflow-hidden">
         <video ref={video} playsInline muted autoPlay onLoadedData={() => setReady(true)}
           className={`h-full w-full object-contain ${mirrored ? '-scale-x-100' : ''}`} />
-        {!ready && !error && <p className="absolute inset-0 flex items-center justify-center text-sm text-white/80">Starting the camera…</p>}
+        {!ready && !error && <p className="absolute inset-0 flex items-center justify-center text-sm text-white/80">{t('Starting the camera…', 'கேமரா தொடங்குகிறது…')}</p>}
         {error && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-6 text-center">
-            <p className="text-[15px]">{error}</p>
-            <button type="button" onClick={onFallback} className="rounded-2xl bg-white px-4 py-3 font-bold text-brand-800">Use the phone camera or choose a photo</button>
+            <p className="text-[15px]">{errorText}</p>
+            <button type="button" onClick={onFallback} className="rounded-2xl bg-white px-4 py-3 font-bold text-brand-800">{t('Use the phone camera or choose a photo', 'போன் கேமராவைப் பயன்படுத்து அல்லது புகைப்படத்தைத் தேர்ந்தெடு')}</button>
           </div>
         )}
         {countdown !== null && (
@@ -181,24 +193,24 @@ function CameraView({ title, facing: startFacing, onCapture, onClose, onFallback
       </div>
 
       <div className="space-y-3 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3">
-        <div role="radiogroup" aria-label="Timer" className="mx-auto grid max-w-xs grid-cols-4 gap-1 rounded-full bg-white/10 p-1">
+        <div role="radiogroup" aria-label={t('Timer', 'டைமர்')} className="mx-auto grid max-w-xs grid-cols-4 gap-1 rounded-full bg-white/10 p-1">
           {TIMERS.map(seconds => (
             <button key={seconds} type="button" role="radio" aria-checked={timer === seconds} disabled={countdown !== null}
               onClick={() => chooseTimer(seconds)}
               className={`min-h-9 rounded-full text-sm font-bold ${timer === seconds ? 'bg-white text-stone-900' : 'text-white/80'}`}>
-              {seconds ? `${seconds}s` : 'No timer'}
+              {seconds ? t(`${seconds}s`, `${seconds} வி`) : t('No timer', 'டைமர் இல்லை')}
             </button>
           ))}
         </div>
         <div className="flex items-center justify-center">
-          <button type="button" onClick={shutter} disabled={!ready} aria-label={countdown !== null ? 'Cancel timer' : timer ? `Take photo in ${timer} seconds` : 'Take photo'}
+          <button type="button" onClick={shutter} disabled={!ready} aria-label={countdown !== null ? t('Cancel timer', 'டைமரை ரத்து செய்') : timer ? t(`Take photo in ${timer} seconds`, `${timer} விநாடிகளில் புகைப்படம் எடு`) : t('Take photo', 'புகைப்படம் எடு')}
             className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-white disabled:opacity-40">
             <span className={`block rounded-full ${countdown !== null ? 'h-8 w-8 rounded-md bg-red-500' : 'h-16 w-16 bg-white'}`} />
           </button>
         </div>
         {!error && (
           <button type="button" onClick={onFallback} className="mx-auto block text-xs font-semibold text-white/70 underline">
-            Use the phone&rsquo;s camera app instead
+            {ta ? 'இதற்குப் பதில் போனின் கேமரா செயலியைப் பயன்படுத்து' : <>Use the phone&rsquo;s camera app instead</>}
           </button>
         )}
       </div>

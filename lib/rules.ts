@@ -17,7 +17,7 @@ export const PHOTO_BUCKET = 'try-on-photos'
 
 // Bump when the consent card or /terms changes: everyone is asked to agree
 // again before their next try-on.
-export const TERMS_VERSION = '2026-11-10'
+export const TERMS_VERSION = '2026-11-12'
 
 // Customers are asked to read the terms again at least once a year (IT Rules
 // 2021, rule 3(1)(c)), even when nothing changed.
@@ -284,6 +284,9 @@ export const DEFAULT_PRICING: Pricing = {
   maxRechargeInr: 10000,
 }
 
+// One first recharge of amountInr for these credits (below the smallest recharge).
+export type StarterPack = { amountInr: number; credits: number }
+
 export const LOOK_CREDITS = { SINGLE: 1, PAIR: 2 } as const
 
 export function rechargeRateInr(amountInr: number, pricing: Pricing) {
@@ -296,7 +299,11 @@ export type RechargeQuote =
 
 // The same checks as submit_recharge (SQL), so the screen can explain them
 // before the customer pays.
-export function quoteRecharge(amountInr: number, pricing: Pricing): RechargeQuote {
+// starter: the first-recharge starter pack, when this account can still have it.
+export function quoteRecharge(amountInr: number, pricing: Pricing, starter: StarterPack | null = null): RechargeQuote {
+  if (starter && amountInr === starter.amountInr) {
+    return { ok: true, rateInr: Math.ceil(starter.amountInr / starter.credits), credits: starter.credits }
+  }
   if (!Number.isInteger(amountInr) || amountInr < pricing.minRechargeInr) {
     return { ok: false, message: `The smallest recharge is ₹${pricing.minRechargeInr}.` }
   }

@@ -20,6 +20,8 @@ export type TryOnDraft = {
   // Pairs as positions in items.
   pairs: Array<[number, number]>
   photo: Blob
+  // The occasion background ('' or absent: the photo's own).
+  background?: string
   savedAt: number
 }
 

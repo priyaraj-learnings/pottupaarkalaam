@@ -28,3 +28,21 @@ export function LanguageSwitch({ className = '' }: { className?: string }) {
     </div>
   )
 }
+
+// A small pill for the app headers: shows the other language and switches to it.
+export function LanguageToggle({ className = '' }: { className?: string }) {
+  const language = useLanguage()
+  const next: Language = language === 'ta' ? 'en' : 'ta'
+  return (
+    <button
+      type="button"
+      aria-label={next === 'ta' ? 'தமிழில் பார்க்க (Language / மொழி)' : 'View in English (Language / மொழி)'}
+      title={next === 'ta' ? 'தமிழ்' : 'English'}
+      lang={next}
+      onClick={() => setLanguage(next)}
+      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-base font-black text-brand-700 shadow-sm ring-1 ring-brand-200 ${className}`}
+    >
+      {next === 'ta' ? 'அ' : 'A'}
+    </button>
+  )
+}

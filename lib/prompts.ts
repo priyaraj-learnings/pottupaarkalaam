@@ -293,3 +293,27 @@ garment to the other, and never dress one person in the other person's garment.`
     `GARMENT TYPE CHECK: ${typeCheck(his, 'For the man, the customer')} ${typeCheck(her, 'For the woman, the customer')}`,
   ].join('\n\n')
 }
+
+// =======================================================
+// OCCASION BACKGROUNDS (chosen in the app; null keeps the photo's own)
+// =======================================================
+
+export const BACKGROUNDS = ['WEDDING', 'TEMPLE', 'DEEPAVALI', 'PONGAL', 'STUDIO', 'GARDEN'] as const
+export type Background = typeof BACKGROUNDS[number]
+
+const BACKGROUND_SCENES: Record<Background, string> = {
+  WEDDING: 'a decorated South Indian wedding hall (mandapam) with marigold and jasmine garlands and warm lights',
+  TEMPLE: 'a South Indian temple corridor with carved stone pillars in soft daylight',
+  DEEPAVALI: 'a home entrance at dusk decorated for Deepavali with rows of lit clay oil lamps (diyas) and soft festive lights',
+  PONGAL: 'a village house front in the morning with a colourful kolam on the ground, sugarcane and a decorated Pongal pot',
+  STUDIO: 'a plain, softly lit light-grey photo studio backdrop',
+  GARDEN: 'a green garden with plants and flowers in soft daylight',
+}
+
+export const isBackground = (value: unknown): value is Background => typeof value === 'string' && (BACKGROUNDS as readonly string[]).includes(value)
+
+// The chosen background replaces "keep their background" for the scene only.
+export function withBackground(prompt: string, background: string | null | undefined) {
+  if (!isBackground(background)) return prompt
+  return `${prompt}\n\nBACKGROUND: Place the customer in ${BACKGROUND_SCENES[background]}. This replaces the instruction to keep their background; keep their face, body and pose exactly as described above. Light the customer naturally to match the scene. Do not add other people, text or logos.`
+}

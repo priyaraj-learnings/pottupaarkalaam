@@ -685,3 +685,33 @@ describe('monthly email', () => {
     }
   })
 })
+
+describe('starter pack', () => {
+  it('allows one first recharge of the starter amount, below the smallest recharge', async () => {
+    const user = await newUser('starter@example.com')
+    expect(await account(user)).toMatchObject({ starterAvailable: true, completedPictures: 0 })
+    expect(await submit(user, 25, '700000000001')).toMatchObject({ error: 'INVALID_AMOUNT' })
+    await db.query('update public.app_settings set starter_pack_inr = 25, starter_pack_credits = 4 where id')
+    try {
+      expect((await submit(user, 25, '700000000002')).recharge).toMatchObject({ amount_inr: 25, credits: 4, rate_inr: 7, starter: true })
+      expect(await account(user)).toMatchObject({ starterAvailable: false })
+      // Only once.
+      expect(await submit(user, 25, '700000000003')).toMatchObject({ error: 'INVALID_AMOUNT' })
+    } finally {
+      await db.query('update public.app_settings set starter_pack_inr = 0, starter_pack_credits = 0 where id')
+    }
+  })
+})
+
+describe('shop posters', () => {
+  it('counts new customers from a shop code, without a reward', async () => {
+    const { rows } = await db.query<{ code: string }>(`insert into public.shops (name, area) values ('Lakshmi Silks', 'T Nagar') returning code`)
+    const shopCode = rows[0].code
+    const customer = await newUser('from-shop@example.com')
+    expect(await one('select public.claim_referral($1, $2) as r', [customer, shopCode.toLowerCase()]))
+      .toEqual({ rewarded: false, reason: 'SHOP', shop: 'Lakshmi Silks' })
+    expect((await account(customer)).credits).toBe(0)
+    const report = await one<Array<Record<string, unknown>>>('select public.admin_shops() as r')
+    expect(report.find(shop => shop.code === shopCode)).toMatchObject({ name: 'Lakshmi Silks', signups: 1, verified: 1, withPictures: 0, paidInr: 0 })
+  })
+})

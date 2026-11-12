@@ -2,6 +2,8 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react'
 
+import { tr, useT } from '@/lib/client/language'
+
 // Small building blocks shared by the screens.
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'whatsapp'; busy?: boolean }
@@ -52,6 +54,7 @@ export function Notice({ tone = 'info', children }: { tone?: 'info' | 'warning' 
 
 // A panel that slides up from the bottom (pair picker, account menu).
 export function Sheet({ open, title, onClose, children }: { open: boolean; title: string; onClose: () => void; children: ReactNode }) {
+  const t = useT()
   const panel = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!open) return
@@ -74,7 +77,7 @@ export function Sheet({ open, title, onClose, children }: { open: boolean; title
       >
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-extrabold">{title}</h2>
-          <button type="button" onClick={onClose} className="rounded-full p-2 text-stone-500" aria-label="Close">✕</button>
+          <button type="button" onClick={onClose} className="rounded-full p-2 text-stone-500" aria-label={t('Close', 'மூடு')}>✕</button>
         </div>
         {children}
       </div>
@@ -130,7 +133,7 @@ export function formatWhen(iso: string) {
   const today = new Date()
   const yesterday = new Date(today.getTime() - 86_400_000)
   const time = date.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })
-  if (date.toDateString() === today.toDateString()) return `Today ${time}`
-  if (date.toDateString() === yesterday.toDateString()) return `Yesterday ${time}`
+  if (date.toDateString() === today.toDateString()) return tr(`Today ${time}`, `இன்று ${time}`)
+  if (date.toDateString() === yesterday.toDateString()) return tr(`Yesterday ${time}`, `நேற்று ${time}`)
   return `${date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} ${time}`
 }
