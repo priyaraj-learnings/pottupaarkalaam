@@ -12,14 +12,15 @@ import { api, ApiFailure, errorMessage } from '@/lib/client/api'
 import { shrinkPhoto } from '@/lib/client/photos'
 import { isFinished, type Account, type AppSettings, type LookView } from '@/lib/client/types'
 import { useLookPolling } from '@/lib/client/useLookPolling'
-import { useT } from '@/lib/client/language'
+import { useLanguage, useT } from '@/lib/client/language'
+import { useCategoryName, useSourceName } from '@/lib/client/categoryNames'
 import { SampleModelPicker, type SampleModel } from '@/components/SampleModels'
 import { BackgroundPicker } from '@/components/BackgroundPicker'
 import { ReviewPrompt } from '@/components/Growth'
 import { checkPersonPhoto, problemText, type PhotoProblem } from '@/lib/client/photoCheck'
 import { clearDraft, loadDraft, saveDraft } from '@/lib/client/tryOnDraft'
 import { countTryOnStart } from '@/lib/client/visits'
-import { canPair, categoryLabel, freeCreditsReturnDay, sourceFor, MAX_GARMENTS, MAX_GARMENTS_PAID, paidCreditsNeeded, planLooks, SOURCE_LABELS, type GarmentSource } from '@/lib/rules'
+import { canPair, freeCreditsReturnDay, sourceFor, MAX_GARMENTS, MAX_GARMENTS_PAID, paidCreditsNeeded, planLooks, type GarmentSource } from '@/lib/rules'
 
 type Item = { id: string; blob: Blob; url: string; category: string; source: GarmentSource }
 type Photo = { blob: Blob; url: string }
@@ -70,6 +71,9 @@ export default function TryOn({ account: signedInAccount, settings, onAccount, o
 }) {
   const toast = useToast()
   const t = useT()
+  const ta = useLanguage() === 'ta'
+  const name = useCategoryName()
+  const sourceName = useSourceName()
   const account = signedInAccount ?? GUEST_ACCOUNT
   const extraPhotos = settings?.extraPhotos ?? GUEST_EXTRA_PHOTOS
   const [category, setCategory] = useState<string | null>(null)
@@ -112,12 +116,21 @@ export default function TryOn({ account: signedInAccount, settings, onAccount, o
     planOptions,
   ), [items, pairs, planOptions])
   const available = account.freeLeft + account.credits
-  const [freeCreditsBack] = useState(() => freeCreditsReturnDay(new Date()))
+  const [freeCreditsBackEn] = useState(() => freeCreditsReturnDay(new Date()))
+  // The same day written in Tamil (lib/rules.ts gives it in English).
+  const [freeCreditsBackTa] = useState(() => {
+    const india = new Date(Date.now() + 5.5 * 3_600_000)
+    const next = new Date(Date.UTC(india.getUTCFullYear(), india.getUTCMonth() + 1, 1))
+    return next.toLocaleDateString('ta-IN', { day: 'numeric', month: 'long', timeZone: 'UTC' })
+  })
+  const freeCreditsBack = ta ? freeCreditsBackTa : freeCreditsBackEn
   // What is still missing before "Try on" can start, in plain words.
   const clothesWord = source === 'STITCHED' ? 'dress' : 'fabric'
-  const missing = !items.length && !photo ? `Upload a ${clothesWord} photo and a selfie (your photo) to try on.`
-    : !items.length ? `Upload a ${clothesWord} photo to try on.`
-      : !photo ? 'Upload a selfie or your photo to try on.'
+  const clothesWordTa = source === 'STITCHED' ? 'உடை' : 'துணி'
+  const missing = !items.length && !photo ? t(`Upload a ${clothesWord} photo and a selfie (your photo) to try on.`,
+    `அணிந்து பார்க்க ${clothesWordTa} புகைப்படமும் செல்ஃபியும் (உங்கள் புகைப்படம்) பதிவேற்றுங்கள்.`)
+    : !items.length ? t(`Upload a ${clothesWord} photo to try on.`, `அணிந்து பார்க்க ${clothesWordTa} புகைப்படத்தைப் பதிவேற்றுங்கள்.`)
+      : !photo ? t('Upload a selfie or your photo to try on.', 'அணிந்து பார்க்க செல்ஃபி அல்லது உங்கள் புகைப்படத்தைப் பதிவேற்றுங்கள்.')
         : null
   // "Try on" was tapped with something missing: say what, until it is added.
   const [showMissing, setShowMissing] = useState(false)
@@ -155,7 +168,7 @@ export default function TryOn({ account: signedInAccount, settings, onAccount, o
 
   async function addClothesFiles(files: File[]) {
     if (!files.length || !category) return
-    if (files.length > room) toast(`Only ${room} more photo${room === 1 ? '' : 's'} can be added (up to ${limit}).`)
+    if (files.length > room) toast(t(`Only ${room} more photo${room === 1 ? '' : 's'} can be added (up to ${limit}).`, `இன்னும் ${room} புகைப்படம் மட்டுமே சேர்க்க முடியும் (அதிகபட்சம் ${limit}).`))
     setPreparing(true)
     try {
       const added: Item[] = []
@@ -245,14 +258,14 @@ export default function TryOn({ account: signedInAccount, settings, onAccount, o
     setCategory(code)
     setSource(nextSource)
     if (!category || code === category) return
-    relabel(item => item.category === category && !canPair(item.category, code), categoryLabel(code),
+    relabel(item => item.category === category && !canPair(item.category, code), name(code),
       item => ({ category: code, source: sourceFor(code, item.source) }))
   }
 
   function chooseSource(next: GarmentSource) {
     setSource(next)
     if (category && next !== source) {
-      relabel(item => item.category === category && item.source === source, SOURCE_LABELS[next].toLowerCase(), () => ({ source: next }))
+      relabel(item => item.category === category && item.source === source, sourceName(next).toLowerCase(), () => ({ source: next }))
     }
   }
 
@@ -263,8 +276,9 @@ export default function TryOn({ account: signedInAccount, settings, onAccount, o
     const before = new Map(changed.map(item => [item.id, { category: item.category, source: item.source }]))
     changeItems(item => before.has(item.id), change)
     const numbers = items.flatMap((item, index) => (before.has(item.id) ? [`#${index + 1}`] : []))
-    toast(`${numbers.length === 1 ? 'Photo' : 'Photos'} ${numbers.join(', ')} changed to ${what}.`, 'info', {
-      label: 'Undo',
+    toast(t(`${numbers.length === 1 ? 'Photo' : 'Photos'} ${numbers.join(', ')} changed to ${what}.`,
+      `புகைப்படம் ${numbers.join(', ')} இப்போது ${what} ஆக மாற்றப்பட்டது.`), 'info', {
+      label: t('Undo', 'பழையபடி'),
       onClick: () => setItems(current => current.map(item => ({ ...item, ...before.get(item.id) }))),
     })
   }
@@ -377,7 +391,7 @@ export default function TryOn({ account: signedInAccount, settings, onAccount, o
       setPairs(restoredPairs)
       setPhoto(restoredPhoto)
       setBackground(draft.background ?? '')
-      toast('Making your picture now.')
+      toast(t('Making your picture now.', 'உங்கள் படம் இப்போது தயாராகிறது.'))
       await submit(restored, restoredPairs, undefined, restoredPhoto, draft.background ?? '')
     })
     // Once, when the signed-in try-on screen first opens.
@@ -409,9 +423,11 @@ export default function TryOn({ account: signedInAccount, settings, onAccount, o
     return (
       <div className="space-y-4">
         <div>
-          <h1 className="text-2xl font-black">Your pictures</h1>
+          <h1 className="text-2xl font-black">{t('Your pictures', 'உங்கள் படங்கள்')}</h1>
           <p className="text-sm text-stone-600">
-            {making ? 'Making them now. You can leave this screen; they will be in My pictures.' : 'Save the ones you like. Pictures are deleted after 3 days.'}
+            {making
+              ? t('Making them now. You can leave this screen; they will be in My pictures.', 'இப்போது தயாராகின்றன. இந்தத் திரையை விட்டுச் செல்லலாம்; அவை என் படங்கள் பகுதியில் இருக்கும்.')
+              : t('Save the ones you like. Pictures are deleted after 3 days.', 'பிடித்தவற்றைச் சேமியுங்கள். படங்கள் 3 நாட்களுக்குப் பிறகு நீக்கப்படும்.')}
           </p>
         </div>
         <ReadyAlert making={making} />
@@ -419,8 +435,8 @@ export default function TryOn({ account: signedInAccount, settings, onAccount, o
         {results.some(look => look.status === 'COMPLETED' && look.imageUrl) && <InstallAfterPicture />}
         {!making && <ReviewPrompt account={account} reviewUrl={settings?.googleReviewUrl ?? null} />}
         <div className="grid grid-cols-1 gap-2">
-          <Button onClick={tryMore} className="w-full">Try other clothes</Button>
-          <Button variant="secondary" onClick={() => { setShowResults(false); setError(null) }} className="w-full">Back to these clothes</Button>
+          <Button onClick={tryMore} className="w-full">{t('Try other clothes', 'வேறு உடைகளை அணிந்து பார்')}</Button>
+          <Button variant="secondary" onClick={() => { setShowResults(false); setError(null) }} className="w-full">{t('Back to these clothes', 'இந்த உடைகளுக்குத் திரும்பு')}</Button>
         </div>
       </div>
     )
@@ -433,33 +449,46 @@ export default function TryOn({ account: signedInAccount, settings, onAccount, o
     <div className="space-y-4 pb-36">
       {!guest && !account.phoneVerified && (
         <Notice tone={available === 0 ? 'warning' : 'info'}>
-          <b>{account.freeCreditsPerMonth} free credits every month need a verified mobile number</b> (one account per
-          number).{' '}
+          <b>{t(`${account.freeCreditsPerMonth} free credits every month need a verified mobile number`,
+            `மாதந்தோறும் ${account.freeCreditsPerMonth} இலவச கிரெடிட்கள் பெற, சரிபார்த்த மொபைல் எண் தேவை`)}</b>{' '}
+          {t('(one account per number).', '(ஒரு எண்ணுக்கு ஒரு கணக்கு மட்டும்).')}{' '}
           {onVerifyMobile
-            ? <button type="button" onClick={onVerifyMobile} className="font-extrabold underline">Verify my number</button>
-            : 'Mobile number checks are not available yet.'}
-          {available === 0 && <>{' '}Or <button type="button" onClick={onRecharge} className="font-extrabold underline">recharge</button>.</>}
+            ? <button type="button" onClick={onVerifyMobile} className="font-extrabold underline">{t('Verify my number', 'என் எண்ணைச் சரிபார்')}</button>
+            : t('Mobile number checks are not available yet.', 'மொபைல் எண் சரிபார்ப்பு இன்னும் வரவில்லை.')}
+          {available === 0 && (ta
+            ? <>{' '}அல்லது <button type="button" onClick={onRecharge} className="font-extrabold underline">ரீசார்ஜ்</button> செய்யுங்கள்.</>
+            : <>{' '}Or <button type="button" onClick={onRecharge} className="font-extrabold underline">recharge</button>.</>)}
         </Notice>
       )}
       {!guest && account.phoneVerified && available === 0 && (
         <Notice tone="warning">
-          <b>You have used this month&rsquo;s {account.freeCreditsPerMonth} free credits.</b> They come back on {freeCreditsBack}.
-          To keep trying on now,{' '}
-          <button type="button" onClick={onRecharge} className="font-extrabold underline">recharge</button>.
+          {ta ? (
+            <>
+              <b>இந்த மாதத்தின் {account.freeCreditsPerMonth} இலவச கிரெடிட்களையும் பயன்படுத்திவிட்டீர்கள்.</b> அவை {freeCreditsBack} அன்று மீண்டும் கிடைக்கும்.
+              இப்போதே தொடர்ந்து அணிந்து பார்க்க,{' '}
+              <button type="button" onClick={onRecharge} className="font-extrabold underline">ரீசார்ஜ்</button> செய்யுங்கள்.
+            </>
+          ) : (
+            <>
+              <b>You have used this month&rsquo;s {account.freeCreditsPerMonth} free credits.</b> They come back on {freeCreditsBack}.
+              To keep trying on now,{' '}
+              <button type="button" onClick={onRecharge} className="font-extrabold underline">recharge</button>.
+            </>
+          )}
         </Notice>
       )}
-      <Card title={<StepTitle number={1} done={Boolean(category)}>What are you trying?</StepTitle>}>
+      <Card title={<StepTitle number={1} done={Boolean(category)}>{t('What are you trying?', 'எதை அணிந்து பார்க்கிறீர்கள்?')}</StepTitle>}>
         <CategoryChips value={category} onChange={chooseCategory} />
         <div className="mt-4">
           <SourceToggle value={source} category={category} onChange={chooseSource} />
         </div>
       </Card>
 
-      <Card id="tryon-clothes" title={<StepTitle number={2} done={items.length > 0}>Photos of the clothes <span className="font-semibold text-stone-500">({items.length}/{limit})</span></StepTitle>}>
+      <Card id="tryon-clothes" title={<StepTitle number={2} done={items.length > 0}>{t('Photos of the clothes', 'உடைகளின் புகைப்படங்கள்')} <span className="font-semibold text-stone-500">({items.length}/{limit})</span></StepTitle>}>
         {extraAllowed ? (
           <div className="mb-3 space-y-1.5">
-            <p className="text-sm font-bold text-stone-700">Photos in this try</p>
-            <div role="radiogroup" aria-label="Photos in this try" className="grid grid-cols-3 gap-1 rounded-full bg-stone-100 p-1">
+            <p className="text-sm font-bold text-stone-700">{t('Photos in this try', 'இந்த முறை எத்தனை புகைப்படங்கள்')}</p>
+            <div role="radiogroup" aria-label={t('Photos in this try', 'இந்த முறை எத்தனை புகைப்படங்கள்')} className="grid grid-cols-3 gap-1 rounded-full bg-stone-100 p-1">
               {[MAX_GARMENTS, MAX_GARMENTS + 1, MAX_GARMENTS_PAID].map(count => (
                 <button key={count} type="button" role="radio" aria-checked={limit === count} disabled={count < items.length}
                   onClick={() => setLimit(count)}
@@ -469,25 +498,34 @@ export default function TryOn({ account: signedInAccount, settings, onAccount, o
               ))}
             </div>
             <p className="text-xs text-stone-500">
-              You recharged this month, so you can add up to {MAX_GARMENTS_PAID}. The 4th and 5th pictures cost {1 + extraCredits} credits
-              each, from paid credits.
+              {t(`You recharged this month, so you can add up to ${MAX_GARMENTS_PAID}. The 4th and 5th pictures cost ${1 + extraCredits} credits each, from paid credits.`,
+                `இந்த மாதம் ரீசார்ஜ் செய்திருப்பதால் ${MAX_GARMENTS_PAID} வரை சேர்க்கலாம். 4வது, 5வது படங்களுக்கு ஒவ்வொன்றுக்கும் ${1 + extraCredits} கிரெடிட்கள், பணம் செலுத்திய கிரெடிட்களிலிருந்து.`)}
             </p>
           </div>
         ) : extraPhotos.enabled ? (
           <p className="mb-3 text-xs text-stone-500">
-            Up to {MAX_GARMENTS} photos a try.{' '}
-            <button type="button" onClick={onRecharge} className="font-bold text-brand-700 underline">Recharge</button> this month to add up to {MAX_GARMENTS_PAID}.
+            {ta ? (
+              <>
+                ஒரு முறைக்கு {MAX_GARMENTS} புகைப்படங்கள் வரை. இந்த மாதம்{' '}
+                <button type="button" onClick={onRecharge} className="font-bold text-brand-700 underline">ரீசார்ஜ்</button> செய்தால் {MAX_GARMENTS_PAID} வரை சேர்க்கலாம்.
+              </>
+            ) : (
+              <>
+                Up to {MAX_GARMENTS} photos a try.{' '}
+                <button type="button" onClick={onRecharge} className="font-bold text-brand-700 underline">Recharge</button> this month to add up to {MAX_GARMENTS_PAID}.
+              </>
+            )}
           </p>
         ) : null}
-        {!category && <p className="mb-3 text-sm text-stone-500">Choose what you are trying first.</p>}
+        {!category && <p className="mb-3 text-sm text-stone-500">{t('Choose what you are trying first.', 'முதலில் எதை அணிந்து பார்க்கிறீர்கள் என்று தேர்ந்தெடுங்கள்.')}</p>}
         {category && room > 0 && (
           <p className="mb-3 text-sm text-stone-600">
-            Adding: <b>{categoryLabel(category)}</b> · {SOURCE_LABELS[source].toLowerCase()}. Spread the cloth flat in good light.
+            {t('Adding:', 'சேர்ப்பது:')} <b>{name(category)}</b> · {sourceName(source).toLowerCase()}. {t('Spread the cloth flat in good light.', 'நல்ல வெளிச்சத்தில் துணியைச் சமமாக விரித்து வையுங்கள்.')}
           </p>
         )}
         <div className="grid grid-cols-2 gap-2">
-          <Button disabled={!category || room <= 0 || preparing} onClick={() => openCamera('clothes')}>📷 Take photo</Button>
-          <Button variant="secondary" disabled={!category || room <= 0 || preparing} onClick={() => clothesGallery.current?.click()}>🖼️ Gallery</Button>
+          <Button disabled={!category || room <= 0 || preparing} onClick={() => openCamera('clothes')}>📷 {t('Take photo', 'புகைப்படம் எடு')}</Button>
+          <Button variant="secondary" disabled={!category || room <= 0 || preparing} onClick={() => clothesGallery.current?.click()}>🖼️ {t('Gallery', 'கேலரி')}</Button>
         </div>
         <input ref={clothesCamera} type="file" accept="image/*" capture="environment" className="hidden" onChange={addClothes} />
         <input ref={clothesGallery} type="file" accept="image/*" multiple className="hidden" onChange={addClothes} />
@@ -501,24 +539,24 @@ export default function TryOn({ account: signedInAccount, settings, onAccount, o
                 <li key={item.id} className="overflow-hidden rounded-2xl ring-1 ring-stone-200">
                   <div className="relative aspect-[3/4] bg-stone-100">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={item.url} alt={`Clothes photo ${index + 1}`} className="h-full w-full object-cover" />
+                    <img src={item.url} alt={t(`Clothes photo ${index + 1}`, `உடை புகைப்படம் ${index + 1}`)} className="h-full w-full object-cover" />
                     <span className="absolute left-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-white text-xs font-black">{index + 1}</span>
-                    <button type="button" onClick={() => removeItem(item.id)} aria-label={`Remove photo ${index + 1}`}
+                    <button type="button" onClick={() => removeItem(item.id)} aria-label={t(`Remove photo ${index + 1}`, `புகைப்படம் ${index + 1}-ஐ நீக்கு`)}
                       className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white">✕</button>
                   </div>
                   <div className="space-y-1 p-2">
                     <button type="button" onClick={() => setEditing(item.id)} className="block w-full text-left">
-                      <span className="block truncate text-sm font-extrabold">{categoryLabel(item.category)} <span className="text-brand-600">✎</span></span>
-                      <span className="block text-xs text-stone-500">{SOURCE_LABELS[item.source]}</span>
+                      <span className="block truncate text-sm font-extrabold">{name(item.category)} <span className="text-brand-600">✎</span></span>
+                      <span className="block text-xs text-stone-500">{sourceName(item.source)}</span>
                     </button>
                     {partner ? (
                       <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 rounded-xl bg-brand-50 px-2 py-1 text-xs font-bold text-brand-800">
-                        <span>Pair with #{indexOf(partner) + 1}</span>
-                        <button type="button" className="underline" onClick={() => setPairs(current => current.filter(([a, b]) => a !== item.id && b !== item.id))}>Separate</button>
+                        <span>{t(`Pair with #${indexOf(partner) + 1}`, `#${indexOf(partner) + 1} உடன் இணை`)}</span>
+                        <button type="button" className="underline" onClick={() => setPairs(current => current.filter(([a, b]) => a !== item.id && b !== item.id))}>{t('Separate', 'பிரி')}</button>
                       </div>
                     ) : candidates.length > 0 ? (
                       <button type="button" onClick={() => setPairingFrom(item.id)} className="w-full rounded-xl border border-brand-200 px-2 py-1.5 text-xs font-bold text-brand-700">
-                        👫 Wear with…
+                        👫 {t('Wear with…', 'இதனுடன் அணி…')}
                       </button>
                     ) : null}
                   </div>
@@ -529,16 +567,17 @@ export default function TryOn({ account: signedInAccount, settings, onAccount, o
         )}
       </Card>
 
-      <Card id="tryon-photo" title={<StepTitle number={3} done={Boolean(photo)}>Your photo</StepTitle>}>
-        <p className="mb-3 text-sm text-stone-600">Any clear photo works: full length or from the waist up, facing the camera, in good light. Full length shows the whole outfit best.</p>
+      <Card id="tryon-photo" title={<StepTitle number={3} done={Boolean(photo)}>{t('Your photo', 'உங்கள் புகைப்படம்')}</StepTitle>}>
+        <p className="mb-3 text-sm text-stone-600">{t('Any clear photo works: full length or from the waist up, facing the camera, in good light. Full length shows the whole outfit best.',
+          'தெளிவான எந்தப் புகைப்படமும் போதும்: முழு உயரம் அல்லது இடுப்பு வரை, கேமராவைப் பார்த்தபடி, நல்ல வெளிச்சத்தில். முழு உயரப் புகைப்படத்தில் முழு உடையும் நன்றாகத் தெரியும்.')}</p>
         <div className="flex gap-3">
           {photo && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={photo.url} alt="Your photo" className="h-28 w-20 shrink-0 rounded-2xl object-cover ring-1 ring-stone-200" />
+            <img src={photo.url} alt={t('Your photo', 'உங்கள் புகைப்படம்')} className="h-28 w-20 shrink-0 rounded-2xl object-cover ring-1 ring-stone-200" />
           )}
           <div className="grid flex-1 grid-cols-1 gap-2">
-            <Button disabled={preparing} onClick={() => openCamera('selfie')}>🤳 {photo ? 'Take again' : 'Take selfie'}</Button>
-            <Button variant="secondary" disabled={preparing} onClick={() => selfieGallery.current?.click()}>🖼️ From gallery</Button>
+            <Button disabled={preparing} onClick={() => openCamera('selfie')}>🤳 {photo ? t('Take again', 'மீண்டும் எடு') : t('Take selfie', 'செல்ஃபி எடு')}</Button>
+            <Button variant="secondary" disabled={preparing} onClick={() => selfieGallery.current?.click()}>🖼️ {t('From gallery', 'கேலரியிலிருந்து')}</Button>
           </div>
         </div>
         {photo && photoProblems.length > 0 && (
@@ -557,7 +596,7 @@ export default function TryOn({ account: signedInAccount, settings, onAccount, o
       </Card>
 
       {results.length > 0 && (
-        <Button variant="ghost" onClick={() => setShowResults(true)} className="w-full">See the pictures you just made</Button>
+        <Button variant="ghost" onClick={() => setShowResults(true)} className="w-full">{t('See the pictures you just made', 'இப்போது செய்த படங்களைப் பார்')}</Button>
       )}
 
       {/* Summary and the Try on button, above the tab bar. */}
@@ -567,22 +606,23 @@ export default function TryOn({ account: signedInAccount, settings, onAccount, o
           {error && (
             <Notice tone="error">
               {error.message}
-              {error.recharge && <button type="button" onClick={onRecharge} className="ml-1 font-extrabold underline">Recharge</button>}
+              {error.recharge && <button type="button" onClick={onRecharge} className="ml-1 font-extrabold underline">{t('Recharge', 'ரீசார்ஜ்')}</button>}
             </Notice>
           )}
           <div className="flex items-center justify-between gap-2 px-1 text-sm">
             <span className="font-semibold text-stone-700">
               {plan.ok
-                ? `${plan.looks.length} picture${plan.looks.length === 1 ? '' : 's'}${guest ? '' : ` · ${needed} credit${needed === 1 ? '' : 's'}`}${plan.extraCredits ? ` (${plan.extraCredits} extra, paid)` : ''}`
-                : missing ? 'Add clothes and your photo' : plan.message}
+                ? t(`${plan.looks.length} picture${plan.looks.length === 1 ? '' : 's'}${guest ? '' : ` · ${needed} credit${needed === 1 ? '' : 's'}`}${plan.extraCredits ? ` (${plan.extraCredits} extra, paid)` : ''}`,
+                  `${plan.looks.length} ${plan.looks.length === 1 ? 'படம்' : 'படங்கள்'}${guest ? '' : ` · ${needed} ${needed === 1 ? 'கிரெடிட்' : 'கிரெடிட்கள்'}`}${plan.extraCredits ? ` (${plan.extraCredits} கூடுதல், கட்டணம்)` : ''}`)
+                : missing ? t('Add clothes and your photo', 'உடைகளையும் உங்கள் புகைப்படத்தையும் சேருங்கள்') : plan.message}
             </span>
             {guest
-              ? <span className="font-bold text-emerald-700">{guest.freeCreditsPerMonth ? `${guest.freeCreditsPerMonth} free a month` : 'Free to start'}</span>
-              : <span className={`font-bold ${short ? 'text-red-700' : 'text-stone-500'}`}>You have {available}</span>}
+              ? <span className="font-bold text-emerald-700">{guest.freeCreditsPerMonth ? t(`${guest.freeCreditsPerMonth} free a month`, `மாதம் ${guest.freeCreditsPerMonth} இலவசம்`) : t('Free to start', 'தொடங்க இலவசம்')}</span>
+              : <span className={`font-bold ${short ? 'text-red-700' : 'text-stone-500'}`}>{t(`You have ${available}`, `உங்களிடம் ${available}`)}</span>}
           </div>
           {short ? (
             <>
-              <Button onClick={onRecharge} className="w-full">Recharge to try on</Button>
+              <Button onClick={onRecharge} className="w-full">{t('Recharge to try on', 'அணிந்து பார்க்க ரீசார்ஜ் செய்')}</Button>
               {account.starterAvailable && settings?.starterPack && (
                 <p className="text-center text-xs font-bold text-emerald-700">
                   🎉 {t(`Starter pack: ${settings.starterPack.credits} credits for ₹${settings.starterPack.amountInr} (first recharge)`,
@@ -592,24 +632,28 @@ export default function TryOn({ account: signedInAccount, settings, onAccount, o
             </>
           ) : (
             <Button busy={submitting} disabled={preparing} onClick={tryOn} className="w-full text-base">
-              ✨ Try on
+              ✨ {t('Try on', 'அணிந்து பார்')}
             </Button>
           )}
         </div>
       </div>
 
-      <CameraCapture open={camera === 'clothes'} title={category ? `Photo of the ${categoryLabel(category).toLowerCase()}` : 'Photo of the clothes'} facing="environment"
+      <CameraCapture open={camera === 'clothes'} title={category ? t(`Photo of the ${name(category).toLowerCase()}`, `${name(category)} புகைப்படம்`) : t('Photo of the clothes', 'உடையின் புகைப்படம்')} facing="environment"
         onCapture={file => { setCamera(null); void addClothesFiles([file]) }} onClose={() => setCamera(null)}
         onFallback={() => { setCamera(null); clothesCamera.current?.click() }} />
-      <CameraCapture open={camera === 'selfie'} title="Your photo" facing="user"
+      <CameraCapture open={camera === 'selfie'} title={t('Your photo', 'உங்கள் புகைப்படம்')} facing="user"
         onCapture={file => { setCamera(null); void addSelfieFile(file) }} onClose={() => setCamera(null)}
         onFallback={() => { setCamera(null); selfieCamera.current?.click() }} />
 
-      <Sheet open={Boolean(pairingItem)} title="Wear together in one picture" onClose={() => setPairingFrom(null)}>
+      <Sheet open={Boolean(pairingItem)} title={t('Wear together in one picture', 'ஒரே படத்தில் சேர்த்து அணி')} onClose={() => setPairingFrom(null)}>
         {pairingItem && (
           <>
             <p className="mb-3 text-sm text-stone-600">
-              Pick what to wear with the <b>{categoryLabel(pairingItem.category).toLowerCase()}</b>. A pair makes one picture and uses 2 credits.
+              {ta ? (
+                <><b>{name(pairingItem.category)}</b> உடன் எதை அணிவது என்று தேர்ந்தெடுங்கள். ஒரு இணை ஒரே படம் தரும், 2 கிரெடிட்கள் ஆகும்.</>
+              ) : (
+                <>Pick what to wear with the <b>{name(pairingItem.category).toLowerCase()}</b>. A pair makes one picture and uses 2 credits.</>
+              )}
             </p>
             <ul className="grid grid-cols-3 gap-2">
               {pairCandidates(pairingItem.id).map(candidate => (
@@ -624,7 +668,7 @@ export default function TryOn({ account: signedInAccount, settings, onAccount, o
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={candidate.url} alt="" className="aspect-[3/4] w-full object-cover" />
-                    <span className="block truncate p-1.5 text-xs font-bold">#{indexOf(candidate.id) + 1} {categoryLabel(candidate.category)}</span>
+                    <span className="block truncate p-1.5 text-xs font-bold">#{indexOf(candidate.id) + 1} {name(candidate.category)}</span>
                   </button>
                 </li>
               ))}
@@ -633,13 +677,13 @@ export default function TryOn({ account: signedInAccount, settings, onAccount, o
         )}
       </Sheet>
 
-      <Sheet open={Boolean(editingItem)} title="What is this photo?" onClose={() => setEditing(null)}>
+      <Sheet open={Boolean(editingItem)} title={t('What is this photo?', 'இது என்ன புகைப்படம்?')} onClose={() => setEditing(null)}>
         {editingItem && (
           <div className="space-y-4">
             <CategoryChips value={editingItem.category}
               onChange={code => changeItem(editingItem.id, { category: code, source: sourceFor(code, editingItem.source) })} />
             <SourceToggle value={editingItem.source} category={editingItem.category} onChange={value => changeItem(editingItem.id, { source: value })} />
-            <Button onClick={() => setEditing(null)} className="w-full">Done</Button>
+            <Button onClick={() => setEditing(null)} className="w-full">{t('Done', 'முடிந்தது')}</Button>
           </div>
         )}
       </Sheet>
