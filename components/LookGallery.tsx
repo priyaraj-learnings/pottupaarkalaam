@@ -5,6 +5,7 @@ import { useCallback, useState } from 'react'
 import LookCard from '@/components/LookCard'
 import { Slideshow } from '@/components/Slideshow'
 import { Button } from '@/components/ui'
+import { VoteShare } from '@/components/VoteShare'
 import type { LookView } from '@/lib/client/types'
 
 // The pictures as a grid (as before), with "Slideshow" and a tap on any
@@ -25,6 +26,7 @@ export function LookGallery({ looks, showDate = false, onRetry }: {
           ▶ Slideshow{finished.length > 1 ? ` (${finished.length} pictures)` : ''}
         </Button>
       )}
+      <VoteShare looks={finished} />
       <div className="grid grid-cols-2 gap-3">
         {looks.map(look => {
           const position = finished.findIndex(item => item.id === look.id)

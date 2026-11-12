@@ -6,6 +6,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Button, Notice } from '@/components/ui'
 import { errorMessage } from '@/lib/client/api'
 import { openMsg91Widget } from '@/lib/client/msg91'
+import { pendingReferral } from '@/lib/client/referral'
 import { supabase } from '@/lib/supabase/browser'
 
 function GoogleIcon() {
@@ -155,14 +156,21 @@ export function SignInOptions({ phoneWidget }: { phoneWidget: { widgetId: string
   )
 }
 
-export type SignInOptionsData = { phone: { widgetId: string; tokenAuth: string } | null; freeCreditsPerMonth: number | null; referralCredits: number }
+export type SignInOptionsData = {
+  phone: { widgetId: string; tokenAuth: string } | null
+  freeCreditsPerMonth: number | null
+  referralCredits: number
+  // The shop whose poster the visitor scanned (their invite code is a shop's).
+  shop: string | null
+}
 
 // The public sign-in options (before anyone is signed in).
 export function useSignInOptions(): SignInOptionsData {
-  const [options, setOptions] = useState<SignInOptionsData>({ phone: null, freeCreditsPerMonth: null, referralCredits: 0 })
+  const [options, setOptions] = useState<SignInOptionsData>({ phone: null, freeCreditsPerMonth: null, referralCredits: 0, shop: null })
   useEffect(() => {
     let cancelled = false
-    fetch('/api/sign-in-options', { cache: 'no-store' })
+    const ref = pendingReferral()
+    fetch(`/api/sign-in-options${ref ? `?ref=${ref}` : ''}`, { cache: 'no-store' })
       .then(response => (response.ok ? response.json() : null))
       .then(result => {
         if (cancelled || !result) return
@@ -170,6 +178,7 @@ export function useSignInOptions(): SignInOptionsData {
           phone: result.phone ?? null,
           freeCreditsPerMonth: Number.isInteger(result.freeCreditsPerMonth) ? result.freeCreditsPerMonth : null,
           referralCredits: Number.isInteger(result.referralCredits) ? result.referralCredits : 0,
+          shop: typeof result.shop === 'string' ? result.shop : null,
         })
       })
       .catch(() => {})

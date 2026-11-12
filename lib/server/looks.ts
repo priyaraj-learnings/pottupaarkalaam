@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto'
 
 import { after } from 'next/server'
 
-import { buildCouplePrompt, buildPairPrompt, buildSinglePrompt } from '@/lib/prompts'
+import { buildCouplePrompt, buildPairPrompt, buildSinglePrompt, isBackground, withBackground } from '@/lib/prompts'
 import {
   coupleGarmentAllowed,
   MAX_GARMENTS,
@@ -24,6 +24,7 @@ import {
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { getAccount, loadSettings } from '@/lib/server/account'
 import { sendMonthlyEmails } from '@/lib/server/email'
+import { notifyTryReady } from '@/lib/server/push'
 import type { SignedInUser } from '@/lib/server/auth'
 import { cloudTasksConfig, enqueueLook } from '@/lib/server/cloudTasks'
 import { ApiError, dbError, UUID } from '@/lib/server/http'
@@ -111,6 +112,9 @@ export async function createTryOns(user: SignedInUser, form: FormData) {
   const files = form.getAll('garment').filter((item): item is File => item instanceof File)
   const garments = parseJson<Array<{ category: string; source: GarmentSource }>>(form.get('garments'), 'clothes list')
   const pairs = parseJson<Array<[number, number]>>(form.get('pairs') ?? '[]', 'pairs')
+  // An occasion background, or none (the photo's own).
+  const background = form.get('background')
+  if (background !== null && background !== '' && !isBackground(background)) throw new ApiError(400, 'INVALID_INPUT', 'Unknown background.')
   if (!Array.isArray(garments) || !Array.isArray(pairs) || !pairs.every(pair => Array.isArray(pair) && pair.length === 2 && pair.every(Number.isInteger))) {
     throw new ApiError(400, 'INVALID_INPUT', 'Invalid clothes list.')
   }
@@ -162,6 +166,10 @@ export async function createTryOns(user: SignedInUser, form: FormData) {
     if (result.error === 'EXTRA_PHOTOS_NOT_ALLOWED') throw extraPhotosError()
     if (result.error === 'INSUFFICIENT_CREDITS') throw creditsError(result.needed ?? plan.credits, result.available ?? 0, plan.extraCredits)
     if (!result.looks?.length) throw new Error('No looks were created.')
+    if (isBackground(background)) {
+      const { error: backgroundError } = await supabaseAdmin.from('try_on_batches').update({ background }).eq('id', batchId)
+      if (backgroundError) console.error(JSON.stringify({ event: 'tryon.background_failed', message: backgroundError.message }))
+    }
 
     await dispatchLooks(result.looks.map(look => look.id))
     return { looks: result.looks.map(look => ({ ...look, status: 'QUEUED' as const })), account: result.account }
@@ -315,7 +323,7 @@ async function makeLook(id: string) {
     .select('id, user_id, batch_id, kind, garments, status').eq('id', id).single()
   if (error || !look) throw dbError(error, 'Unable to load the look')
   const { data: batch, error: batchError } = await supabaseAdmin.from('try_on_batches')
-    .select('photo_path, partner_photo_path, garment_paths, purged_at').eq('id', look.batch_id).single()
+    .select('photo_path, partner_photo_path, garment_paths, purged_at, background').eq('id', look.batch_id).single()
   if (batchError || !batch) throw dbError(batchError, 'Unable to load the photos')
   if (batch.purged_at || !batch.photo_path || (look.kind === 'COUPLE' && !batch.partner_photo_path)) {
     await failLook(id, 'The photos were deleted before the picture was made. Your credits are back.')
@@ -340,6 +348,7 @@ async function makeLook(id: string) {
         : buildSinglePrompt(garments[0])
     }
 
+    prompt = withBackground(prompt, batch.background as string | null)
     const result = await generateTryOnImage({ images, prompt })
     const output = await encodeForStorage(result.base64, id)
     const imagePath = `${look.user_id}/${look.batch_id}/look-${id}.${output.extension}`
@@ -366,6 +375,8 @@ async function makeLook(id: string) {
     console.error(JSON.stringify({ event: 'look.failed', lookId: id, message: error instanceof Error ? error.message : String(error) }))
     await failLook(id, `${publicMessage} Your credits are back.`)
   }
+  // The whole try is done: "your picture is ready" on the customer's phone.
+  await notifyTryReady(look.batch_id as string, look.user_id as string)
 }
 
 // Looks that never finished (the server restarted mid-way) are given up on and

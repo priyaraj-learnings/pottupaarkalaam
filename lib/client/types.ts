@@ -1,4 +1,4 @@
-import type { CoupleRole, GarmentSource, LookKind, PairRole, Pricing } from '@/lib/rules'
+import type { CoupleRole, GarmentSource, LookKind, PairRole, Pricing, StarterPack } from '@/lib/rules'
 
 // What the API returns (lib/server/*), for the screens.
 
@@ -25,6 +25,10 @@ export type Account = {
   referralCode: string
   referralCredits: number
   friendsJoined: number
+  // The starter pack is still open to this account (no recharge yet).
+  starterAvailable: boolean
+  // Finished pictures made so far (for the "Rate us" card).
+  completedPictures: number
 }
 
 export type AppSettings = {
@@ -46,6 +50,10 @@ export type AppSettings = {
   // Refer a friend: credits each side gets (0: off), up to this many friends.
   referralCredits: number
   referralMaxPerPerson: number
+  // The starter pack (first recharge only), or null when off.
+  starterPack: StarterPack | null
+  // "Rate us on Google" link, or null.
+  googleReviewUrl: string | null
 }
 
 export type Me = {

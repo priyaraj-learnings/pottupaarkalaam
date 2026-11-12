@@ -94,9 +94,11 @@ export default function Recharge({ active, account, settings, userCode, onAccoun
   const toast = useToast()
   const { pricing } = settings
   const choices = useMemo(() => rechargeChoices(pricing), [pricing])
+  // The starter pack, while this account has not recharged yet.
+  const starter = account.starterAvailable ? settings.starterPack : null
   const [saved] = useState(readSaved)
   const [step, setStep] = useState<Step>(saved?.step ?? 'amount')
-  const [amount, setAmount] = useState<number>(saved?.amount ?? choices[2] ?? choices[0] ?? pricing.minRechargeInr)
+  const [amount, setAmount] = useState<number>(saved?.amount ?? (account.starterAvailable && settings.starterPack ? settings.starterPack.amountInr : choices[2] ?? choices[0] ?? pricing.minRechargeInr))
   const [custom, setCustom] = useState(saved?.custom ?? '')
   const [utr, setUtr] = useState('')
   const [busy, setBusy] = useState(false)
@@ -112,7 +114,7 @@ export default function Recharge({ active, account, settings, userCode, onAccoun
   const wentToPay = useRef(false)
 
   const chosen = custom ? Number(custom) : amount
-  const quote = quoteRecharge(chosen, pricing)
+  const quote = quoteRecharge(chosen, pricing, starter)
   const payee = settings.payeeName ?? 'inaivu IT'
   const link = settings.upiId && quote.ok
     ? upiLink({ upiId: settings.upiId, payeeName: settings.payeeName, amountInr: chosen, note: `PottuPaarkalaam ${userCode}`, qrText: settings.upiQrText })
@@ -244,6 +246,17 @@ export default function Recharge({ active, account, settings, userCode, onAccoun
                   now={<>Choose how much to add. Bigger recharges cost less per credit.</>}
                   next={<>you pay that amount with any UPI app (PhonePe, Paytm, Google Pay, BHIM).</>}
                 />
+                {starter && (
+                  <button type="button" aria-pressed={!custom && amount === starter.amountInr}
+                    onClick={() => { setAmount(starter.amountInr); setCustom('') }}
+                    className={`flex w-full items-center justify-between gap-3 rounded-2xl border-2 p-3 text-left ${!custom && amount === starter.amountInr ? 'border-emerald-500 bg-emerald-50' : 'border-emerald-200 bg-white'}`}>
+                    <span>
+                      <span className="block text-xs font-extrabold uppercase tracking-wide text-emerald-700">🎉 Starter pack · first recharge only</span>
+                      <span className="block text-sm text-stone-600">{starter.credits} credits to try more clothes</span>
+                    </span>
+                    <span className="text-xl font-black">{formatInr(starter.amountInr)}</span>
+                  </button>
+                )}
                 <div className="grid grid-cols-3 gap-2">
                   {choices.map(choice => {
                     const credits = quoteRecharge(choice, pricing)

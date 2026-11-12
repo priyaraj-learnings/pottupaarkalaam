@@ -167,6 +167,24 @@ export default function PottuApp() {
     return () => clearTimeout(timer)
   }, [])
 
+  // Opened from a "your picture is ready" notification: show My pictures.
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    const timer = url.searchParams.get('tab') === 'history' ? setTimeout(() => setTab('history'), 0) : undefined
+    if (timer) {
+      url.searchParams.delete('tab')
+      window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`)
+    }
+    const onMessage = (event: MessageEvent) => {
+      if ((event.data as { type?: string } | null)?.type === 'open-history') setTab('history')
+    }
+    navigator.serviceWorker?.addEventListener('message', onMessage)
+    return () => {
+      if (timer) clearTimeout(timer)
+      navigator.serviceWorker?.removeEventListener('message', onMessage)
+    }
+  }, [])
+
   useEffect(() => {
     // Also fires once at start with the saved session (INITIAL_SESSION).
     const { data } = supabase.auth.onAuthStateChange((event, next) => {

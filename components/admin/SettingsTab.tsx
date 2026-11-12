@@ -2,6 +2,7 @@
 
 import { useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 
+import { SampleModelsCard, ShopsCard } from '@/components/admin/GrowthCards'
 import { SubTabs, useSubTab, type SubTab } from '@/components/admin/SubTabs'
 import type { Overview } from '@/components/admin/types'
 import { Button, Card, formatWhen, Notice, Spinner, useToast } from '@/components/ui'
@@ -113,6 +114,9 @@ function SettingsForm({ overview, onSaved, section }: { overview: Overview; onSa
     coupleCredits: String(settings.couple.credits),
     referralCredits: String(settings.referralCredits),
     referralMaxPerPerson: String(settings.referralMaxPerPerson),
+    starterPackInr: String(settings.starterPack?.amountInr ?? 0),
+    starterPackCredits: String(settings.starterPack?.credits ?? 0),
+    googleReviewUrl: settings.googleReviewUrl ?? '',
   })
   const [busy, setBusy] = useState(false)
 
@@ -229,6 +233,19 @@ function SettingsForm({ overview, onSaved, section }: { overview: Overview; onSa
         </div>
       </Card>
 
+      <Card title="Starter pack (first recharge)" className={show('prices')}>
+        <div className="space-y-3">
+          <p className="text-sm text-stone-600">
+            A small first recharge, so new customers try paying once: shown at the top of Recharge, and when free pictures run
+            out, until the customer&rsquo;s first recharge. It may be below the smallest recharge. Price 0 turns it off.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {field('starterPackInr', 'Price (₹)', { inputMode: 'numeric' })}
+            {field('starterPackCredits', 'Credits', { inputMode: 'numeric' })}
+          </div>
+        </div>
+      </Card>
+
       <Card title="Refer a friend" className={show('prices')}>
         <div className="space-y-3">
           <p className="text-sm text-stone-600">
@@ -240,6 +257,17 @@ function SettingsForm({ overview, onSaved, section }: { overview: Overview; onSa
             {field('referralCredits', 'Credits for each side', { inputMode: 'numeric' })}
             {field('referralMaxPerPerson', 'Most friends per person', { inputMode: 'numeric' })}
           </div>
+        </div>
+      </Card>
+
+      <Card title="Google reviews" className={show('growth')}>
+        <div className="space-y-3">
+          <p className="text-sm text-stone-600">
+            After a customer&rsquo;s 3rd picture, the app asks once: &ldquo;Enjoying PottuPaarkalaam? Rate us on Google&rdquo;. Paste the
+            review link from your Google Business Profile (Google Maps → your business → &ldquo;Ask for reviews&rdquo; → copy link).
+            Empty: not asked.
+          </p>
+          {field('googleReviewUrl', 'Google review link', { placeholder: 'https://g.page/r/…/review' })}
         </div>
       </Card>
 
@@ -384,11 +412,12 @@ function PaymentSmsCard({ status }: { status: Overview['paymentSms'] }) {
   )
 }
 
-type SettingsSection = 'payments' | 'prices' | 'signin' | 'email' | 'ai'
+type SettingsSection = 'payments' | 'prices' | 'growth' | 'signin' | 'email' | 'ai'
 
 const SETTINGS_TABS: ReadonlyArray<SubTab<SettingsSection>> = [
   { id: 'payments', label: 'Payments' },
   { id: 'prices', label: 'Prices & features' },
+  { id: 'growth', label: 'Models & shops' },
   { id: 'signin', label: 'Sign-in' },
   { id: 'email', label: 'Email' },
   { id: 'ai', label: 'AI costs' },
@@ -403,6 +432,7 @@ export default function SettingsTab({ overview, onSaved }: { overview: Overview 
       <SettingsForm key={JSON.stringify(overview.settings) + JSON.stringify(overview.aiRates) + JSON.stringify(overview.phoneLogin)} overview={overview} onSaved={onSaved} section={section} />
       {section === 'payments' && <PaymentSmsCard status={overview.paymentSms} />}
       {section === 'email' && <EmailCard status={overview.email} onChanged={onSaved} />}
+      {section === 'growth' && <><SampleModelsCard /><ShopsCard /></>}
     </div>
   )
 }

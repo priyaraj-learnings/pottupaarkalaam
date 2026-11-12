@@ -228,6 +228,18 @@ export async function updateSettings(adminId: string, body: unknown) {
   row.extra_photo_credits = whole(input.extraPhotoCredits ?? 1, 'Extra credits for the 4th and 5th photo', 1, 10)
   if (input.referralCredits !== undefined) row.referral_credits = whole(input.referralCredits, 'Invite credits', 0, 20)
   if (input.referralMaxPerPerson !== undefined) row.referral_max_per_person = whole(input.referralMaxPerPerson, 'Friends per person', 0, 100)
+  if (input.starterPackInr !== undefined) row.starter_pack_inr = whole(input.starterPackInr || 0, 'Starter pack price', 0, 100_000)
+  if (input.starterPackCredits !== undefined) row.starter_pack_credits = whole(input.starterPackCredits || 0, 'Starter pack credits', 0, 1000)
+  if ((row.starter_pack_inr as number) > 0 && !((row.starter_pack_credits as number) > 0)) {
+    throw new ApiError(400, 'INVALID_INPUT', 'Give the starter pack its credits too (or set its price to 0 to turn it off).')
+  }
+  if (input.googleReviewUrl !== undefined) {
+    const review = text(input.googleReviewUrl, 300)
+    if (review && !/^https:\/\/(g\.page|search\.google\.com|www\.google\.com|maps\.app\.goo\.gl|goo\.gl|g\.co)\//.test(review)) {
+      throw new ApiError(400, 'INVALID_INPUT', 'Paste the review link from your Google Business Profile (it starts with https://g.page/ or https://search.google.com/).')
+    }
+    row.google_review_url = review
+  }
   const { error } = await supabaseAdmin.from('app_settings').update(row).eq('id', true)
   if (error) throw dbError(error, 'Unable to save settings')
   return { settings: await loadSettings(), aiRates: await loadAiRates() }

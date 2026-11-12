@@ -6,11 +6,17 @@ import { CameraCapture, cameraAvailable } from '@/components/CameraCapture'
 import { CategoryChips, SourceToggle } from '@/components/CategoryPicker'
 import { InstallAfterPicture } from '@/components/InstallApp'
 import { LookGallery } from '@/components/LookGallery'
+import { ReadyAlert } from '@/components/ReadyAlert'
 import { Button, Card, Notice, Sheet, useToast } from '@/components/ui'
 import { api, ApiFailure, errorMessage } from '@/lib/client/api'
 import { shrinkPhoto } from '@/lib/client/photos'
 import { isFinished, type Account, type AppSettings, type LookView } from '@/lib/client/types'
 import { useLookPolling } from '@/lib/client/useLookPolling'
+import { useT } from '@/lib/client/language'
+import { SampleModelPicker, type SampleModel } from '@/components/SampleModels'
+import { BackgroundPicker } from '@/components/BackgroundPicker'
+import { ReviewPrompt } from '@/components/Growth'
+import { checkPersonPhoto, problemText, type PhotoProblem } from '@/lib/client/photoCheck'
 import { clearDraft, loadDraft, saveDraft } from '@/lib/client/tryOnDraft'
 import { countTryOnStart } from '@/lib/client/visits'
 import { canPair, categoryLabel, freeCreditsReturnDay, sourceFor, MAX_GARMENTS, MAX_GARMENTS_PAID, paidCreditsNeeded, planLooks, SOURCE_LABELS, type GarmentSource } from '@/lib/rules'
@@ -29,7 +35,7 @@ let nextItemId = 0
 const GUEST_ACCOUNT: Account = {
   credits: 0, freeCreditsPerMonth: 0, freeLeft: 0, termsVersion: null, termsAcceptedAt: null, phone: null,
   phoneVerified: true, offersOk: false, phoneAskedAt: null, coupleOptIn: false, paidThisMonth: false,
-  emailOffersOk: false, monthlyEmailOk: false, referralCode: '', referralCredits: 0, friendsJoined: 0,
+  emailOffersOk: false, monthlyEmailOk: false, referralCode: '', referralCredits: 0, friendsJoined: 0, starterAvailable: false, completedPictures: 0,
 }
 const GUEST_EXTRA_PHOTOS = { enabled: false, credits: 1 }
 
@@ -63,6 +69,7 @@ export default function TryOn({ account: signedInAccount, settings, onAccount, o
   guest?: GuestTryOn
 }) {
   const toast = useToast()
+  const t = useT()
   const account = signedInAccount ?? GUEST_ACCOUNT
   const extraPhotos = settings?.extraPhotos ?? GUEST_EXTRA_PHOTOS
   const [category, setCategory] = useState<string | null>(null)
@@ -70,6 +77,12 @@ export default function TryOn({ account: signedInAccount, settings, onAccount, o
   const [items, setItems] = useState<Item[]>([])
   const [pairs, setPairs] = useState<Array<[string, string]>>([])
   const [photo, setPhoto] = useState<Photo | null>(null)
+  // What the quick photo check found (only a warning).
+  const [photoProblems, setPhotoProblems] = useState<PhotoProblem[]>([])
+  // A sample model chosen instead of the customer's own photo.
+  const [modelId, setModelId] = useState<string | null>(null)
+  // An occasion background ('' keeps the photo's own).
+  const [background, setBackground] = useState('')
   const [preparing, setPreparing] = useState(false)
   const [pairingFrom, setPairingFrom] = useState<string | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
@@ -171,9 +184,29 @@ export default function TryOn({ account: signedInAccount, settings, onAccount, o
       const blob = await shrinkPhoto(file, 2048, 0.9)
       if (photo) URL.revokeObjectURL(photo.url)
       setPhoto({ blob, url: URL.createObjectURL(blob) })
+      setModelId(null)
+      setPhotoProblems(await checkPersonPhoto(blob))
       countTryOnStart()
     } catch (photoError) {
       toast(errorMessage(photoError), 'error')
+    } finally {
+      setPreparing(false)
+    }
+  }
+
+  async function pickModel(model: SampleModel) {
+    setPreparing(true)
+    try {
+      const response = await fetch(model.url)
+      if (!response.ok) throw new Error(t('This model photo could not be loaded. Please try another.', 'இந்த மாடல் புகைப்படம் வரவில்லை. வேறொன்றைத் தேர்ந்தெடுங்கள்.'))
+      const blob = await response.blob()
+      if (photo) URL.revokeObjectURL(photo.url)
+      setPhoto({ blob, url: URL.createObjectURL(blob) })
+      setModelId(model.id)
+      setPhotoProblems([])
+      countTryOnStart()
+    } catch (modelError) {
+      toast(errorMessage(modelError), 'error')
     } finally {
       setPreparing(false)
     }
@@ -241,7 +274,7 @@ export default function TryOn({ account: signedInAccount, settings, onAccount, o
   // ---------------------------------------------------------------------------
 
   // usePhoto: the customer's photo when it is not in state yet (a resumed draft).
-  async function submit(chosen: Item[], chosenPairs: Array<[string, string]>, replaceLookId?: string, usePhoto?: Photo) {
+  async function submit(chosen: Item[], chosenPairs: Array<[string, string]>, replaceLookId?: string, usePhoto?: Photo, useBackground = background) {
     const photo_ = usePhoto ?? photo
     if (!photo_) return
     setSubmitting(true)
@@ -253,6 +286,7 @@ export default function TryOn({ account: signedInAccount, settings, onAccount, o
       form.append('garments', JSON.stringify(chosen.map(item => ({ category: item.category, source: item.source }))))
       const pairIndexes = chosenPairs.map(([a, b]) => [chosen.findIndex(item => item.id === a), chosen.findIndex(item => item.id === b)])
       form.append('pairs', JSON.stringify(pairIndexes))
+      if (useBackground) form.append('background', useBackground)
 
       const local = planLooks(chosen.map(item => ({ category: item.category, source: item.source })), pairIndexes as Array<[number, number]>, planOptions)
       const created = await api<CreateResponse>('/api/try-ons', { method: 'POST', body: form })
@@ -315,7 +349,7 @@ export default function TryOn({ account: signedInAccount, settings, onAccount, o
   async function startSignIn() {
     if (!photo || !guest) return
     await saveDraft({
-      category, source, photo: photo.blob,
+      category, source, photo: photo.blob, background,
       items: items.map(item => ({ blob: item.blob, category: item.category, source: item.source })),
       pairs: pairs.map(([a, b]) => [indexOf(a), indexOf(b)] as [number, number]),
     }).catch(() => undefined)
@@ -342,8 +376,9 @@ export default function TryOn({ account: signedInAccount, settings, onAccount, o
       setItems(restored)
       setPairs(restoredPairs)
       setPhoto(restoredPhoto)
+      setBackground(draft.background ?? '')
       toast('Making your picture now.')
-      await submit(restored, restoredPairs, undefined, restoredPhoto)
+      await submit(restored, restoredPairs, undefined, restoredPhoto, draft.background ?? '')
     })
     // Once, when the signed-in try-on screen first opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -379,8 +414,10 @@ export default function TryOn({ account: signedInAccount, settings, onAccount, o
             {making ? 'Making them now. You can leave this screen; they will be in My pictures.' : 'Save the ones you like. Pictures are deleted after 3 days.'}
           </p>
         </div>
+        <ReadyAlert making={making} />
         <LookGallery looks={results} onRetry={look => (retryFrom[look.id] ? () => retry(look) : undefined)} />
         {results.some(look => look.status === 'COMPLETED' && look.imageUrl) && <InstallAfterPicture />}
+        {!making && <ReviewPrompt account={account} reviewUrl={settings?.googleReviewUrl ?? null} />}
         <div className="grid grid-cols-1 gap-2">
           <Button onClick={tryMore} className="w-full">Try other clothes</Button>
           <Button variant="secondary" onClick={() => { setShowResults(false); setError(null) }} className="w-full">Back to these clothes</Button>
@@ -504,6 +541,17 @@ export default function TryOn({ account: signedInAccount, settings, onAccount, o
             <Button variant="secondary" disabled={preparing} onClick={() => selfieGallery.current?.click()}>🖼️ From gallery</Button>
           </div>
         </div>
+        {photo && photoProblems.length > 0 && (
+          <div className="mt-3"><Notice tone="warning">
+            <p className="font-bold">{t('Check your photo before trying on:', 'முயற்சிக்கும் முன் உங்கள் புகைப்படத்தைச் சரிபாருங்கள்:')}</p>
+            <ul className="mt-1 list-disc pl-5">{photoProblems.map(problem => <li key={problem}>{problemText(problem, t)}</li>)}</ul>
+            <p className="mt-1 text-xs">{t('You can still use it, but a clearer photo gives a better picture.', 'இதையே பயன்படுத்தலாம்; ஆனால் தெளிவான புகைப்படம் சிறந்த படத்தைத் தரும்.')}</p>
+          </Notice></div>
+        )}
+        <SampleModelPicker chosen={modelId} onPick={model => void pickModel(model)} disabled={preparing} />
+        <div className="mt-3 border-t border-stone-100 pt-3">
+          <BackgroundPicker value={background} onChange={setBackground} />
+        </div>
         <input ref={selfieCamera} type="file" accept="image/*" capture="user" className="hidden" onChange={addSelfie} />
         <input ref={selfieGallery} type="file" accept="image/*" className="hidden" onChange={addSelfie} />
       </Card>
@@ -533,7 +581,15 @@ export default function TryOn({ account: signedInAccount, settings, onAccount, o
               : <span className={`font-bold ${short ? 'text-red-700' : 'text-stone-500'}`}>You have {available}</span>}
           </div>
           {short ? (
-            <Button onClick={onRecharge} className="w-full">Recharge to try on</Button>
+            <>
+              <Button onClick={onRecharge} className="w-full">Recharge to try on</Button>
+              {account.starterAvailable && settings?.starterPack && (
+                <p className="text-center text-xs font-bold text-emerald-700">
+                  🎉 {t(`Starter pack: ${settings.starterPack.credits} credits for ₹${settings.starterPack.amountInr} (first recharge)`,
+                    `தொடக்கச் சலுகை: ₹${settings.starterPack.amountInr}-க்கு ${settings.starterPack.credits} கிரெடிட்கள் (முதல் ரீசார்ஜ் மட்டும்)`)}
+                </p>
+              )}
+            </>
           ) : (
             <Button busy={submitting} disabled={preparing} onClick={tryOn} className="w-full text-base">
               ✨ Try on

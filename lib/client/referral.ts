@@ -7,6 +7,8 @@
 // /api/me/referral. The signed-in customer's own code is kept too, so pictures
 // they share carry their invite link.
 
+import { tr } from '@/lib/client/language'
+
 const PENDING = 'pp-ref'
 const MINE = 'pp-my-ref'
 const KEEP_MS = 30 * 86_400_000
@@ -74,8 +76,19 @@ export function inviteUrl(code: string | null = myInviteCode()) {
 // The words that go with a shared picture or an invite.
 export function shareMessage(code: string | null = myInviteCode()) {
   return code
-    ? `I tried this on with PottuPaarkalaam 😍 See how sarees, blouses and dhotis look on you before you buy. Join with my link and we both get 2 free pictures: ${inviteUrl(code)}`
-    : `I tried this on with PottuPaarkalaam 😍 See how sarees, blouses and dhotis look on you before you buy: ${inviteUrl(null)}`
+    ? tr(`I tried this on with PottuPaarkalaam 😍 See how sarees, blouses and dhotis look on you before you buy. Join with my link and we both get 2 free pictures: ${inviteUrl(code)}`,
+      `PottuPaarkalaam-இல் இதை அணிந்து பார்த்தேன் 😍 புடவை, ரவிக்கை, வேஷ்டி வாங்கும் முன் உங்களுக்கு எப்படி இருக்கும் என்று பாருங்கள். என் இணைப்பில் சேர்ந்தால் நம் இருவருக்கும் 2 இலவசப் படங்கள்: ${inviteUrl(code)}`)
+    : tr(`I tried this on with PottuPaarkalaam 😍 See how sarees, blouses and dhotis look on you before you buy: ${inviteUrl(null)}`,
+      `PottuPaarkalaam-இல் இதை அணிந்து பார்த்தேன் 😍 புடவை, ரவிக்கை, வேஷ்டி வாங்கும் முன் உங்களுக்கு எப்படி இருக்கும் என்று பாருங்கள்: ${inviteUrl(null)}`)
+}
+
+// "Help me choose" (the numbered collage).
+export function voteMessage(count: number, code: string | null = myInviteCode()) {
+  const numbers = Array.from({ length: count }, (_, index) => index + 1)
+  const options = `${numbers.slice(0, -1).join(', ')} ${tr('or', 'அல்லது')} ${numbers[numbers.length - 1]}`
+  const link = inviteUrl(code)
+  return tr(`Help me choose! Which one suits me best? Reply ${options} 🙏\n\nMade with PottuPaarkalaam: see clothes on you before you buy. ${link}`,
+    `எதைத் தேர்ந்தெடுப்பது என்று சொல்லுங்கள்! எனக்கு எது நன்றாக இருக்கிறது? ${options} என்று பதில் அனுப்புங்கள் 🙏\n\nPottuPaarkalaam மூலம் உருவாக்கியது: வாங்கும் முன் உடையை உங்கள் மேல் பாருங்கள். ${link}`)
 }
 
 export const whatsAppLink = (text: string) => `https://wa.me/?text=${encodeURIComponent(text)}`

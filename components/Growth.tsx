@@ -7,6 +7,7 @@ import { Button, useToast } from '@/components/ui'
 import { api, errorMessage } from '@/lib/client/api'
 import { clearPendingReferral, inviteUrl, pendingReferral, rememberMyInviteCode } from '@/lib/client/referral'
 import { shareInvite } from '@/lib/client/share'
+import { useT } from '@/lib/client/language'
 import type { Account } from '@/lib/client/types'
 
 // =======================================================
@@ -128,4 +129,44 @@ export function useReferralClaim(account: Account | null, onRewarded: () => void
   }, [accountReady, account?.referralCredits, onRewarded])
 
   return { note, dismiss: () => setNote(null) }
+}
+
+const REVIEW_KEY = 'pp-review-asked'
+
+// After the 3rd finished picture, once per phone: "Enjoying PottuPaarkalaam?
+// Rate us on Google" (only when the admin saved the review link).
+export function ReviewPrompt({ account, reviewUrl }: { account: Account; reviewUrl: string | null }) {
+  const t = useT()
+  const [asked, setAsked] = useState(() => {
+    try {
+      return typeof window === 'undefined' || localStorage.getItem(REVIEW_KEY) !== null
+    } catch {
+      return true
+    }
+  })
+  if (!reviewUrl || asked || account.completedPictures < 3) return null
+
+  const done = (answer: string) => {
+    try {
+      localStorage.setItem(REVIEW_KEY, answer)
+    } catch {
+      // Then it may ask again next visit.
+    }
+    setAsked(true)
+  }
+
+  return (
+    <div className="rounded-3xl bg-white p-4 text-center shadow-sm ring-1 ring-marigold-200">
+      <p className="text-2xl" aria-hidden="true">⭐⭐⭐⭐⭐</p>
+      <p className="mt-1 font-extrabold">{t('Enjoying PottuPaarkalaam?', 'PottuPaarkalaam பிடித்திருக்கிறதா?')}</p>
+      <p className="text-sm text-stone-600">{t('A quick Google review helps other families find us. Thank you!', 'ஒரு சிறிய Google மதிப்பாய்வு மற்ற குடும்பங்கள் எங்களைக் கண்டுபிடிக்க உதவும். நன்றி!')}</p>
+      <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
+        <a href={reviewUrl} target="_blank" rel="noopener noreferrer" onClick={() => done('rated')}
+          className="brand-gradient inline-flex min-h-11 items-center justify-center rounded-2xl px-4 text-sm font-bold text-white">
+          {t('Rate us on Google', 'Google-இல் மதிப்பிடுங்கள்')}
+        </a>
+        <Button variant="ghost" onClick={() => done('later')} className="min-h-11 text-sm">{t('Not now', 'இப்போது வேண்டாம்')}</Button>
+      </div>
+    </div>
+  )
 }

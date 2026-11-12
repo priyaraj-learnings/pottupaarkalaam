@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react'
 
 import { LogoMark, Wordmark } from '@/components/Logo'
 import { SignInOptions, useSignInOptions } from '@/components/SignIn'
+import { useT } from '@/lib/client/language'
 import TryOn from '@/components/TryOn'
 import { Notice, Sheet, ToastProvider } from '@/components/ui'
 
@@ -20,6 +21,7 @@ import { Notice, Sheet, ToastProvider } from '@/components/ui'
 // invited: opened from a friend's invite link.
 export default function GuestApp({ notice, invited = false }: { notice?: string; invited?: boolean }) {
   const options = useSignInOptions()
+  const t = useT()
   // 'tryon': opened by "Try on" (their picture is waiting); 'plain': "Sign in".
   const [sheet, setSheet] = useState<'tryon' | 'plain' | null>(null)
   const close = useCallback(() => setSheet(null), [])
@@ -40,7 +42,12 @@ export default function GuestApp({ notice, invited = false }: { notice?: string;
 
         <main className="px-4 pt-2">
           {notice && <div className="mb-3"><Notice tone="success">{notice}</Notice></div>}
-          {invited && options.referralCredits > 0 && (
+          {invited && options.shop && (
+            <p className="mb-3 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-900 ring-1 ring-emerald-200">
+              🛍️ {t(`Welcome from ${options.shop}! Photograph any saree or fabric there and see it on you.`, `${options.shop} வழியாக வந்ததற்கு நன்றி! அங்குள்ள எந்தப் புடவையையோ துணியையோ படம் எடுத்து உங்கள் மேல் பாருங்கள்.`)}
+            </p>
+          )}
+          {invited && !options.shop && options.referralCredits > 0 && (
             <p className="mb-3 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-900 ring-1 ring-emerald-200">
               🎁 A friend invited you: join and verify your mobile number, and you both get {options.referralCredits} extra free pictures.
             </p>
