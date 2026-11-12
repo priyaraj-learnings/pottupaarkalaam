@@ -11,7 +11,9 @@ import { api, ApiFailure, errorMessage } from '@/lib/client/api'
 import { shrinkPhoto } from '@/lib/client/photos'
 import { isFinished, type Account, type AppSettings, type LookView } from '@/lib/client/types'
 import { useLookPolling } from '@/lib/client/useLookPolling'
-import { categoryLabel, sourceFor, type GarmentSource } from '@/lib/rules'
+import { sourceFor, type GarmentSource } from '@/lib/rules'
+import { useCategoryName } from '@/lib/client/categoryNames'
+import { useLanguage, useT } from '@/lib/client/language'
 
 type Photo = { blob: Blob; url: string }
 type Person = { category: string | null; source: GarmentSource; garment: Photo | null; photo: Photo | null }
@@ -22,9 +24,9 @@ type CreateResponse = {
   account: Account
 }
 
-const SIDES: Record<Side, { title: string; group: Group; him: string; his: string }> = {
-  his: { title: 'Him', group: 'MEN', him: 'him', his: 'his' },
-  her: { title: 'Her', group: 'WOMEN', him: 'her', his: 'her' },
+const SIDES: Record<Side, { title: string; titleTa: string; group: Group; him: string; his: string; whoTa: string; whoseTa: string }> = {
+  his: { title: 'Him', titleTa: 'ஆண்', group: 'MEN', him: 'him', his: 'his', whoTa: 'ஆண்', whoseTa: 'ஆணின்' },
+  her: { title: 'Her', titleTa: 'பெண்', group: 'WOMEN', him: 'her', his: 'her', whoTa: 'பெண்', whoseTa: 'பெண்ணின்' },
 }
 
 const emptyPerson = (): Person => ({ category: null, source: 'FABRIC', garment: null, photo: null })
@@ -50,6 +52,7 @@ function PhotoSlot({ label, help, photo, disabled, facing, onPick }: {
   facing: Facing
   onPick: (file: File) => void
 }) {
+  const t = useT()
   const [cameraOpen, setCameraOpen] = useState(false)
   const camera = useRef<HTMLInputElement>(null)
   const gallery = useRef<HTMLInputElement>(null)
@@ -68,8 +71,8 @@ function PhotoSlot({ label, help, photo, disabled, facing, onPick }: {
           <img src={photo.url} alt={label} className="h-28 w-20 shrink-0 rounded-2xl object-cover ring-1 ring-stone-200" />
         )}
         <div className="grid flex-1 grid-cols-1 gap-2">
-          <Button disabled={disabled} onClick={() => (cameraAvailable() ? setCameraOpen(true) : camera.current?.click())}>📷 {photo ? 'Take again' : 'Take photo'}</Button>
-          <Button variant="secondary" disabled={disabled} onClick={() => gallery.current?.click()}>🖼️ Gallery</Button>
+          <Button disabled={disabled} onClick={() => (cameraAvailable() ? setCameraOpen(true) : camera.current?.click())}>📷 {photo ? t('Take again', 'மீண்டும் எடு') : t('Take photo', 'புகைப்படம் எடு')}</Button>
+          <Button variant="secondary" disabled={disabled} onClick={() => gallery.current?.click()}>🖼️ {t('Gallery', 'கேலரி')}</Button>
         </div>
       </div>
       <input ref={camera} type="file" accept="image/*" capture="environment" className="hidden" onChange={picked} />
@@ -91,6 +94,9 @@ export default function Couple({ account, settings, onAccount, onRecharge, onRef
   onRefresh: () => void
 }) {
   const toast = useToast()
+  const t = useT()
+  const ta = useLanguage() === 'ta'
+  const categoryName = useCategoryName()
   const [people, setPeople] = useState<Record<Side, Person>>({ his: emptyPerson(), her: emptyPerson() })
   const [consent, setConsent] = useState(false)
   const [preparing, setPreparing] = useState(false)
@@ -176,9 +182,11 @@ export default function Couple({ account, settings, onAccount, onRecharge, onRef
     return (
       <div className="space-y-4">
         <div>
-          <h1 className="text-2xl font-black">Your couple pictures</h1>
+          <h1 className="text-2xl font-black">{t('Your couple pictures', 'உங்கள் ஜோடி படங்கள்')}</h1>
           <p className="text-sm text-stone-600">
-            {making ? 'Making it now. You can leave this screen; it will be in My pictures.' : 'Save the ones you like. Pictures are deleted after 3 days.'}
+            {making
+              ? t('Making it now. You can leave this screen; it will be in My pictures.', 'இப்போது உருவாக்குகிறோம். நீங்கள் இந்தத் திரையை விட்டுச் செல்லலாம்; அது என் படங்கள் பகுதியில் இருக்கும்.')
+              : t('Save the ones you like. Pictures are deleted after 3 days.', 'உங்களுக்குப் பிடித்தவற்றைச் சேமியுங்கள். படங்கள் 3 நாட்களுக்குப் பிறகு நீக்கப்படும்.')}
           </p>
         </div>
         <ReadyAlert making={making} />
@@ -188,8 +196,8 @@ export default function Couple({ account, settings, onAccount, onRecharge, onRef
             setPeople(current => ({ his: { ...current.his, garment: null }, her: { ...current.her, garment: null } }))
             setShowResults(false)
             setError(null)
-          }} className="w-full">Try other clothes</Button>
-          <Button variant="secondary" onClick={() => { setShowResults(false); setError(null) }} className="w-full">Back to these photos</Button>
+          }} className="w-full">{t('Try other clothes', 'வேறு உடைகளை அணிந்து பார்')}</Button>
+          <Button variant="secondary" onClick={() => { setShowResults(false); setError(null) }} className="w-full">{t('Back to these photos', 'இந்தப் புகைப்படங்களுக்குத் திரும்பு')}</Button>
         </div>
       </div>
     )
@@ -199,23 +207,24 @@ export default function Couple({ account, settings, onAccount, onRecharge, onRef
     const person = people[side]
     const words = SIDES[side]
     return (
-      <Card title={<StepTitle number={number} done={ready(person)}>{words.title}</StepTitle>}>
+      <Card title={<StepTitle number={number} done={ready(person)}>{t(words.title, words.titleTa)}</StepTitle>}>
         <div className="space-y-4">
           <CategoryChips onlyGroup={words.group} value={person.category}
             onChange={category => update(side, { category, source: sourceFor(category, person.source) })} />
           <SourceToggle value={person.source} category={person.category} onChange={source => update(side, { source })} />
           <PhotoSlot
-            label={`${words.his[0].toUpperCase()}${words.his.slice(1)} clothes`}
-            help={!person.category ? `Choose what ${words.him} is trying first.`
-              : `${categoryLabel(person.category)}: ${person.source === 'FABRIC' ? 'spread the cloth flat' : 'the whole dress, on a hanger or laid flat'}, in good light.`}
+            label={t(`${words.his[0].toUpperCase()}${words.his.slice(1)} clothes`, `${words.whoseTa} உடை`)}
+            help={!person.category ? t(`Choose what ${words.him} is trying first.`, `முதலில் ${words.whoTa} அணிந்து பார்க்கப் போவதைத் தேர்ந்தெடுங்கள்.`)
+              : t(`${categoryName(person.category)}: ${person.source === 'FABRIC' ? 'spread the cloth flat' : 'the whole dress, on a hanger or laid flat'}, in good light.`,
+                `${categoryName(person.category)}: ${person.source === 'FABRIC' ? 'துணியைத் தட்டையாக விரித்து' : 'முழு உடையையும் ஹேங்கரில் மாட்டி அல்லது தட்டையாக வைத்து'}, நல்ல வெளிச்சத்தில் எடுங்கள்.`)}
             photo={person.garment}
             facing="environment"
             disabled={!person.category || preparing}
             onPick={file => void pick(side, 'garment', file)}
           />
           <PhotoSlot
-            label={`Photo of ${words.him}`}
-            help="Full length or from the waist up, facing the camera, in good light."
+            label={t(`Photo of ${words.him}`, `${words.whoseTa} புகைப்படம்`)}
+            help={t('Full length or from the waist up, facing the camera, in good light.', 'முழு உருவம் அல்லது இடுப்பிலிருந்து மேல், கேமராவைப் பார்த்தபடி, நல்ல வெளிச்சத்தில்.')}
             photo={person.photo}
             facing="environment"
             disabled={preparing}
@@ -229,27 +238,34 @@ export default function Couple({ account, settings, onAccount, onRecharge, onRef
   return (
     <div className="space-y-4 pb-40">
       <div>
-        <h1 className="text-2xl font-black">Couple picture</h1>
-        <p className="text-sm text-stone-600">One picture of the two of you, each in your own new clothes.</p>
+        <h1 className="text-2xl font-black">{t('Couple picture', 'ஜோடி படம்')}</h1>
+        <p className="text-sm text-stone-600">{t('One picture of the two of you, each in your own new clothes.', 'நீங்கள் இருவரும் அவரவர் புதிய உடையில் இருக்கும் ஒரே படம்.')}</p>
       </div>
       <Notice tone={short ? 'warning' : 'info'}>
-        A couple picture uses <b>{needed} paid credits</b> ({formatInr(needed * settings.pricing.standardRateInr)} at {formatInr(settings.pricing.standardRateInr)} a
-        credit). Free credits can&rsquo;t be used for it. If the picture fails, the credits come back.
-        {short && <> You have {account.credits} paid credit{account.credits === 1 ? '' : 's'}: <button type="button" onClick={onRecharge} className="font-extrabold underline">recharge</button>.</>}
+        {ta ? (
+          <>ஒரு ஜோடி படத்துக்கு <b>{needed} பணம் செலுத்திய கிரெடிட்கள்</b> தேவை (ஒரு கிரெடிட் {formatInr(settings.pricing.standardRateInr)} என்றால்
+          {' '}{formatInr(needed * settings.pricing.standardRateInr)}). இதற்கு இலவச கிரெடிட்களைப் பயன்படுத்த முடியாது. படம் வரவில்லை என்றால், கிரெடிட்கள் திரும்பக் கிடைக்கும்.</>
+        ) : (
+          <>A couple picture uses <b>{needed} paid credits</b> ({formatInr(needed * settings.pricing.standardRateInr)} at {formatInr(settings.pricing.standardRateInr)} a
+          credit). Free credits can&rsquo;t be used for it. If the picture fails, the credits come back.</>
+        )}
+        {short && (ta
+          ? <> உங்களிடம் {account.credits} பணம் செலுத்திய {account.credits === 1 ? 'கிரெடிட்' : 'கிரெடிட்கள்'} உள்ளன: <button type="button" onClick={onRecharge} className="font-extrabold underline">ரீசார்ஜ் செய்யுங்கள்</button>.</>
+          : <> You have {account.credits} paid credit{account.credits === 1 ? '' : 's'}: <button type="button" onClick={onRecharge} className="font-extrabold underline">recharge</button>.</>)}
       </Notice>
 
       {personCard('his', 1)}
       {personCard('her', 2)}
 
-      <Card title={<StepTitle number={3} done={consent}>Both of you agree</StepTitle>}>
+      <Card title={<StepTitle number={3} done={consent}>{t('Both of you agree', 'நீங்கள் இருவரும் ஒப்புக்கொள்கிறீர்கள்')}</StepTitle>}>
         <label className="flex items-start gap-3 text-sm text-stone-700">
           <input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-brand-600" />
-          <span>Both of us are 18 or older and agree to our photos being used to make this picture.</span>
+          <span>{t('Both of us are 18 or older and agree to our photos being used to make this picture.', 'நாங்கள் இருவரும் 18 வயது அல்லது அதற்கு மேற்பட்டவர்கள், இந்தப் படத்தை உருவாக்க எங்கள் புகைப்படங்களைப் பயன்படுத்த ஒப்புக்கொள்கிறோம்.')}</span>
         </label>
       </Card>
 
       {results.length > 0 && (
-        <Button variant="ghost" onClick={() => setShowResults(true)} className="w-full">See the couple pictures you just made</Button>
+        <Button variant="ghost" onClick={() => setShowResults(true)} className="w-full">{t('See the couple pictures you just made', 'இப்போது உருவாக்கிய ஜோடி படங்களைப் பார்')}</Button>
       )}
 
       {/* Summary and the button, above the tab bar. */}
@@ -258,18 +274,18 @@ export default function Couple({ account, settings, onAccount, onRecharge, onRef
           {error && (
             <Notice tone="error">
               {error.message}
-              {error.recharge && <button type="button" onClick={onRecharge} className="ml-1 font-extrabold underline">Recharge</button>}
+              {error.recharge && <button type="button" onClick={onRecharge} className="ml-1 font-extrabold underline">{t('Recharge', 'ரீசார்ஜ்')}</button>}
             </Notice>
           )}
           <div className="flex items-center justify-between gap-2 px-1 text-sm">
-            <span className="font-semibold text-stone-700">{allReady ? `1 couple picture · ${needed} credits` : 'Add both garments and photos'}</span>
-            <span className={`font-bold ${short ? 'text-red-700' : 'text-stone-500'}`}>Paid credits: {account.credits}</span>
+            <span className="font-semibold text-stone-700">{allReady ? t(`1 couple picture · ${needed} credits`, `1 ஜோடி படம் · ${needed} கிரெடிட்கள்`) : t('Add both garments and photos', 'இருவரின் உடைகளையும் புகைப்படங்களையும் சேருங்கள்')}</span>
+            <span className={`font-bold ${short ? 'text-red-700' : 'text-stone-500'}`}>{t(`Paid credits: ${account.credits}`, `பணம் செலுத்திய கிரெடிட்கள்: ${account.credits}`)}</span>
           </div>
           {short ? (
-            <Button onClick={onRecharge} className="w-full">Recharge for a couple picture</Button>
+            <Button onClick={onRecharge} className="w-full">{t('Recharge for a couple picture', 'ஜோடி படத்துக்கு ரீசார்ஜ் செய்')}</Button>
           ) : (
             <Button busy={submitting} disabled={!allReady || !consent || preparing} onClick={() => submit(people)} className="w-full text-base">
-              💑 Make couple picture
+              {t('💑 Make couple picture', '💑 ஜோடி படம் உருவாக்கு')}
             </Button>
           )}
         </div>

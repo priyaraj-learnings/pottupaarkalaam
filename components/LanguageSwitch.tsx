@@ -36,12 +36,13 @@ export function LanguageToggle({ className = '' }: { className?: string }) {
   return (
     <button
       type="button"
-      aria-label="Language / மொழி"
+      aria-label={next === 'ta' ? 'தமிழில் பார்க்க (Language / மொழி)' : 'View in English (Language / மொழி)'}
+      title={next === 'ta' ? 'தமிழ்' : 'English'}
       lang={next}
       onClick={() => setLanguage(next)}
-      className={`shrink-0 rounded-full bg-white px-2.5 py-1.5 text-xs font-extrabold text-stone-700 shadow-sm ring-1 ring-stone-200 ${className}`}
+      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-base font-black text-brand-700 shadow-sm ring-1 ring-brand-200 ${className}`}
     >
-      {next === 'ta' ? 'தமிழ்' : 'English'}
+      {next === 'ta' ? 'அ' : 'A'}
     </button>
   )
 }

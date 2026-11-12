@@ -31,15 +31,14 @@ export default function GuestApp({ notice, invited = false }: { notice?: string;
   return (
     <ToastProvider>
       <div className="mx-auto min-h-dvh max-w-md">
-        <header className="sticky top-0 z-40 flex items-center justify-between gap-2 bg-ivory/95 px-4 pb-2 pt-[calc(0.75rem+env(safe-area-inset-top))] backdrop-blur">
-          <span className="flex min-w-0 items-center gap-2">
-            <LogoMark size={36} />
-            {/* Hidden on narrow phones so the buttons fit (the logo stays). */}
-            <span className="min-w-0 max-[419px]:hidden"><Wordmark /></span>
+        <header className="sticky top-0 z-40 flex items-center justify-between gap-1.5 bg-ivory/95 px-3 pb-2 min-[400px]:gap-2 min-[400px]:px-4 pt-[calc(0.75rem+env(safe-area-inset-top))] backdrop-blur">
+          <span className="flex min-w-0 items-center gap-1.5">
+            <LogoMark size={32} />
+            <span className="min-w-0"><Wordmark /></span>
           </span>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5">
             <LanguageToggle />
-            <button type="button" onClick={() => setSheet('plain')} className="rounded-full bg-white px-4 py-2 text-sm font-extrabold text-brand-700 shadow-sm ring-1 ring-brand-200">
+            <button type="button" onClick={() => setSheet('plain')} className="shrink-0 whitespace-nowrap rounded-full bg-white px-3 py-2 text-sm font-extrabold text-brand-700 min-[400px]:px-4 shadow-sm ring-1 ring-brand-200">
               {t('Sign in', 'உள்நுழை')}
             </button>
           </div>

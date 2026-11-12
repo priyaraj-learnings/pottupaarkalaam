@@ -304,13 +304,12 @@ export default function PottuApp() {
   return (
     <ToastProvider>
       <div className="mx-auto min-h-dvh max-w-md">
-        <header className="sticky top-0 z-40 flex items-center justify-between gap-2 bg-ivory/95 px-4 pb-2 pt-[calc(0.75rem+env(safe-area-inset-top))] backdrop-blur">
-          <button type="button" onClick={() => setTab('tryon')} className="flex min-w-0 items-center gap-2 text-left" aria-label={t('PottuPaarkalaam home', 'PottuPaarkalaam முகப்பு')}>
-            <LogoMark size={36} />
-            {/* Hidden on narrow phones so the buttons fit (the logo stays). */}
-            <span className="min-w-0 max-[419px]:hidden"><Wordmark /></span>
+        <header className="sticky top-0 z-40 flex items-center justify-between gap-1.5 bg-ivory/95 px-3 pb-2 min-[400px]:gap-2 min-[400px]:px-4 pt-[calc(0.75rem+env(safe-area-inset-top))] backdrop-blur">
+          <button type="button" onClick={() => setTab('tryon')} className="flex min-w-0 items-center gap-1.5 text-left" aria-label={t('PottuPaarkalaam home', 'PottuPaarkalaam முகப்பு')}>
+            <LogoMark size={32} />
+            <span className="min-w-0"><Wordmark /></span>
           </button>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5">
             <LanguageToggle />
             <button type="button" onClick={() => setTab('recharge')} className="rounded-full bg-marigold-50 px-3 py-1.5 text-sm font-extrabold text-marigold-900 shadow-sm ring-1 ring-marigold-200"
               aria-label={t(`${credits} credits. Recharge`, `${credits} கிரெடிட்கள். ரீசார்ஜ்`)}>
