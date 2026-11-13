@@ -28,13 +28,14 @@ describe('monthly email', () => {
   })
 
   it('signs unsubscribe links', () => {
-    vi.stubEnv('CRON_SECRET', 'test-secret')
+    const secret = 'test-secret'
     const id = '11111111-2222-4333-8444-555555555555'
-    const token = unsubscribeToken(id)
-    expect(unsubscribeTokenMatches(id, token)).toBe(true)
-    expect(unsubscribeTokenMatches('11111111-2222-4333-8444-555555555556', token)).toBe(false)
-    expect(unsubscribeTokenMatches(id, 'x')).toBe(false)
-    expect(unsubscribeUrl('https://pp.inaivuit.com', id)).toBe(`https://pp.inaivuit.com/api/unsubscribe?u=${id}&t=${token}`)
+    const token = unsubscribeToken(id, secret)
+    expect(unsubscribeTokenMatches(id, token, secret)).toBe(true)
+    expect(unsubscribeTokenMatches(id, token, 'another-secret')).toBe(false)
+    expect(unsubscribeTokenMatches('11111111-2222-4333-8444-555555555556', token, secret)).toBe(false)
+    expect(unsubscribeTokenMatches(id, 'x', secret)).toBe(false)
+    expect(unsubscribeUrl('https://pp.inaivuit.com', id, secret)).toBe(`https://pp.inaivuit.com/api/unsubscribe?u=${id}&t=${token}`)
   })
 
   it('accepts From addresses with or without a name', () => {

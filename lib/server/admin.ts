@@ -7,6 +7,8 @@ import { loadSettings } from '@/lib/server/account'
 import { ApiError, dbError, UUID } from '@/lib/server/http'
 import { indiaDay, visitsBetween } from '@/lib/server/visits'
 import { emailStatus } from '@/lib/server/email'
+import { emailAddress, smsSenderId } from '@/lib/bankAlert'
+import { trustedSenders } from '@/lib/server/paymentAlerts'
 import { TELEGRAM_TOKEN, telegramStatus } from '@/lib/server/telegram'
 
 // =======================================================
@@ -124,7 +126,7 @@ export async function adminOverview() {
     // Whether bank credit SMS are reaching the app (docs/SETUP.md §6.3).
     paymentSms: {
       secretSet: Boolean(process.env.PAYMENT_WEBHOOK_SECRET?.trim()),
-      senders: (process.env.PAYMENT_SMS_SENDERS ?? '').split(',').map(sender => sender.trim()).filter(Boolean),
+      senders: (await trustedSenders()).split(',').map(sender => sender.trim()).filter(Boolean),
       lastAlertAt: (lastAlert.data?.[0]?.received_at as string | undefined) ?? null,
     },
     // Mobile number sign-in (MSG91 OTP widget). The auth key is never sent back.
@@ -228,6 +230,12 @@ export async function updateSettings(adminId: string, body: unknown) {
   row.extra_photo_credits = whole(input.extraPhotoCredits ?? 1, 'Extra credits for the 4th and 5th photo', 1, 10)
   if (input.referralCredits !== undefined) row.referral_credits = whole(input.referralCredits, 'Invite credits', 0, 20)
   if (input.referralMaxPerPerson !== undefined) row.referral_max_per_person = whole(input.referralMaxPerPerson, 'Friends per person', 0, 100)
+  if (input.paymentSenders !== undefined) {
+    const senders = (typeof input.paymentSenders === 'string' ? input.paymentSenders : '').split(',').map(item => item.trim()).filter(Boolean)
+    const wrong = senders.find(item => !smsSenderId(item) && !emailAddress(item))
+    if (wrong) throw new ApiError(400, 'INVALID_INPUT', `"${wrong.slice(0, 40)}" is not a bank SMS sender ID (6 letters, e.g. HDFCBK) or an email address (e.g. alerts@hdfcbank.net).`)
+    row.payment_senders = senders.map(item => emailAddress(item) ?? smsSenderId(item)).join(',') || null
+  }
   if (input.starterPackInr !== undefined) row.starter_pack_inr = whole(input.starterPackInr || 0, 'Starter pack price', 0, 100_000)
   if (input.starterPackCredits !== undefined) row.starter_pack_credits = whole(input.starterPackCredits || 0, 'Starter pack credits', 0, 1000)
   if ((row.starter_pack_inr as number) > 0 && !((row.starter_pack_credits as number) > 0)) {

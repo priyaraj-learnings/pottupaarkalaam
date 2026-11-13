@@ -63,11 +63,31 @@ export function parseBankCredit(text: string): BankCredit | null {
   return { utr, amountInr }
 }
 
-// Sender IDs allowed to report credits (e.g. "HDFCBK,ICICIT,SBIUPI"), matched
-// inside DLT headers such as "VM-HDFCBK-S". Empty list: any sender.
-export function senderAllowed(sender: string | null | undefined, allowList: string | null | undefined) {
-  const allowed = (allowList ?? '').split(',').map(item => item.trim().toUpperCase()).filter(Boolean)
-  if (!allowed.length) return true
-  const from = (sender ?? '').toUpperCase()
-  return allowed.some(id => from.includes(id))
+// The bank's SMS sender ID from a DLT header: "VM-HDFCBK-S", "AX-HDFCBK" or
+// "HDFCBK" → "HDFCBK". Phone numbers and anything else → null.
+export function smsSenderId(sender: string | null | undefined) {
+  const match = (sender ?? '').trim().toUpperCase().match(/^(?:[A-Z]{2}-)?([A-Z0-9]{6})(?:-[A-Z])?$/)
+  return match && /[A-Z]/.test(match[1]) ? match[1] : null
+}
+
+// The address in an email From line: "HDFC Bank <alerts@hdfcbank.net>" →
+// "alerts@hdfcbank.net" (the display name is ignored: anyone can set it).
+export function emailAddress(sender: string | null | undefined) {
+  const text = (sender ?? '').trim()
+  const address = (text.match(/<([^<>\s]+@[^<>\s]+)>\s*$/)?.[1] ?? text).toLowerCase()
+  return /^[^\s@<>"]+@[^\s@<>"]+\.[a-z]{2,}$/.test(address) ? address : null
+}
+
+// Senders trusted to approve recharges automatically: the bank's SMS sender IDs
+// ("HDFCBK") and alert email addresses ("alerts@hdfcbank.net"), comma
+// separated, matched exactly. An empty list trusts nobody (alerts are then
+// ignored and the admin approves recharges). An email must also have passed the
+// bank's DMARC check in Gmail (emailAuthenticated, from the Gmail script).
+export function senderAllowed(sender: string | null | undefined, allowList: string | null | undefined, emailAuthenticated = false) {
+  const allowed = (allowList ?? '').split(',').map(item => item.trim()).filter(Boolean)
+  if (!allowed.length) return false
+  const address = emailAddress(sender)
+  if (address) return emailAuthenticated && allowed.some(item => item.toLowerCase() === address)
+  const id = smsSenderId(sender)
+  return Boolean(id) && allowed.some(item => item.toUpperCase() === id)
 }

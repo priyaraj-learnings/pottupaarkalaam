@@ -1,7 +1,7 @@
 // Who runs PottuPaarkalaam (the same firm and officers as UduthiPaar,
 // garment-ai-saas lib/legal/legal.ts). Shown on /terms and /privacy.
 
-export const TERMS_EFFECTIVE = '12 November 2026'
+export const TERMS_EFFECTIVE = '13 November 2026'
 
 export const COMPANY = {
   name: 'inaivu IT',
@@ -22,7 +22,8 @@ export const COMPANY = {
 export const CONSENT_POINTS = [
   'I am 18 or older.',
   'The photos I add are of me, or I have that person\'s permission.',
-  'My photos and pictures are deleted after 3 days. I will save the ones I want to keep.',
+  'My photos are sent to OpenAI (USA) to make my pictures.',
+  'My photos and pictures are deleted from PottuPaarkalaam after 3 days (OpenAI may keep a copy up to 30 days, only to check for misuse). I will save the ones I want to keep.',
   'Pictures are made by AI as a preview. Real clothes may look different.',
   'Every picture is labelled "AI-generated". I will not remove the label or pass a picture off as a real photo.',
   'Pictures I save or share are my responsibility once they leave the app.',
@@ -34,7 +35,8 @@ export const CONSENT_POINTS = [
 export const CONSENT_POINTS_TA = [
   'எனக்கு 18 வயது அல்லது அதற்கு மேல் ஆகிறது.',
   'நான் சேர்க்கும் புகைப்படங்கள் என்னுடையவை, அல்லது அந்த நபரின் அனுமதி பெற்றவை.',
-  'என் புகைப்படங்களும் படங்களும் 3 நாட்களில் நீக்கப்படும். வைத்துக்கொள்ள விரும்புபவற்றை நானே சேமித்துக்கொள்வேன்.',
+  'என் படங்களை உருவாக்க, என் புகைப்படங்கள் OpenAI (அமெரிக்கா) நிறுவனத்துக்கு அனுப்பப்படும்.',
+  'என் புகைப்படங்களும் படங்களும் 3 நாட்களில் PottuPaarkalaam-இலிருந்து நீக்கப்படும் (தவறான பயன்பாட்டைக் கண்டறிய மட்டும் OpenAI 30 நாட்கள் வரை ஒரு நகலை வைத்திருக்கலாம்). வைத்துக்கொள்ள விரும்புபவற்றை நானே சேமித்துக்கொள்வேன்.',
   'படங்கள் AI மூலம் ஒரு முன்னோட்டமாக உருவாக்கப்படுகின்றன. உண்மையான உடை வேறுபட்டுத் தோன்றலாம்.',
   'ஒவ்வொரு படத்திலும் "AI-generated" என்ற குறி இருக்கும். அந்தக் குறியை நான் நீக்கமாட்டேன்; படத்தை உண்மையான புகைப்படம் என்று காட்டமாட்டேன்.',
   'நான் சேமிக்கும் அல்லது பகிரும் படங்கள், செயலியை விட்டு வெளியே சென்ற பிறகு என் பொறுப்பு.',

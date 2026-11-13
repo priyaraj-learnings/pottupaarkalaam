@@ -3,7 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('server-only', () => ({}))
 
 const rpc = vi.fn()
-vi.mock('@/lib/supabase/admin', () => ({ supabaseAdmin: { rpc: (...args: unknown[]) => rpc(...args) } }))
+// No trusted senders saved in /admin: the PAYMENT_SMS_SENDERS variable is used.
+vi.mock('@/lib/supabase/admin', () => ({ supabaseAdmin: {
+  rpc: (...args: unknown[]) => rpc(...args),
+  from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { payment_senders: null }, error: null }) }) }) }),
+} }))
 
 import { monthStartIst, periodRange } from '@/lib/server/admin'
 import { ApiError, secretMatches } from '@/lib/server/http'
@@ -53,7 +57,18 @@ describe('payment alert webhook', () => {
       .toEqual({ outcome: 'IGNORED', reason: 'SENDER_NOT_ALLOWED' })
     expect(await receivePaymentAlert(post(JSON.stringify({ from: 'HDFCBK', text: 'Your OTP is 123456' }), auth)))
       .toEqual({ outcome: 'IGNORED', reason: 'NOT_A_UPI_CREDIT' })
-    expect(rpc).not.toHaveBeenCalled()
+    // A bank email address must come with Gmail's DMARC pass (from the script).
+    vi.stubEnv('PAYMENT_SMS_SENDERS', 'HDFCBK,alerts@hdfcbank.net')
+    expect(await receivePaymentAlert(post(JSON.stringify({ from: 'HDFC <alerts@hdfcbank.net>', text: SMS }), auth)))
+      .toEqual({ outcome: 'IGNORED', reason: 'SENDER_NOT_ALLOWED' })
+    expect(await receivePaymentAlert(post(JSON.stringify({ from: 'HDFC <alerts@hdfcbank.net>', authenticated: true, text: SMS }), auth)))
+      .toEqual({ outcome: 'MATCHED' })
+    // No trusted senders at all: nothing is approved automatically.
+    vi.stubEnv('PAYMENT_SMS_SENDERS', '')
+    expect(await receivePaymentAlert(post(JSON.stringify({ from: 'VM-HDFCBK-S', text: SMS }), auth)))
+      .toEqual({ outcome: 'IGNORED', reason: 'NO_TRUSTED_SENDERS' })
+    // Only the authenticated bank email reached the database.
+    expect(rpc).toHaveBeenCalledTimes(1)
   })
 })
 

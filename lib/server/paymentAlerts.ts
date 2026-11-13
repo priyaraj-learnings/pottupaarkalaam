@@ -35,16 +35,25 @@ async function readMessage(request: Request) {
   if (type.includes('application/json')) {
     try {
       const record = JSON.parse(raw) as Record<string, unknown>
-      return { text: pick(record, TEXT_KEYS), sender: pick(record, SENDER_KEYS) }
+      // Set by the Gmail script when the email passed the bank's DMARC check.
+      return { text: pick(record, TEXT_KEYS), sender: pick(record, SENDER_KEYS), authenticated: record.authenticated === true }
     } catch {
       throw new ApiError(400, 'INVALID_INPUT', 'Invalid JSON.')
     }
   }
   if (type.includes('application/x-www-form-urlencoded')) {
     const record = Object.fromEntries(new URLSearchParams(raw))
-    return { text: pick(record, TEXT_KEYS), sender: pick(record, SENDER_KEYS) }
+    return { text: pick(record, TEXT_KEYS), sender: pick(record, SENDER_KEYS), authenticated: false }
   }
-  return { text: raw.trim() || null, sender: request.headers.get('x-sender') }
+  return { text: raw.trim() || null, sender: request.headers.get('x-sender'), authenticated: false }
+}
+
+// The bank senders trusted to approve recharges: /admin Settings, else the
+// PAYMENT_SMS_SENDERS environment variable. Empty: nobody.
+export async function trustedSenders() {
+  const { data } = await supabaseAdmin.from('app_settings').select('payment_senders').eq('id', true).maybeSingle()
+  const saved = (data as { payment_senders?: string | null } | null)?.payment_senders?.trim()
+  return saved || process.env.PAYMENT_SMS_SENDERS?.trim() || ''
 }
 
 export async function receivePaymentAlert(request: Request) {
@@ -53,9 +62,14 @@ export async function receivePaymentAlert(request: Request) {
   const supplied = bearerToken(request) ?? request.headers.get('x-webhook-secret')
   if (!secretMatches(supplied, secret)) throw new ApiError(401, 'UNAUTHORIZED', 'Unauthorized.')
 
-  const { text, sender } = await readMessage(request)
+  const { text, sender, authenticated } = await readMessage(request)
   if (!text) return { outcome: 'IGNORED', reason: 'NO_TEXT' }
-  if (!senderAllowed(sender, process.env.PAYMENT_SMS_SENDERS)) return { outcome: 'IGNORED', reason: 'SENDER_NOT_ALLOWED' }
+  const trusted = await trustedSenders()
+  if (!trusted) {
+    console.warn(JSON.stringify({ event: 'payment_alert.no_trusted_senders' }))
+    return { outcome: 'IGNORED', reason: 'NO_TRUSTED_SENDERS' }
+  }
+  if (!senderAllowed(sender, trusted, authenticated)) return { outcome: 'IGNORED', reason: 'SENDER_NOT_ALLOWED' }
   const credit = parseBankCredit(text)
   if (!credit) return { outcome: 'IGNORED', reason: 'NOT_A_UPI_CREDIT' }
 

@@ -259,6 +259,8 @@ export async function createCouple(user: SignedInUser, form: FormData) {
     if (result.error === 'INSUFFICIENT_CREDITS') throw coupleCreditsError(result.needed ?? settings.couple.credits, result.available ?? 0)
     if (!result.look) throw new Error('No couple picture was created.')
 
+    // The customer confirmed their partner agreed (checked above): recorded.
+    await supabaseAdmin.from('try_on_batches').update({ partner_consent_at: new Date().toISOString() }).eq('id', batchId)
     await dispatchLooks([result.look.id])
     return { looks: [{ ...result.look, status: 'QUEUED' as const }], account: result.account }
   } catch (error) {
@@ -494,6 +496,9 @@ export async function purgeExpired(now = new Date()) {
   // Free-credit codes of deleted accounts from earlier months.
   const { error: carryError } = await supabaseAdmin.rpc('purge_free_use_carryover')
   if (carryError) console.error(JSON.stringify({ event: 'cleanup.carryover_failed', message: carryError.message }))
+  // Bank messages that never matched a recharge, after 90 days.
+  const { error: alertsError } = await supabaseAdmin.rpc('purge_old_payment_alerts')
+  if (alertsError) console.error(JSON.stringify({ event: 'cleanup.payment_alerts_failed', message: alertsError.message }))
   // Website visitor codes of earlier days (only the counts per day stay).
   const { error: visitorsError } = await supabaseAdmin.rpc('purge_site_visitors')
   if (visitorsError) console.error(JSON.stringify({ event: 'cleanup.visitors_failed', message: visitorsError.message }))

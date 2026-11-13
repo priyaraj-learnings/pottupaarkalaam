@@ -8,9 +8,10 @@ describe('Gmail forwarder script', () => {
     const store: Record<string, string> = { PP_SECRET: 's3cret' }
     const properties = { getProperty: (key: string) => store[key] ?? null, setProperty: (key: string, value: string) => { store[key] = value } }
     const now = Date.now()
-    const message = (ageSeconds: number, body: string) => ({
+    const message = (ageSeconds: number, body: string, from = 'HDFC Bank InstaAlerts <alerts@hdfcbank.net>', dmarc = 'pass') => ({
       getDate: () => new Date(now - ageSeconds * 1000),
-      getFrom: () => 'HDFC Bank InstaAlerts <alerts@hdfcbank.net>',
+      getFrom: () => from,
+      getHeader: (name: string) => (name === 'Authentication-Results' ? `mx.google.com; dkim=pass; spf=pass; dmarc=${dmarc} (p=REJECT)` : ''),
       getPlainBody: () => body,
     })
     const searches: string[] = []
@@ -19,7 +20,11 @@ describe('Gmail forwarder script', () => {
     const run = new Function('PropertiesService', 'GmailApp', 'UrlFetchApp', `${gmailForwarderScript('https://pp.example/api/payments/notify')}\nforwardBankAlerts()`)
     run(
       { getScriptProperties: () => properties },
-      { search: (query: string) => { searches.push(query); return [{ getMessages: () => [message(30, 'Rs.100.00 credited'), message(3 * 3600, 'old')] }] } },
+      { search: (query: string) => { searches.push(query); return [{ getMessages: () => [
+        message(30, 'Rs.100.00 credited'), message(3 * 3600, 'old'),
+        // Fakes: the bank's address only in the name, or failing the bank's DMARC check.
+        message(20, 'fake 1', '"alerts@hdfcbank.net" <attacker@example.com>'), message(20, 'fake 2', 'alerts@hdfcbank.net', 'fail'),
+      ] }] } },
       { fetch: (url: string, options: { headers: Record<string, string>; payload: string }) => { sent.push({ url, options }) } },
     )
 
@@ -27,7 +32,7 @@ describe('Gmail forwarder script', () => {
     expect(sent).toHaveLength(1)
     expect(sent[0].url).toBe('https://pp.example/api/payments/notify')
     expect(sent[0].options.headers.Authorization).toBe('Bearer s3cret')
-    expect(JSON.parse(sent[0].options.payload)).toEqual({ from: 'HDFC Bank InstaAlerts <alerts@hdfcbank.net>', text: 'Rs.100.00 credited' })
+    expect(JSON.parse(sent[0].options.payload)).toEqual({ from: 'HDFC Bank InstaAlerts <alerts@hdfcbank.net>', authenticated: true, text: 'Rs.100.00 credited' })
     expect(Number(store.PP_SINCE)).toBeGreaterThan(now / 1000 - 5)
   })
 

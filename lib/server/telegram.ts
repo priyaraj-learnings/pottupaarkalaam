@@ -59,18 +59,25 @@ async function call<T>(token: string, method: string, body?: Record<string, unkn
 }
 
 type Chat = { id: number; type: string; title?: string; first_name?: string; last_name?: string; username?: string }
-type Update = { message?: { chat: Chat }; my_chat_member?: { chat: Chat }; channel_post?: { chat: Chat } }
+type Update = { message?: { chat: Chat; text?: string }; my_chat_member?: { chat: Chat }; channel_post?: { chat: Chat; text?: string } }
 
 function chatName(chat: Chat) {
   const name = chat.title ?? [chat.first_name, chat.last_name].filter(Boolean).join(' ')
   return `${name || 'Telegram chat'}${chat.username ? ` (@${chat.username})` : ''}${chat.type === 'private' ? '' : ` · ${chat.type}`}`.slice(0, 200)
 }
 
-// The chat that messaged the bot most recently.
-export function latestChat(updates: Update[]): Chat | null {
+// The chat that sent the bot the admin's one-time connect code most recently
+// (so nobody else who messages the bot can take the alerts). Without a code:
+// the latest chat (only used by older tests).
+export function latestChat(updates: Update[], code?: string): Chat | null {
   for (let index = updates.length - 1; index >= 0; index -= 1) {
     const update = updates[index]
-    const chat = update.message?.chat ?? update.my_chat_member?.chat ?? update.channel_post?.chat
+    const post = update.message ?? update.channel_post
+    if (code) {
+      if (post?.chat && (post.text ?? '').includes(code)) return post.chat
+      continue
+    }
+    const chat = post?.chat ?? update.my_chat_member?.chat
     if (chat) return chat
   }
   return null
@@ -86,7 +93,7 @@ export function rechargeAlertText(recharge: { amountInr: number; credits: number
 
 // /admin Settings buttons.
 export async function telegramAction(body: unknown) {
-  const input = (body ?? {}) as { action?: unknown; adminUrl?: unknown }
+  const input = (body ?? {}) as { action?: unknown; adminUrl?: unknown; code?: unknown }
   const row = await settings()
   const token = row.telegram_bot_token
   if (input.action === 'disconnect') {
@@ -97,9 +104,11 @@ export async function telegramAction(body: unknown) {
   }
   if (!token) throw new ApiError(400, 'NOT_CONFIGURED', 'Save the bot token first.')
   if (input.action === 'connect') {
-    const chat = latestChat(await call<Update[]>(token, 'getUpdates'))
+    const code = typeof input.code === 'string' && /^\d{6}$/.test(input.code) ? input.code : null
+    if (!code) throw new ApiError(400, 'INVALID_INPUT', 'Missing connect code: reload the page and try again.')
+    const chat = latestChat(await call<Update[]>(token, 'getUpdates'), code)
     if (!chat) {
-      throw new ApiError(400, 'NO_MESSAGE', 'The bot has no message yet. In Telegram, open your bot, press Start (or send "hi"), then press Connect again. For a group, add the bot to the group and send a message there.')
+      throw new ApiError(400, 'NO_MESSAGE', `The bot has not received the code ${code} yet. In Telegram, open your bot (press Start if asked), send ${code}, then press Connect again. For a group, add the bot to the group and send the code there.`)
     }
     const adminUrl = typeof input.adminUrl === 'string' && /^https:\/\/[^\s]{3,280}\/admin$/.test(input.adminUrl) ? input.adminUrl : row.telegram_admin_url
     const name = chatName(chat)

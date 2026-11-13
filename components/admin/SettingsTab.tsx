@@ -117,6 +117,7 @@ function SettingsForm({ overview, onSaved, section }: { overview: Overview; onSa
     starterPackInr: String(settings.starterPack?.amountInr ?? 0),
     starterPackCredits: String(settings.starterPack?.credits ?? 0),
     googleReviewUrl: settings.googleReviewUrl ?? '',
+    paymentSenders: overview.paymentSms.senders.join(', '),
   })
   const [busy, setBusy] = useState(false)
 
@@ -230,6 +231,18 @@ function SettingsForm({ overview, onSaved, section }: { overview: Overview; onSa
               It sends 4 photos to the AI instead of 2, so it costs a little more to make than a single picture (see the cost reports).
             </p>
           )}
+        </div>
+      </Card>
+
+      <Card title="Trusted bank senders (automatic payment check)" className={show('payments')}>
+        <div className="space-y-3">
+          <p className="text-sm text-stone-600">
+            Only alerts from these senders can approve a recharge by themselves: your bank&rsquo;s SMS sender ID (6 letters,
+            e.g. <b>HDFCBK</b>) and its alert email address (e.g. <b>alerts@hdfcbank.net</b>), separated by commas. Empty: alerts
+            are ignored and you approve every recharge under Payments. Emails must also pass Gmail&rsquo;s check that they really
+            came from the bank (the Gmail script below does this).
+          </p>
+          {field('paymentSenders', 'Trusted senders', { placeholder: 'HDFCBK, alerts@hdfcbank.net' })}
         </div>
       </Card>
 
@@ -366,8 +379,7 @@ function PaymentSmsCard({ status }: { status: Overview['paymentSms'] }) {
         </p>
         <Notice tone={state.tone}>{state.text}</Notice>
         <p className="text-stone-500">
-          Alerts accepted from: <b className="text-stone-700">{status.senders.length ? status.senders.join(', ') : 'any sender'}</b>
-          {' '}(set <code className={code}>_PAYMENT_SMS_SENDERS</code> in the Cloud Build trigger to limit it, e.g. <code className={code}>HDFCBK,HDFCBANK.NET</code>)
+          Alerts accepted from: <b className="text-stone-700">{status.senders.length ? status.senders.join(', ') : 'nobody yet: add your bank under “Trusted bank senders” above'}</b>
         </p>
 
         <details className="rounded-xl bg-stone-50 p-3">
@@ -447,11 +459,13 @@ function TelegramAlerts({ status, tokenField, onChanged, hidden }: {
 }) {
   const toast = useToast()
   const [busy, setBusy] = useState<string | null>(null)
+  // A one-time code the admin sends to the bot, so only their chat is connected.
+  const [code] = useState(() => String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000)))
 
   async function act(action: 'connect' | 'test' | 'disconnect') {
     setBusy(action)
     try {
-      await api('/api/admin/telegram', { method: 'POST', json: { action, adminUrl: `${window.location.origin}/admin` } })
+      await api('/api/admin/telegram', { method: 'POST', json: { action, code, adminUrl: `${window.location.origin}/admin` } })
       toast(action === 'connect' ? 'Connected: check Telegram for the confirmation.' : action === 'test' ? 'Test alert sent.' : 'Telegram alerts turned off.')
       onChanged()
     } catch (actionError) {
@@ -474,10 +488,10 @@ function TelegramAlerts({ status, tokenField, onChanged, hidden }: {
         <ol className="list-decimal space-y-2 pl-5">
           <li>In Telegram, open <b>@BotFather</b>, send <code>/newbot</code>, and give it a name (e.g. <i>PottuPaarkalaam Alerts</i>) and a
             username ending in <i>bot</i>. BotFather replies with a <b>token</b>: paste it below and press <b>Save settings</b>.</li>
-          <li>On the phone that should get the alerts, open the new bot in Telegram (BotFather sends its link) and press
-            <b> Start</b>. Any Telegram account can do this. For several people, make a Telegram group, add the bot, and send
-            a message in the group.</li>
-          <li>Press <b>Connect</b>: the app links the chat that messaged the bot last, and the bot replies &ldquo;Connected&rdquo;.</li>
+          <li>On the phone that should get the alerts, open the new bot in Telegram (BotFather sends its link), press
+            <b> Start</b>, and send it this code: <b className="font-mono text-base">{code}</b>. For several people, make a
+            Telegram group, add the bot, and send the code in the group.</li>
+          <li>Press <b>Connect</b>: the app links the chat that sent the code, and the bot replies &ldquo;Connected&rdquo;.</li>
         </ol>
         <div className="max-w-md">{tokenField}</div>
         <div className="flex flex-wrap gap-2">

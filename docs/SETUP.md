@@ -311,9 +311,12 @@ small ones (HDFC Bank, for example, only texts for UPI credits from Rs 500). No 
    - Header: `Authorization: Bearer <PAYMENT_WEBHOOK_SECRET>`
 4. In Android settings, turn **battery optimisation off** for that app so it is not stopped in the background.
 
-Either way, set the Cloud Build substitution `_PAYMENT_SMS_SENDERS` to the bank's SMS sender ID and/or alert email
-domain (e.g. `HDFCBK,HDFCBANK.NET`) so alerts from anyone else are ignored, and redeploy. `/admin` → Settings shows
-when the last bank alert was read.
+Either way, add your bank under `/admin` → Settings → Payments → **Trusted bank senders**: its SMS sender ID (the
+6 letters in `VM-HDFCBK-S`, e.g. `HDFCBK`) and/or its exact alert email address (e.g. `alerts@hdfcbank.net`).
+**Until a sender is there, no alert approves a recharge** (since 13 November 2026: anyone can send an SMS or email
+that looks like a bank's). Emails count only when the Gmail script saw Gmail's DMARC pass for them, so paste the
+current script again if yours was copied before then. (The old `_PAYMENT_SMS_SENDERS` Cloud Build substitution still
+works as a fallback, with exact IDs.) `/admin` → Settings shows when the last bank alert was read.
 
 Test it (replace the secret; use a made-up UTR):
 

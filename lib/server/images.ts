@@ -34,10 +34,19 @@ export async function validatePhoto(file: File, what: string) {
       throw new Error('unsupported image')
     }
     await image.stats()
-    return { bytes, contentType: format[0], extension: format[1] }
+    void format
   } catch {
     throw new ApiError(400, 'INVALID_PHOTO', `The ${what} could not be read. Please take it again.`)
   }
+  // Stored without the phone's hidden details (EXIF: GPS location, phone model,
+  // time): upright, as a JPEG, at most 4096 pixels on the longer side.
+  const clean = await sharp(bytes, { limitInputPixels: 40_000_000 })
+    .rotate()
+    .resize({ width: 4096, height: 4096, fit: 'inside', withoutEnlargement: true })
+    .flatten({ background: '#ffffff' })
+    .jpeg({ quality: 92 })
+    .toBuffer()
+  return { bytes: clean, contentType: 'image/jpeg', extension: 'jpg' }
 }
 
 // Photos sent to the image model: upright, JPEG, and no bigger than needed

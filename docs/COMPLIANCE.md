@@ -42,6 +42,24 @@ This is an engineering record, not legal advice: have a lawyer review it before 
 | CERT-In Directions, 28 April 2022 (IT Act s.70B) | Report cyber security incidents to CERT-In within 6 hours | `docs/BREACH_RUNBOOK.md` |
 | CERT-In Directions, 28 April 2022 | Keep ICT system logs for 180 days, within India | **Open**: set the Cloud Logging bucket retention to 180 days in asia-south1 / asia-south2 |
 
+## Security and compliance review, 13 November 2026
+
+Fixed in code (migration `20261113000100_security.sql`): automatic payment approval trusts only exact bank senders
+set in /admin (none set: nothing auto-approved) and bank emails only with Gmail's DMARC pass; failed tries never turn
+free credits into paid ones; stored photos lose their EXIF (GPS) details; unsubscribe links have their own secret;
+Telegram connects only the chat that sends a one-time code; per-address limits on visit counting, mobile sign-in and
+unsubscribe; bank messages lose the payer's name when the account is deleted and unmatched ones are cleared after 90
+days; partner-photo and sample-model consent are recorded. Text: the consent screen names OpenAI (USA) and its 30-day
+abuse copy; Terms §3 has the full IT Rules 3(1)(b) list, the penalty warning, DPDP s.15 and children; breach wording
+covers providers; consumer commission / 1915 helpline; Privacy Policy adds the rights summary, nominee, response time,
+"someone added my photo", Supabase in Mumbai, Gmail and Telegram, and other-language requests.
+
+Proposed next (not built yet): receipts for recharges (Consumer Protection Act s.2(47)(ix)); an admin tool to block an
+account, take down a picture by its ID and hold evidence for 180 days (IT Rules 3(1)(c), 3(1)(g), 3(2)(b)); keeping
+deleted accounts' sign-in details for 180 days (IT Rules 3(1)(h)) and a one-year processing log (DPDP Rules 8(3), from
+13 May 2027); a standalone itemised consent notice with its own tick (DPDP Rules 3, from 13 May 2027); Terms in Tamil
+(IT Rules 3(1)(a)); a "Report a problem" refund route; a public /grievance page; a script-src CSP.
+
 ## Open items for the owner
 
 - [ ] **Breach runbook:** fill in the technical lead and backup in `docs/BREACH_RUNBOOK.md`.

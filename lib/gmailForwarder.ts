@@ -15,6 +15,17 @@ export function gmailForwarderScript(appUrl: string) {
 //      Time-driven, Minutes timer, Every minute > Save.
 
 const BANK_EMAIL = 'alerts@hdfcbank.net'
+
+// Only real emails from the bank: the From address itself (not the name shown)
+// must be BANK_EMAIL, and Gmail must have checked it came from the bank's
+// servers (DMARC pass). Fake "bank" emails are skipped.
+function fromBank(message) {
+  const from = message.getFrom()
+  const address = (from.match(/<([^<>\\s]+)>\\s*$/) || [null, from])[1].trim().toLowerCase()
+  if (address !== BANK_EMAIL.toLowerCase()) return false
+  const results = String(message.getHeader('Authentication-Results') || '')
+  return /dmarc=pass/i.test(results)
+}
 const APP_URL = '${appUrl}'
 
 function forwardBankAlerts() {
@@ -28,11 +39,12 @@ function forwardBankAlerts() {
   for (const thread of threads) {
     for (const message of thread.getMessages()) {
       if (message.getDate().getTime() / 1000 < since) continue
+      if (!fromBank(message)) continue
       UrlFetchApp.fetch(APP_URL, {
         method: 'post',
         contentType: 'application/json',
         headers: { Authorization: 'Bearer ' + secret },
-        payload: JSON.stringify({ from: message.getFrom(), text: message.getPlainBody().slice(0, 5000) }),
+        payload: JSON.stringify({ from: message.getFrom(), authenticated: true, text: message.getPlainBody().slice(0, 5000) }),
         muteHttpExceptions: true,
       })
     }

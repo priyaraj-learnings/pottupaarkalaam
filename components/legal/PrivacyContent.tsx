@@ -65,14 +65,16 @@ export function PrivacyContent() {
       <section>
         <h2>How long we keep it</h2>
         <ul>
-          <li><b>Photos and pictures:</b> deleted 3 days after you add them. You can delete all of them at once with
-            &ldquo;Delete all my photos now&rdquo; in My pictures.</li>
+          <li><b>Photos and pictures:</b> deleted from our servers 3 days after you add them. You can delete all of them at
+            once with &ldquo;Delete all my photos now&rdquo; in My pictures. Our AI provider (OpenAI) may keep a copy of the
+            photos it receives for up to 30 days, only to check for misuse, and then deletes it.</li>
           <li><b>Pictures you save or share:</b> a picture you download or share is a copy outside our systems. We cannot
             delete it and are not responsible for what happens to it (Terms, section 7).</li>
           <li><b>Account and credits:</b> kept while your account is open, and deleted when you delete your account.</li>
           <li><b>Payments:</b> the amount, date and UPI reference of your recharges and the bank&rsquo;s message for them
-            are kept as long as tax and accounting law requires (usually 8 years), without your name or email once you
-            delete your account.</li>
+            are kept as long as tax and accounting law requires (usually 8 years). When you delete your account, your name,
+            email and the bank&rsquo;s message (which shows the payer&rsquo;s name) are removed; the amount, date and
+            reference stay. Bank messages that match no recharge are cleared after 90 days.</li>
           <li><b>After you delete your account or change your verified number:</b> if you used free credits this month
             with a verified mobile number, we keep a one-way code made from that number (not the number itself) until the end of the month, so the same
             number does not get that month&rsquo;s free credits twice. Then it is deleted.</li>
@@ -86,9 +88,9 @@ export function PrivacyContent() {
         <h2>How we protect your photos</h2>
         <p>
           Your photos and pictures are kept in private storage that only your signed-in account can open, sent over
-          encrypted connections, and deleted after 3 days. Apart from the AI provider below, we do not share or publish
-          them. If they are ever exposed
-          through a break-in to our systems, we will tell you and the Data Protection Board of India as the law requires.
+          encrypted connections, and deleted from our servers after 3 days. Apart from the AI provider below, we do not share
+          or publish them. If a personal data breach affects your data, at our systems or at a provider that processes it
+          for us, we will tell you and the Data Protection Board of India as the law requires.
         </p>
       </section>
 
@@ -123,8 +125,12 @@ export function PrivacyContent() {
           <li>Your browser&rsquo;s push service (<b>Google</b>, <b>Apple</b>, <b>Mozilla</b> or <b>Microsoft</b>) delivers
             picture-ready notifications, if you turned them on.</li>
           <li><b>Resend</b> (USA) sends our emails: it receives your email address, name and the email&rsquo;s contents.</li>
-          <li><b>Supabase</b> stores your account, photos and records; <b>Google Cloud</b> runs the app; Google
-            signs you in if you choose Google.</li>
+          <li><b>Supabase</b> stores your account, photos and records, in India (Mumbai); <b>Google Cloud</b> runs the
+            app; Google signs you in if you choose Google.</li>
+          <li><b>Google (Gmail)</b>: our own mailbox receives the bank&rsquo;s payment alert emails, which a small script
+            passes to the app to confirm recharges.</li>
+          <li><b>Telegram</b> carries our staff&rsquo;s alerts about recharges to check: only the amount, credits and the
+            last 4 digits of the UPI reference, never your name, email or number.</li>
         </ul>
       </section>
 
@@ -135,10 +141,19 @@ export function PrivacyContent() {
             deletes at once your photos and pictures, your account, mobile number, offers and email choices, invite code and credits, and your
             sign-in. Only what is described under &ldquo;How long we keep it&rdquo; stays.</li>
           <li>You can also ask to see, correct or delete your personal data, or withdraw your consent, by writing to
-            {' '}{COMPANY.privacyEmail} or calling {COMPANY.supportPhone}.</li>
+            {' '}{COMPANY.privacyEmail} or calling {COMPANY.supportPhone}. Write from, or tell us, your account&rsquo;s email or
+            mobile number so we can find it.</li>
+          <li>You can ask for a summary of the personal data we hold about you, what we do with it, and the list of
+            providers we have shared it with.</li>
+          <li>You can name another person to use these rights for you if you die or cannot act yourself.</li>
+          <li>We reply within 7 days, and never later than 90 days.</li>
+          <li><b>If someone added your photo without asking you:</b> write to {COMPANY.grievanceEmail}, whether or not you
+            have an account. We delete your photo and the pictures made from it at once (within 2 hours for sexual,
+            intimate or impersonating pictures).</li>
           <li>If you are not satisfied, contact our Grievance Officer, {COMPANY.grievanceOfficer}
             {' '}({COMPANY.grievanceEmail}), and then the Data Protection Board of India.</li>
-          <li>This policy and the consent screen can be read in English or Tamil (தமிழ்).</li>
+          <li>This policy and the consent screen can be read in English or Tamil (தமிழ்). Ask us if you need this notice in
+            another Indian language.</li>
         </ul>
       </section>
     </>
