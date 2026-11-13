@@ -7,18 +7,20 @@ import Customers from '@/components/admin/Customers'
 import Overview, { PeriodPicker } from '@/components/admin/Overview'
 import Payments from '@/components/admin/Payments'
 import { AlertsButton, useRechargeAlerts } from '@/components/admin/RechargeAlerts'
+import SafetyTab from '@/components/admin/SafetyTab'
 import SettingsTab from '@/components/admin/SettingsTab'
 import type { Analytics, Overview as OverviewData, Period } from '@/components/admin/types'
 import { LogoMark, Wordmark } from '@/components/Logo'
 import { Notice, ToastProvider } from '@/components/ui'
 import { api, ApiFailure, errorMessage } from '@/lib/client/api'
 
-type Tab = 'overview' | 'customers' | 'payments' | 'settings'
+type Tab = 'overview' | 'customers' | 'payments' | 'safety' | 'settings'
 
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'overview', label: 'Overview' },
   { id: 'customers', label: 'Customers' },
   { id: 'payments', label: 'Payments' },
+  { id: 'safety', label: 'Safety' },
   { id: 'settings', label: 'Settings' },
 ]
 
@@ -46,6 +48,8 @@ function AdminConsole({ onBlocked }: { onBlocked: () => void }) {
   const [overview, setOverview] = useState<OverviewData | null>(null)
   const [overviewError, setOverviewError] = useState('')
   const [blocked, setBlocked] = useState<number | null>(null)
+  // Open problem reports + unresolved complaints (SafetyTab reports it).
+  const [safetyCount, setSafetyCount] = useState(0)
 
   const loadAnalytics = useCallback(async (which: Period) => {
     setAnalyticsBusy(true)
@@ -108,7 +112,7 @@ function AdminConsole({ onBlocked }: { onBlocked: () => void }) {
       <div className="flex justify-end">
         <AlertsButton on={alerts.on} onToggle={() => void alerts.toggle()} />
       </div>
-      <nav aria-label="Admin sections" className="grid grid-cols-4 gap-1 rounded-2xl bg-white p-1 ring-1 ring-stone-200">
+      <nav aria-label="Admin sections" className="grid grid-cols-5 gap-1 rounded-2xl bg-white p-1 ring-1 ring-stone-200">
         {TABS.map(item => (
           <button
             key={item.id}
@@ -120,6 +124,9 @@ function AdminConsole({ onBlocked }: { onBlocked: () => void }) {
             {item.label}
             {item.id === 'payments' && waiting > 0 && (
               <span className="rounded-full bg-amber-400 px-1.5 text-xs font-black text-stone-900">{waiting}</span>
+            )}
+            {item.id === 'safety' && safetyCount > 0 && (
+              <span className="rounded-full bg-red-600 px-1.5 text-xs font-black text-white">{safetyCount}</span>
             )}
           </button>
         ))}
@@ -133,6 +140,9 @@ function AdminConsole({ onBlocked }: { onBlocked: () => void }) {
       )}
       <div className={tab === 'customers' ? '' : 'hidden'}>
         <Customers active={tab === 'customers'} />
+      </div>
+      <div className={tab === 'safety' ? '' : 'hidden'}>
+        <SafetyTab active={tab === 'safety'} onCount={setSafetyCount} />
       </div>
       {(tab === 'payments' || tab === 'settings') && overviewError && !overview && (
         <Notice tone="error">

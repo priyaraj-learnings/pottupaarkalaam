@@ -213,3 +213,66 @@ export function downloadCsv(fileName: string, header: string[], rows: unknown[][
   link.click()
   setTimeout(() => URL.revokeObjectURL(url), 10_000)
 }
+
+// /admin → Safety (lib/server/adminSafety.ts).
+
+export type SafetyPerson = {
+  userId: string
+  code: string
+  email: string | null
+  phone: string | null
+  name: string | null
+  blocked: boolean
+}
+
+export type LookView = {
+  id: string
+  // "pp-<id>": inside every picture file and its label's metadata.
+  pictureId: string
+  kind: string
+  status: string
+  createdAt: string
+  garments: string[]
+  // Signed links, valid 15 minutes.
+  pictureUrl: string | null
+  photoUrl: string | null
+  photosDeleted: boolean
+  removedAt: string | null
+  removedReason: string | null
+  holdUntil: string | null
+  holdReason: string | null
+  problem: { reason: string | null; note: string | null; reportedAt: string | null; status: 'OPEN' | 'REFUNDED' | 'DECLINED' | string; reply: string | null } | null
+  owner: SafetyPerson
+}
+
+export type Complaint = {
+  id: string
+  ticket: string
+  user_id: string | null
+  name: string
+  contact: string
+  category: string
+  picture_id: string | null
+  details: string
+  urgent: boolean
+  status: 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED'
+  acknowledged_at: string | null
+  resolved_at: string | null
+  resolution: string | null
+  created_at: string
+  code: string | null
+}
+
+export type BlockedPerson = SafetyPerson & { blockedAt: string; reason: string | null }
+
+export type LogRow = {
+  id: string
+  action: string
+  user_id: string | null
+  look_id: string | null
+  reason: string | null
+  created_at: string
+  code: string | null
+}
+
+export type SafetyOverview = { problems: LookView[]; complaints: Complaint[]; blocked: BlockedPerson[]; log: LogRow[] }
