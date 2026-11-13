@@ -24,6 +24,15 @@ describe('Telegram recharge alerts', () => {
     ])).toMatchObject({ id: -100200, title: 'Payments team' })
   })
 
+  it('with a connect code, connects only the chat that sent that code', () => {
+    const updates = [
+      { message: { chat: { id: 7, type: 'private', first_name: 'Owner' }, text: '482913' } },
+      { message: { chat: { id: 9, type: 'private', first_name: 'Stranger' }, text: 'hi' } },
+    ]
+    expect(latestChat(updates, '482913')).toMatchObject({ id: 7 })
+    expect(latestChat(updates, '111111')).toBeNull()
+  })
+
   it('says the amount and the last 4 digits of the UTR, and nothing about the customer', () => {
     const text = rechargeAlertText({ amountInr: 1000, credits: 200, utr: '629912345678' }, 'https://pp.inaivuit.com/admin')
     expect(text).toContain('₹1,000 for 200 credits · UTR ending 5678')

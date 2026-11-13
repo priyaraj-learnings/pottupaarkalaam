@@ -33,6 +33,19 @@ export function TermsContent() {
             account and report it to the authorities where the law requires.</li>
           <li>Do not add nude, sexual, violent or hateful photos, or photos meant to embarrass, deceive or impersonate anyone.</li>
           <li>Add photos of clothes you have the right to use.</li>
+          <li>Do not give us another person&rsquo;s photo, or their details, unless they agreed (Digital Personal Data
+            Protection Act 2023, section 15).</li>
+          <li>Do not upload or make anything that: belongs to someone else without their permission; is obscene, sexual,
+            paedophilic or invades someone&rsquo;s bodily privacy; harasses or insults anyone on grounds of gender, caste,
+            religion or race; is harmful to children; infringes a trademark, copyright or other right; misleads people about
+            where it came from or is plainly false; pretends to be another person; threatens the unity, security or public
+            order of India or friendly relations with other countries; contains viruses or harmful code; or breaks any law.</li>
+          <li>Making or sharing an unlawful AI picture, such as a picture of someone without their consent, a sexual or
+            morphed picture, or one used to cheat or impersonate, can be punished under the Information Technology Act 2000
+            (sections 66C, 66D, 66E, 67, 67A and 67B), the Bharatiya Nyaya Sanhita 2023, the POCSO Act 2012 and other laws.
+            Where the law requires it, we report it to the police or the authorities.</li>
+          <li>If we learn that an account is used by someone under 18, or that a photo shows a child, we delete the photos
+            and pictures and may close the account.</li>
           <li>We may block an account that breaks these rules, without refund of unused credits.</li>
         </ul>
       </section>
@@ -86,8 +99,9 @@ export function TermsContent() {
       <section>
         <h2>6. Your photos</h2>
         <p>
-          Your photos and pictures are deleted 3 days after you add them, or earlier if you tap
-          {' '}&ldquo;Delete all my photos now&rdquo;. Save the pictures you want to keep. See the Privacy Policy for details.
+          Your photos and pictures are deleted from our servers 3 days after you add them, or earlier if you tap
+          {' '}&ldquo;Delete all my photos now&rdquo;. Our AI provider may keep a copy for up to 30 days, only to check for
+          misuse, and then deletes it. Save the pictures you want to keep. See the Privacy Policy for details.
           You own your photos; you allow us to use them only to make your pictures.
         </p>
       </section>
@@ -116,9 +130,9 @@ export function TermsContent() {
             Apart from sending them to our AI provider to make your pictures (see the Privacy Policy), we do not share,
             sell, publish or show them to anyone, and we look at them only if you ask us to (for example, for a complaint)
             or the law requires it.</li>
-          <li>Our responsibility for your photos is to keep them safe on our servers. If they are ever exposed because our
-            systems were broken into, or shared from our servers by us, we will tell you and the Data Protection Board of
-            India and do what the law requires of us.</li>
+          <li>We are responsible for keeping your data safe, on our systems and with the providers who process it for us.
+            If a personal data breach affects your data, we will tell you and the Data Protection Board of India as the law
+            requires.</li>
         </ul>
       </section>
 
@@ -127,8 +141,10 @@ export function TermsContent() {
         <p>
           We provide the service as it is and work to keep it running, but it may sometimes be unavailable. Apart from
           keeping your photos safe on our servers (section 8), and to the extent the law allows, our total responsibility
-          to you is limited to the amount you paid us in the last three months. These terms are governed by Indian law;
-          courts at {COMPANY.jurisdiction} have jurisdiction.
+          to you is limited to the amount you paid us in the last three months. This limit does not apply to our duties to
+          protect your personal data. These terms are governed by Indian law; courts at {COMPANY.jurisdiction} have
+          jurisdiction. This does not take away your right to complain to the Consumer Commission where you live, or to
+          the National Consumer Helpline (1915).
         </p>
       </section>
 

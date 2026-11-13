@@ -14,6 +14,9 @@ export async function deleteAccount(user: SignedInUser) {
     throw new ApiError(403, 'ADMIN_ACCOUNT', 'Admin accounts cannot be deleted from the app. Remove the admin role first.')
   }
   await purgeAllForUser(user.id)
+  // The bank's messages about this person's payments lose the payer's name.
+  const { error: alertsError } = await supabaseAdmin.rpc('forget_payment_alerts', { p_user_id: user.id })
+  if (alertsError) throw dbError(alertsError, 'Unable to delete your account')
   const { error } = await supabaseAdmin.rpc('prepare_account_deletion', { p_user_id: user.id })
   if (error) throw dbError(error, 'Unable to delete your account')
   const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(user.id)

@@ -71,7 +71,7 @@ export default function GuestApp({ notice, invited = false }: { notice?: string;
               </figcaption>
             </figure>
             <p className="bg-emerald-50 px-4 py-2 text-sm font-extrabold text-emerald-800">
-              {free ? t(`${free} free pictures every month`, `ஒவ்வொரு மாதமும் ${free} இலவசப் படங்கள்`) : t('Free pictures every month', 'ஒவ்வொரு மாதமும் இலவசப் படங்கள்')} · {t('start now, sign in when you try on', 'இப்போதே தொடங்குங்கள், அணிந்து பார்க்கும்போது உள்நுழையுங்கள்')}
+              {free ? t(`${free} free pictures a month with your mobile number`, `மொபைல் எண்ணுடன் மாதம் ${free} இலவசப் படங்கள்`) : t('Free pictures every month with your mobile number', 'மொபைல் எண்ணுடன் மாதந்தோறும் இலவசப் படங்கள்')} · {t('start now, sign in when you try on', 'இப்போதே தொடங்குங்கள், அணிந்து பார்க்கும்போது உள்நுழையுங்கள்')}
             </p>
           </section>
 
@@ -88,8 +88,8 @@ export default function GuestApp({ notice, invited = false }: { notice?: string;
         <Sheet open={sheet !== null} title={sheet === 'tryon' ? t('Your picture is ready to make ✨', 'உங்கள் படம் உருவாக்கத் தயார் ✨') : t('Sign in', 'உள்நுழை')} onClose={close}>
           <p className="mb-4 text-sm text-stone-600">
             {sheet === 'tryon'
-              ? <>{t('Sign in to see it.', 'அதைப் பார்க்க உள்நுழையுங்கள்.')} <b>{free ? t(`${free} free pictures every month`, `ஒவ்வொரு மாதமும் ${free} இலவசப் படங்கள்`) : t('Free pictures every month', 'ஒவ்வொரு மாதமும் இலவசப் படங்கள்')}</b>. {t('Your photos stay on this phone until you agree to our terms in the next step.', 'அடுத்த படியில் எங்கள் விதிமுறைகளுக்கு நீங்கள் ஒப்புக்கொள்ளும் வரை உங்கள் புகைப்படங்கள் இந்த ஃபோனிலேயே இருக்கும்.')}</>
-              : <>{t('Sign in to see your pictures and credits. New here?', 'உங்கள் படங்களையும் கிரெடிட்களையும் பார்க்க உள்நுழையுங்கள். புதியவரா?')} {free ? t(`${free} free pictures every month.`, `ஒவ்வொரு மாதமும் ${free} இலவசப் படங்கள்.`) : t('Free pictures every month.', 'ஒவ்வொரு மாதமும் இலவசப் படங்கள்.')}</>}
+              ? <>{t('Sign in to see it.', 'அதைப் பார்க்க உள்நுழையுங்கள்.')} <b>{free ? t(`${free} free pictures a month with your mobile number`, `மொபைல் எண்ணுடன் மாதம் ${free} இலவசப் படங்கள்`) : t('Free pictures every month with your mobile number', 'மொபைல் எண்ணுடன் மாதந்தோறும் இலவசப் படங்கள்')}</b>. {t('Your photos stay on this phone until you agree to our terms in the next step.', 'அடுத்த படியில் எங்கள் விதிமுறைகளுக்கு நீங்கள் ஒப்புக்கொள்ளும் வரை உங்கள் புகைப்படங்கள் இந்த ஃபோனிலேயே இருக்கும்.')}</>
+              : <>{t('Sign in to see your pictures and credits. New here?', 'உங்கள் படங்களையும் கிரெடிட்களையும் பார்க்க உள்நுழையுங்கள். புதியவரா?')} {free ? t(`${free} free pictures a month with your mobile number.`, `மொபைல் எண்ணுடன் மாதம் ${free} இலவசப் படங்கள்.`) : t('Free pictures every month with your mobile number.', 'மொபைல் எண்ணுடன் மாதந்தோறும் இலவசப் படங்கள்.')}</>}
           </p>
           <SignInOptions phoneWidget={options.phone} />
         </Sheet>

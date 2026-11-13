@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { createHmac, timingSafeEqual } from 'node:crypto'
+import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { ApiError, dbError } from '@/lib/server/http'
@@ -61,27 +61,37 @@ export async function emailStatus() {
 const appUrl = (row: Row) => (row.app_url ?? DEFAULT_APP_URL).replace(/\/+$/, '')
 
 // ---------------------------------------------------------------------------
-// Unsubscribe links: signed with CRON_SECRET, so only links we sent work.
+// Unsubscribe links: signed with their own secret (made on first use and kept
+// in app_settings), so only links we sent work.
 // ---------------------------------------------------------------------------
 
-function signingKey() {
-  const secret = process.env.CRON_SECRET?.trim()
-  if (!secret) throw new ApiError(503, 'NOT_CONFIGURED', 'CRON_SECRET is not set.')
+let secretCache: string | null = null
+
+export async function unsubscribeSecret() {
+  if (secretCache) return secretCache
+  const read = async () => ((await supabaseAdmin.from('app_settings').select('unsubscribe_secret').eq('id', true).maybeSingle()).data as { unsubscribe_secret?: string | null } | null)?.unsubscribe_secret ?? null
+  let secret = await read()
+  if (!secret) {
+    await supabaseAdmin.from('app_settings').update({ unsubscribe_secret: randomBytes(32).toString('base64url') }).eq('id', true).is('unsubscribe_secret', null)
+    secret = await read()
+  }
+  if (!secret) throw new ApiError(503, 'NOT_CONFIGURED', 'Unsubscribe links are not available yet.')
+  secretCache = secret
   return secret
 }
 
-export function unsubscribeToken(userId: string) {
-  return createHmac('sha256', `pp-unsubscribe:${signingKey()}`).update(userId, 'utf8').digest('base64url').slice(0, 32)
+export function unsubscribeToken(userId: string, secret: string) {
+  return createHmac('sha256', `pp-unsubscribe:${secret}`).update(userId, 'utf8').digest('base64url').slice(0, 32)
 }
 
-export function unsubscribeTokenMatches(userId: string, token: string) {
-  const expected = Buffer.from(unsubscribeToken(userId))
+export function unsubscribeTokenMatches(userId: string, token: string, secret: string) {
+  const expected = Buffer.from(unsubscribeToken(userId, secret))
   const given = Buffer.from(token)
   return expected.length === given.length && timingSafeEqual(expected, given)
 }
 
-export function unsubscribeUrl(base: string, userId: string) {
-  return `${base}/api/unsubscribe?u=${encodeURIComponent(userId)}&t=${unsubscribeToken(userId)}`
+export function unsubscribeUrl(base: string, userId: string, secret: string) {
+  return `${base}/api/unsubscribe?u=${encodeURIComponent(userId)}&t=${unsubscribeToken(userId, secret)}`
 }
 
 // ---------------------------------------------------------------------------
@@ -186,11 +196,12 @@ export async function sendMonthlyEmails(now = new Date(), limit = 100) {
     const { data, error } = await supabaseAdmin.rpc('take_monthly_email_batch', { p_limit: limit, p_daily_limit: DAILY_LIMIT })
     if (error) throw dbError(error, 'Unable to pick the monthly email list')
     const base = appUrl(row)
+    const secret = await unsubscribeSecret()
     const month = Number(firstOfMonthIndia(now).slice(5, 7)) - 1
     let sent = 0
     let failed = 0
     for (const person of (data ?? []) as Recipient[]) {
-      const unsubscribe = unsubscribeUrl(base, person.user_id)
+      const unsubscribe = unsubscribeUrl(base, person.user_id, secret)
       const email = monthlyEmail({ name: person.name, freeCredits: person.free_credits, month, appUrl: base, inviteUrl: inviteUrl(base, person.referral_code), unsubscribeUrl: unsubscribe })
       try {
         await send(row, { to: person.email, ...email, unsubscribe })
@@ -235,7 +246,7 @@ export async function emailAction(admin: { id: string; email: string | null; nam
     const row = await settings()
     const base = appUrl(row)
     const { data: account } = await supabaseAdmin.from('accounts').select('referral_code').eq('user_id', admin.id).maybeSingle()
-    const unsubscribe = unsubscribeUrl(base, admin.id)
+    const unsubscribe = unsubscribeUrl(base, admin.id, await unsubscribeSecret())
     const email = monthlyEmail({
       name: admin.name, freeCredits: row.free_credits_per_month || 5, month: Number(firstOfMonthIndia(new Date()).slice(5, 7)) - 1,
       appUrl: base, inviteUrl: inviteUrl(base, (account as { referral_code?: string } | null)?.referral_code ?? null), unsubscribeUrl: unsubscribe,

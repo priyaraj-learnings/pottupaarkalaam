@@ -46,10 +46,29 @@ describe('bank credit alerts', () => {
     expect(parseBankCredit('')).toBeNull()
   })
 
-  it('checks the sender against the allowed bank IDs', () => {
+  it('trusts only the exact bank SMS sender IDs', () => {
     expect(senderAllowed('VM-HDFCBK-S', 'HDFCBK, ICICIT')).toBe(true)
+    expect(senderAllowed('AX-HDFCBK', 'HDFCBK')).toBe(true)
+    expect(senderAllowed('HDFCBK', 'hdfcbk')).toBe(true)
+    expect(senderAllowed('VM-XHDFCB-S', 'HDFCBK')).toBe(false)
     expect(senderAllowed('+919876543210', 'HDFCBK')).toBe(false)
-    expect(senderAllowed('+919876543210', '')).toBe(true)
     expect(senderAllowed(null, 'HDFCBK')).toBe(false)
+  })
+
+  it('trusts nobody when no senders are set', () => {
+    expect(senderAllowed('VM-HDFCBK-S', '')).toBe(false)
+    expect(senderAllowed('+919876543210', '')).toBe(false)
+    expect(senderAllowed('alerts@hdfcbank.net', null, true)).toBe(false)
+  })
+
+  it('trusts a bank email only by its real address and after the DMARC check', () => {
+    const list = 'HDFCBK, alerts@hdfcbank.net'
+    expect(senderAllowed('HDFC Bank <alerts@hdfcbank.net>', list, true)).toBe(true)
+    expect(senderAllowed('alerts@hdfcbank.net', list, true)).toBe(true)
+    // Not checked by Gmail (or forwarded some other way).
+    expect(senderAllowed('HDFC Bank <alerts@hdfcbank.net>', list, false)).toBe(false)
+    // The bank's address only in the display name.
+    expect(senderAllowed('"alerts@hdfcbank.net" <attacker@example.com>', list, true)).toBe(false)
+    expect(senderAllowed('alerts@hdfcbank.net.evil.com', list, true)).toBe(false)
   })
 })

@@ -141,14 +141,14 @@ describe('failed try-ons', () => {
     expect(await account(user)).toMatchObject({ freeLeft: 4 })
   })
 
-  it('returns last month\'s free credits as paid credits', async () => {
+  it('never turns last month\'s free credits into paid credits', async () => {
     const user = await newUser('oldmonth@example.com')
     await one('select public.get_account($1, $2) as r', [user, TERMS])
     const created = await createLooks(user, [single(0)])
     await db.query(`update public.looks set created_at = created_at - interval '40 days' where id = $1`, [created.looks[0].id])
     await db.query(`update public.accounts set free_month = free_month - interval '1 month' where user_id = $1`, [user])
     await one(`select public.fail_look($1, 'stale') as r`, [created.looks[0].id])
-    expect(await account(user)).toMatchObject({ credits: 1, freeLeft: 5 })
+    expect(await account(user)).toMatchObject({ credits: 0, freeLeft: 5 })
   })
 })
 

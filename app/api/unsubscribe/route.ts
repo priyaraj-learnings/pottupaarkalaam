@@ -1,5 +1,7 @@
+import { clientIpFromHeaders } from '@/lib/server/clientIp'
 import { setMonthlyEmail } from '@/lib/server/growth'
-import { unsubscribeTokenMatches } from '@/lib/server/email'
+import { allowRequest } from '@/lib/server/rateLimit'
+import { unsubscribeSecret, unsubscribeTokenMatches } from '@/lib/server/email'
 import { UUID } from '@/lib/server/http'
 
 export const runtime = 'nodejs'
@@ -19,12 +21,12 @@ function page(title: string, body: string, status = 200) {
   return new Response(html, { status, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } })
 }
 
-function link(request: Request) {
+async function link(request: Request) {
   const url = new URL(request.url)
   const userId = url.searchParams.get('u') ?? ''
   const token = url.searchParams.get('t') ?? ''
   try {
-    return UUID.test(userId) && token.length <= 64 && unsubscribeTokenMatches(userId, token) ? { userId, token } : null
+    return UUID.test(userId) && token.length <= 64 && unsubscribeTokenMatches(userId, token, await unsubscribeSecret()) ? { userId, token } : null
   } catch {
     return null
   }
@@ -33,7 +35,7 @@ function link(request: Request) {
 const BAD_LINK = () => page('This link does not work', '<p>Open the app, then the menu (☰), and switch off <b>Monthly email</b> there.</p>', 400)
 
 export async function GET(request: Request) {
-  const valid = link(request)
+  const valid = await link(request)
   if (!valid) return BAD_LINK()
   const action = `/api/unsubscribe?u=${encodeURIComponent(valid.userId)}&t=${encodeURIComponent(valid.token)}`
   return page('Stop the monthly email?', `<p>We send one email a month when your free pictures are back. Press the button to stop it.</p>
@@ -41,7 +43,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const valid = link(request)
+  if (!allowRequest(`unsubscribe:${clientIpFromHeaders(request.headers)}`, 20, 60_000)) return page('Please wait', '<p>Too many tries. Please wait a minute and try again.</p>', 429)
+  const valid = await link(request)
   if (!valid) return BAD_LINK()
   try {
     await setMonthlyEmail(valid.userId, false)
