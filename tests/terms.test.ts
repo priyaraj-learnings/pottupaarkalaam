@@ -15,7 +15,7 @@ import agreed from './terms-fingerprint.json'
 //      to the day of the change, then
 //   2. put the new version and the fingerprint printed below in
 //      tests/terms-fingerprint.json.
-const AGREED_TEXT = ['components/legal/TermsContent.tsx', 'components/legal/PrivacyContent.tsx', 'components/legal/PrivacyContentTa.tsx', 'lib/legal.ts']
+const AGREED_TEXT = ['components/legal/TermsContent.tsx', 'components/legal/TermsContentTa.tsx', 'components/legal/PrivacyContent.tsx', 'components/legal/PrivacyContentTa.tsx', 'lib/legal.ts']
 
 function fingerprint() {
   const hash = createHash('sha256')
@@ -50,6 +50,14 @@ describe('the Tamil consent screen and Privacy Policy', () => {
     expect(CONSENT_POINTS_TA).toHaveLength(CONSENT_POINTS.length)
     CONSENT_POINTS_TA.forEach(point => expect(point).toMatch(/[\u0B80-\u0BFF]/))
     expect(Object.keys(CONSENT_SCREEN.ta).sort()).toEqual(Object.keys(CONSENT_SCREEN.en).sort())
+  })
+
+  it('has the same sections in the Tamil Terms of Use as in the English', () => {
+    const read = (file: string) => readFileSync(join(__dirname, '..', file), 'utf8')
+    const count = (text: string, tag: string) => text.split(tag).length - 1
+    const en = read('components/legal/TermsContent.tsx')
+    const ta = read('components/legal/TermsContentTa.tsx')
+    for (const tag of ['<section>', '<h2>', '<li>']) expect(count(ta, tag), tag).toBe(count(en, tag))
   })
 
   it('has the same sections as the English Privacy Policy', () => {

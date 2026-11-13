@@ -57,7 +57,6 @@ export const CONSENT_SCREEN: Record<Language, {
   agree: string
   tickFirst: string
   signOut: string
-  termsEnglishOnly: string
   points: string[]
   // The itemised notice (DPDP Rules 2025, rule 3): each kind of data, why, and
   // how long it is kept, with its own tick.
@@ -79,7 +78,6 @@ export const CONSENT_SCREEN: Record<Language, {
     agree: 'I agree',
     tickFirst: 'Tick the box above to continue.',
     signOut: 'Sign out',
-    termsEnglishOnly: '',
     points: CONSENT_POINTS,
     dataTitle: 'How we use your personal data',
     dataItems: [
@@ -106,7 +104,6 @@ export const CONSENT_SCREEN: Record<Language, {
     agree: 'ஒப்புக்கொள்கிறேன்',
     tickFirst: 'தொடர, மேலே உள்ள பெட்டியைத் தேர்ந்தெடுக்கவும்.',
     signOut: 'வெளியேறு',
-    termsEnglishOnly: '',
     points: CONSENT_POINTS_TA,
     dataTitle: 'உங்கள் தனிப்பட்ட தரவை எப்படிப் பயன்படுத்துகிறோம்',
     dataItems: [

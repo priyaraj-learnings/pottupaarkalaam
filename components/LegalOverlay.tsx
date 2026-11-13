@@ -7,8 +7,9 @@ import { PrivacyContent } from '@/components/legal/PrivacyContent'
 import { PrivacyContentTa } from '@/components/legal/PrivacyContentTa'
 import { LEGAL_TEXT } from '@/components/legal/styles'
 import { TermsContent } from '@/components/legal/TermsContent'
+import { TermsContentTa } from '@/components/legal/TermsContentTa'
 import { useLanguage, useT } from '@/lib/client/language'
-import { CONSENT_SCREEN, TERMS_EFFECTIVE } from '@/lib/legal'
+import { TERMS_EFFECTIVE } from '@/lib/legal'
 
 export type LegalDoc = 'terms' | 'privacy'
 
@@ -45,9 +46,8 @@ export function LegalOverlay({ doc, onClose }: { doc: LegalDoc | null; onClose: 
       </header>
       <div className="mx-auto max-w-2xl px-5 pb-[calc(4rem+env(safe-area-inset-bottom))] pt-5">
         <p className="text-sm text-stone-500">{t(`Effective ${TERMS_EFFECTIVE}`, `நடைமுறைக்கு வரும் நாள்: ${TERMS_EFFECTIVE}`)}</p>
-        {doc === 'terms' && language === 'ta' && <p lang="ta" className="mt-3 rounded-xl bg-marigold-50 p-3 text-sm text-marigold-900">{CONSENT_SCREEN.ta.termsEnglishOnly}</p>}
-        <div className={`mt-4 ${LEGAL_TEXT}`} lang={doc === 'privacy' ? language : 'en'}>
-          {doc === 'terms' ? <TermsContent /> : language === 'ta' ? <PrivacyContentTa /> : <PrivacyContent />}
+        <div className={`mt-4 ${LEGAL_TEXT}`} lang={language}>
+          {doc === 'terms' ? (language === 'ta' ? <TermsContentTa /> : <TermsContent />) : language === 'ta' ? <PrivacyContentTa /> : <PrivacyContent />}
         </div>
         <button type="button" onClick={back} className="mt-10 inline-flex min-h-11 items-center gap-1.5 rounded-full bg-white px-4 font-bold text-brand-700 ring-1 ring-brand-200">
           <span aria-hidden="true">←</span> {t('Back', 'பின்செல்')}
