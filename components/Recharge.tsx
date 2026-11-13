@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 
+import Receipt, { type ReceiptCustomer } from '@/components/Receipt'
 import UpiQr from '@/components/UpiQr'
 import { Button, Card, formatInr, formatWhen, Notice, useToast } from '@/components/ui'
 import { api, errorMessage } from '@/lib/client/api'
@@ -86,11 +87,13 @@ function Guide({ now, next }: { now: ReactNode; next?: ReactNode }) {
   )
 }
 
-export default function Recharge({ active, account, settings, userCode, onAccount, onTryOn }: {
+export default function Recharge({ active, account, settings, userCode, customer, onAccount, onTryOn }: {
   active: boolean
   account: Account
   settings: AppSettings
   userCode: string
+  // The signed-in person, shown on receipts.
+  customer?: ReceiptCustomer
   onAccount: (account: Account) => void
   onTryOn?: () => void
 }) {
@@ -111,6 +114,8 @@ export default function Recharge({ active, account, settings, userCode, onAccoun
   const [qrSaved, setQrSaved] = useState(false)
   const [result, setResult] = useState<RechargeView | null>(null)
   const [recharges, setRecharges] = useState<RechargeView[]>([])
+  const [receipt, setReceipt] = useState<RechargeView | null>(null)
+  const closeReceipt = useCallback(() => setReceipt(null), [])
   // The app only renders in the browser (after sign-in), so navigator is there.
   const [phone] = useState(() => (typeof navigator === 'undefined' ? 'other' : phoneKind(navigator.userAgent)))
   const onPhone = phone !== 'other'
@@ -456,11 +461,19 @@ export default function Recharge({ active, account, settings, userCode, onAccoun
                     {formatWhen(recharge.createdAt)} · UTR {recharge.utr}{recharge.rejectionReason ? ` · ${recharge.rejectionReason}` : ''}
                   </span>
                 </span>
-                <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${STATUS[recharge.status].className}`}>{t(STATUS[recharge.status].label, STATUS[recharge.status].labelTa)}</span>
+                <span className="flex shrink-0 flex-col items-end gap-1">
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${STATUS[recharge.status].className}`}>{t(STATUS[recharge.status].label, STATUS[recharge.status].labelTa)}</span>
+                  {recharge.status === 'APPROVED' && recharge.receiptNo && (
+                    <button type="button" onClick={() => setReceipt(recharge)} className="min-h-8 rounded-full px-2 text-xs font-bold text-brand-700 underline">
+                      {t('Receipt', 'ரசீது')}
+                    </button>
+                  )}
+                </span>
               </li>
             ))}
           </ul>
           <p className="mt-2 text-xs text-stone-500">{t(`Paid but not added after a day? Contact us: ${settings.supportContact ?? COMPANY.supportPhone}`, `பணம் செலுத்தி ஒரு நாள் ஆகியும் சேர்க்கப்படவில்லையா? எங்களைத் தொடர்பு கொள்ளுங்கள்: ${settings.supportContact ?? COMPANY.supportPhone}`)}</p>
+          <Receipt recharge={receipt} gstin={settings.gstin} userCode={userCode} customer={customer} onClose={closeReceipt} />
         </Card>
       )}
     </div>

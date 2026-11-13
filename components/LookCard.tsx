@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 
+import ReportProblem from '@/components/ReportProblem'
 import { Button, formatWhen, Spinner, useToast } from '@/components/ui'
 import { apiBlob, errorMessage } from '@/lib/client/api'
 import { saveToGallery, shareImage } from '@/lib/client/share'
@@ -79,6 +80,11 @@ export default function LookCard({ look, showDate = false, onRetry, onOpen }: { 
   const name = useCategoryName()
   const sourceName = useSourceName()
   const title = lookTitle(look, name, t)
+  const [reportOpen, setReportOpen] = useState(false)
+  // Sent from this card: shown as open until the parent loads the list again.
+  const [reported, setReported] = useState(false)
+  const problemStatus = look.problemStatus ?? (reported ? 'OPEN' : null)
+  const canReport = Boolean(look.canReport) && !problemStatus
 
   const subtitle = look.garments.map(garment => ta ? sourceName(garment.source) : SOURCE_LABELS[garment.source].split(' ')[0].toLowerCase()).join(' + ')
   const alt = look.kind === 'COUPLE'
@@ -132,10 +138,26 @@ export default function LookCard({ look, showDate = false, onRetry, onOpen }: { 
               aria-label={t('Share on WhatsApp', 'WhatsApp-இல் பகிர்')} className="min-h-10 gap-1.5 px-2 text-sm"><WhatsAppIcon /> {t('Share', 'பகிர்')}</Button>
           </div>
         )}
+        {look.status === 'COMPLETED' && canReport && (
+          <button type="button" onClick={() => setReportOpen(true)} className="min-h-8 w-full text-center text-xs font-semibold text-stone-500 underline">
+            {t('Report a problem', 'பிரச்சனையைத் தெரிவி')}
+          </button>
+        )}
+        {problemStatus && (
+          <div className={`rounded-xl px-2.5 py-1.5 text-xs ${problemStatus === 'REFUNDED' ? 'bg-emerald-50 text-emerald-800' : problemStatus === 'DECLINED' ? 'bg-stone-100 text-stone-700' : 'bg-amber-50 text-amber-900'}`}>
+            <p className="font-bold">
+              {problemStatus === 'OPEN' ? t('Reported: we will reply soon', 'புகார் அனுப்பப்பட்டது: விரைவில் பதில் தருவோம்')
+                : problemStatus === 'REFUNDED' ? t('Credits returned', 'கிரெடிட்கள் திருப்பித் தரப்பட்டன')
+                  : t('Report reviewed', 'புகார் பரிசீலிக்கப்பட்டது')}
+            </p>
+            {problemStatus !== 'OPEN' && look.problemReply && <p className="mt-0.5 break-words">{look.problemReply}</p>}
+          </div>
+        )}
         {look.status === 'FAILED' && onRetry && (
           <Button variant="secondary" onClick={onRetry} className="min-h-10 w-full text-sm">{t('Try again', 'மீண்டும் முயற்சி செய்')}</Button>
         )}
       </div>
+      {canReport && <ReportProblem lookId={look.id} open={reportOpen} onClose={() => setReportOpen(false)} onSent={() => setReported(true)} />}
     </article>
   )
 }

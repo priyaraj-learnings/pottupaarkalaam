@@ -715,3 +715,48 @@ describe('shop posters', () => {
     expect(report.find(shop => shop.code === shopCode)).toMatchObject({ name: 'Lakshmi Silks', signups: 1, verified: 1, withPictures: 0, paidInr: 0 })
   })
 })
+
+describe('compliance', () => {
+  it('numbers a receipt for every approved recharge', async () => {
+    const user = await newUser('receipt@example.com')
+    const { recharge } = await submit(user, 80, '710000000001')
+    expect(recharge.receipt_no ?? null).toBeNull()
+    await alert('710000000001', 80)
+    const { rows } = await db.query<{ receipt_no: string }>('select receipt_no from public.recharges where id = $1', [recharge.id])
+    expect(rows[0].receipt_no).toMatch(/^PP-20\d\d-\d{6}$/)
+  })
+
+  it('refuses pictures for a blocked account', async () => {
+    const user = await newUser('blocked@example.com')
+    await one('select public.get_account($1, $2) as r', [user, TERMS])
+    await db.query(`update public.accounts set blocked_at = now(), blocked_reason = 'Test' where user_id = $1`, [user])
+    expect(await account(user)).toMatchObject({ blocked: true, blockedReason: 'Test' })
+    await expect(createLooks(user, [single(0)])).rejects.toThrow(/ACCOUNT_BLOCKED/)
+  })
+
+  it('takes a problem report once and refunds it when the admin agrees', async () => {
+    const user = await newUser('problem@example.com')
+    await one('select public.get_account($1, $2) as r', [user, TERMS])
+    const created = await createLooks(user, [single(0)])
+    const lookId = created.looks[0].id
+    expect(await one(`select public.report_look_problem($1, $2, 'FACE_CHANGED', 'Not my face') as r`, [user, lookId])).toEqual({ error: 'NOT_FINISHED' })
+    await db.query(`update public.looks set status = 'COMPLETED', image_path = 'x.jpg' where id = $1`, [lookId])
+    expect(await one(`select public.report_look_problem($1, $2, 'FACE_CHANGED', 'Not my face') as r`, [user, lookId])).toEqual({ reported: true })
+    expect(await one(`select public.report_look_problem($1, $2, 'OTHER', '') as r`, [user, lookId])).toEqual({ error: 'ALREADY_REPORTED' })
+    const { rows } = await db.query<{ held: boolean }>('select hold_until > now() + interval \'6 days\' as held from public.try_on_batches where id = (select batch_id from public.looks where id = $1)', [lookId])
+    expect(rows[0].held).toBe(true)
+    expect(await account(user)).toMatchObject({ freeLeft: 4 })
+    expect(await one(`select public.resolve_look_problem(null, $1, true, 'Sorry') as r`, [lookId])).toEqual({ resolved: true, refunded: true })
+    expect(await account(user)).toMatchObject({ freeLeft: 5 })
+    expect(await one(`select public.resolve_look_problem(null, $1, false, '') as r`, [lookId])).toEqual({ error: 'NOT_OPEN' })
+    // Someone else cannot report it.
+    const other = await newUser('problem-other@example.com')
+    expect(await one(`select public.report_look_problem($1, $2, 'OTHER', '') as r`, [other, lookId])).toEqual({ error: 'NOT_FOUND' })
+  })
+
+  it('keeps deleted sign-in details 180 days and the usage log a year', async () => {
+    await db.query(`insert into public.deleted_registrations (user_id, email, deleted_at) values (gen_random_uuid(), 'old@x.com', now() - interval '181 days'), (gen_random_uuid(), 'new@x.com', now())`)
+    await db.query(`insert into public.processing_log (event, created_at) values ('OLD', now() - interval '366 days'), ('NEW', now())`)
+    expect(await one('select public.purge_compliance_records() as r')).toEqual({ registrations: 1, log: 1 })
+  })
+})

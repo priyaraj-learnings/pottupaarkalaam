@@ -25,6 +25,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin'
 import { getAccount, loadSettings } from '@/lib/server/account'
 import { sendMonthlyEmails } from '@/lib/server/email'
 import { notifyTryReady } from '@/lib/server/push'
+import { logEvent } from '@/lib/server/audit'
 import type { SignedInUser } from '@/lib/server/auth'
 import { cloudTasksConfig, enqueueLook } from '@/lib/server/cloudTasks'
 import { ApiError, dbError, UUID } from '@/lib/server/http'
@@ -47,7 +48,7 @@ import { estimateCostInr, generateTryOnImage, GenerationError } from '@/lib/serv
 
 const STALE_AFTER_MS = 10 * 60 * 1000
 const SIGNED_URL_SECONDS = 60 * 60
-const LOOK_COLUMNS = 'id, batch_id, kind, garments, credits, status, image_path, error_message, refunded_at, created_at'
+const LOOK_COLUMNS = 'id, batch_id, kind, garments, credits, status, image_path, error_message, refunded_at, created_at, problem_status, problem_reply'
 
 type LookRow = {
   id: string
@@ -60,6 +61,8 @@ type LookRow = {
   error_message: string | null
   refunded_at: string | null
   created_at: string
+  problem_status: 'OPEN' | 'REFUNDED' | 'DECLINED' | null
+  problem_reply: string | null
 }
 
 export type LookView = {
@@ -73,6 +76,11 @@ export type LookView = {
   refunded: boolean
   createdAt: string
   expiresAt: string
+  // "Report a problem": open to a finished picture within its 3 days, once.
+  canReport: boolean
+  problemStatus: LookRow['problem_status']
+  // The admin's answer to a report.
+  problemReply: string | null
 }
 
 const storage = () => supabaseAdmin.storage.from(PHOTO_BUCKET)
@@ -98,6 +106,10 @@ async function removeFiles(paths: string[]) {
 // Create
 // ---------------------------------------------------------------------------
 
+export function blockedError() {
+  return new ApiError(403, 'ACCOUNT_BLOCKED', 'This account is blocked for breaking the Terms of Use. If you think this is a mistake, write to us from the Complaints page.')
+}
+
 function parseJson<T>(value: FormDataEntryValue | null, what: string): T {
   try {
     return JSON.parse(String(value ?? '')) as T
@@ -121,6 +133,7 @@ export async function createTryOns(user: SignedInUser, form: FormData) {
   // Checked again (atomically) when the credits are taken; this only spares
   // reading and storing photos that cannot be used.
   const [account, settings] = await Promise.all([getAccount(user), loadSettings()])
+  if (account.blocked) throw blockedError()
   if (account.termsVersion !== TERMS_VERSION) throw new ApiError(403, 'TERMS_REQUIRED', 'Please read and agree to the terms first.')
   const extraAllowed = settings.extraPhotos.enabled && account.paidThisMonth
   const maxGarments = extraAllowed ? MAX_GARMENTS_PAID : MAX_GARMENTS
@@ -160,6 +173,7 @@ export async function createTryOns(user: SignedInUser, form: FormData) {
       p_terms_version: TERMS_VERSION,
       p_looks: plan.looks,
     })
+    if (error && /ACCOUNT_BLOCKED/.test(error.message)) throw blockedError()
     if (error) throw dbError(error, 'Unable to start the try-on')
     const result = data as { error?: string; needed?: number; available?: number; looks?: Array<{ id: string; kind: 'SINGLE' | 'PAIR'; credits: number }>; account?: unknown }
     if (result.error === 'TERMS_REQUIRED') throw new ApiError(403, 'TERMS_REQUIRED', 'Please read and agree to the terms first.')
@@ -217,6 +231,7 @@ export async function createCouple(user: SignedInUser, form: FormData) {
   // Checked again (atomically) when the credits are taken; this only spares
   // reading and storing photos that cannot be used.
   const [account, settings] = await Promise.all([getAccount(user), loadSettings()])
+  if (account.blocked) throw blockedError()
   if (account.termsVersion !== TERMS_VERSION) throw new ApiError(403, 'TERMS_REQUIRED', 'Please read and agree to the terms first.')
   if (!settings.couple.enabled || !account.coupleOptIn) throw new ApiError(403, 'COUPLE_OFF', 'Couple pictures are not turned on.')
   if (account.credits < settings.couple.credits) throw coupleCreditsError(settings.couple.credits, account.credits)
@@ -252,6 +267,7 @@ export async function createCouple(user: SignedInUser, form: FormData) {
       p_terms_version: TERMS_VERSION,
       p_garments: lookGarments,
     })
+    if (error && /ACCOUNT_BLOCKED/.test(error.message)) throw blockedError()
     if (error) throw dbError(error, 'Unable to start the couple picture')
     const result = data as { error?: string; needed?: number; available?: number; look?: { id: string; kind: 'COUPLE'; credits: number }; account?: unknown }
     if (result.error === 'TERMS_REQUIRED') throw new ApiError(403, 'TERMS_REQUIRED', 'Please read and agree to the terms first.')
@@ -367,6 +383,7 @@ async function makeLook(id: string) {
       error_message: null,
       completed_at: new Date().toISOString(),
     }).eq('id', id).eq('status', 'PROCESSING').select('id').maybeSingle()
+    if (done) void logEvent(look.user_id as string, 'PICTURE_MADE', id)
     if (doneError || !done) {
       // Given up on meanwhile (and refunded): do not keep an unpaid picture.
       await removeFiles([imagePath]).catch(() => undefined)
@@ -376,6 +393,7 @@ async function makeLook(id: string) {
     const publicMessage = error instanceof GenerationError ? error.publicMessage : 'The picture could not be made. Please try again.'
     console.error(JSON.stringify({ event: 'look.failed', lookId: id, message: error instanceof Error ? error.message : String(error) }))
     await failLook(id, `${publicMessage} Your credits are back.`)
+    void logEvent(look.user_id as string, 'PICTURE_FAILED', id)
   }
   // The whole try is done: "your picture is ready" on the customer's phone.
   await notifyTryReady(look.batch_id as string, look.user_id as string)
@@ -424,6 +442,9 @@ async function toViews(rows: LookRow[]): Promise<LookView[]> {
     refunded: Boolean(row.refunded_at),
     createdAt: row.created_at,
     expiresAt: expiry.get(row.batch_id) ?? row.created_at,
+    canReport: row.status === 'COMPLETED' && !row.refunded_at && !row.problem_status && Date.parse(row.created_at) > Date.now() - RETENTION_DAYS * 86_400_000,
+    problemStatus: row.problem_status ?? null,
+    problemReply: row.problem_reply ?? null,
   }))
 }
 
@@ -432,7 +453,7 @@ export async function looksById(userId: string, ids: string[]) {
   if (!wanted.length) return []
   await recoverStaleLooks(userId)
   const { data, error } = await supabaseAdmin.from('looks').select(LOOK_COLUMNS)
-    .eq('user_id', userId).in('id', wanted).order('created_at', { ascending: true })
+    .eq('user_id', userId).in('id', wanted).is('removed_at', null).order('created_at', { ascending: true })
   if (error) throw dbError(error, 'Unable to load the pictures')
   return toViews((data ?? []) as LookRow[])
 }
@@ -442,7 +463,7 @@ export async function history(userId: string) {
   await recoverStaleLooks(userId)
   const since = new Date(Date.now() - RETENTION_DAYS * 86_400_000).toISOString()
   const { data, error } = await supabaseAdmin.from('looks').select(`${LOOK_COLUMNS}, try_on_batches!inner(purged_at)`)
-    .eq('user_id', userId).gte('created_at', since).is('try_on_batches.purged_at', null)
+    .eq('user_id', userId).gte('created_at', since).is('try_on_batches.purged_at', null).is('removed_at', null)
     .order('created_at', { ascending: false }).limit(60)
   if (error) throw dbError(error, 'Unable to load your pictures')
   return toViews((data ?? []) as unknown as LookRow[])
@@ -451,7 +472,7 @@ export async function history(userId: string) {
 export async function lookAsJpeg(userId: string, id: string) {
   if (!UUID.test(id)) throw new ApiError(404, 'NOT_FOUND', 'Picture not found.')
   const { data, error } = await supabaseAdmin.from('looks').select('status, image_path')
-    .eq('id', id).eq('user_id', userId).maybeSingle()
+    .eq('id', id).eq('user_id', userId).is('removed_at', null).maybeSingle()
   if (error) throw dbError(error, 'Unable to load the picture')
   const path = data?.status === 'COMPLETED' ? data.image_path as string | null : null
   if (!path || !path.startsWith(`${userId}/`)) throw new ApiError(404, 'NOT_FOUND', 'This picture has been deleted.')
@@ -483,6 +504,8 @@ export async function purgeBatch(batch: { id: string; photo_path: string | null;
 export async function purgeAllForUser(userId: string) {
   const { data, error } = await supabaseAdmin.from('try_on_batches')
     .select('id, photo_path, partner_photo_path, garment_paths').eq('user_id', userId).is('purged_at', null)
+    // Not photos held as evidence (an admin hold under the IT Rules).
+    .or(`hold_until.is.null,hold_until.lte.${new Date().toISOString()}`)
   if (error) throw dbError(error, 'Unable to list your photos')
   let removed = 0
   for (const batch of data ?? []) removed += await purgeBatch(batch)
@@ -496,6 +519,9 @@ export async function purgeExpired(now = new Date()) {
   // Free-credit codes of deleted accounts from earlier months.
   const { error: carryError } = await supabaseAdmin.rpc('purge_free_use_carryover')
   if (carryError) console.error(JSON.stringify({ event: 'cleanup.carryover_failed', message: carryError.message }))
+  // Deleted accounts' sign-in details (180 days), the usage log (1 year).
+  const { error: recordsError } = await supabaseAdmin.rpc('purge_compliance_records')
+  if (recordsError) console.error(JSON.stringify({ event: 'cleanup.records_failed', message: recordsError.message }))
   // Bank messages that never matched a recharge, after 90 days.
   const { error: alertsError } = await supabaseAdmin.rpc('purge_old_payment_alerts')
   if (alertsError) console.error(JSON.stringify({ event: 'cleanup.payment_alerts_failed', message: alertsError.message }))
@@ -504,6 +530,8 @@ export async function purgeExpired(now = new Date()) {
   if (visitorsError) console.error(JSON.stringify({ event: 'cleanup.visitors_failed', message: visitorsError.message }))
   const { data, error } = await supabaseAdmin.from('try_on_batches')
     .select('id, photo_path, partner_photo_path, garment_paths').is('purged_at', null).lte('expires_at', now.toISOString())
+    // Kept as evidence or for a problem report until the hold ends.
+    .or(`hold_until.is.null,hold_until.lte.${now.toISOString()}`)
     .order('expires_at', { ascending: true }).limit(200)
   if (error) throw dbError(error, 'Unable to list expired photos')
   let batches = 0

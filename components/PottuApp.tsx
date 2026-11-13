@@ -323,6 +323,18 @@ export default function PottuApp() {
         </header>
 
         <main className="px-4 pb-28 pt-2">
+          {current.account.blocked && (
+            <div className="mb-3">
+              <Notice tone="error">
+                {t(
+                  `This account is blocked for breaking the Terms of Use${current.account.blockedReason ? `: ${current.account.blockedReason}` : ''}. You can still see and delete your pictures. If you think this is a mistake, use the `,
+                  `பயன்பாட்டு விதிமுறைகளை மீறியதால் இந்தக் கணக்கு முடக்கப்பட்டுள்ளது${current.account.blockedReason ? `: ${current.account.blockedReason}` : ''}. உங்கள் படங்களைப் பார்க்கவும் நீக்கவும் இன்னும் முடியும். இது தவறு என்று நினைத்தால், `,
+                )}
+                <Link href="/complaints" className="font-bold underline">{t('Complaints page', 'புகார்கள் பக்கத்தைப்')}</Link>
+                {t('.', ' பயன்படுத்துங்கள்.')}
+              </Notice>
+            </div>
+          )}
           {referral.note && (
             <div className="mb-3">
               <Notice tone={referral.note.tone}>
@@ -349,7 +361,7 @@ export default function PottuApp() {
           </div>
           <div className={shownTab === 'recharge' ? '' : 'hidden'}>
             <Recharge active={shownTab === 'recharge'} account={current.account} settings={current.settings} onTryOn={() => setTab('tryon')}
-              userCode={customerCode(session.user.id)} onAccount={setAccount} />
+              userCode={customerCode(session.user.id)} customer={current.user} onAccount={setAccount} />
           </div>
         </main>
 
@@ -387,6 +399,7 @@ export default function PottuApp() {
               {current.isAdmin && <Link href="/admin" className="px-4 py-3 font-semibold text-brand-700">Admin</Link>}
               <button type="button" onClick={() => setLegal('terms')} className="flex items-center justify-between px-4 py-3 text-left font-semibold">{t('Terms of Use', 'பயன்பாட்டு விதிமுறைகள்')} <span aria-hidden="true" className="text-stone-400">›</span></button>
               <button type="button" onClick={() => setLegal('privacy')} className="flex items-center justify-between px-4 py-3 text-left font-semibold">{t('Privacy Policy', 'தனியுரிமைக் கொள்கை')} <span aria-hidden="true" className="text-stone-400">›</span></button>
+              <Link href="/complaints" className="flex items-center justify-between px-4 py-3 font-semibold">{t('Complaints', 'புகார்கள்')} <span aria-hidden="true" className="text-stone-400">›</span></Link>
               <a href={COMPANY.supportPhoneLink} className="px-4 py-3 text-sm">{t('Customer care:', 'வாடிக்கையாளர் சேவை:')} <b>{COMPANY.supportPhone}</b></a>
               {current.settings.supportContact && <p className="px-4 py-3 text-sm">{t('Help:', 'உதவி:')} {current.settings.supportContact}</p>}
             </nav>

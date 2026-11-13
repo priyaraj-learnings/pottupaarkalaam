@@ -1,3 +1,4 @@
+import { logEvent } from '@/lib/server/audit'
 import { requireUser } from '@/lib/server/auth'
 import { ApiError, handle, json } from '@/lib/server/http'
 import { createTryOns, looksById } from '@/lib/server/looks'
@@ -14,7 +15,9 @@ export async function POST(request: Request) {
     const user = await requireUser(request)
     const form = await request.formData().catch(() => null)
     if (!form) throw new ApiError(400, 'INVALID_INPUT', 'Send the photos as a form upload.')
-    return json(await createTryOns(user, form), 202)
+    const result = await createTryOns(user, form)
+    void logEvent(user.id, 'TRY_ON_CREATED', result.looks[0]?.id ?? null, request)
+    return json(result, 202)
   })
 }
 

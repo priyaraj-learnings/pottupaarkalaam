@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useCallback, useState } from 'react'
 
 import { LanguageToggle } from '@/components/LanguageSwitch'
@@ -83,6 +84,14 @@ export default function GuestApp({ notice, invited = false }: { notice?: string;
             onTermsNeeded={() => setSheet('tryon')}
             guest={{ freeCreditsPerMonth: free, onSignIn: () => setSheet('tryon') }}
           />
+
+          <footer className="pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-6 text-center text-xs text-stone-500">
+            <Link href="/complaints" className="px-1 py-2 underline">{t('Complaints', 'புகார்கள்')}</Link>
+            <span aria-hidden="true"> · </span>
+            <Link href="/terms" className="px-1 py-2 underline">{t('Terms', 'விதிமுறைகள்')}</Link>
+            <span aria-hidden="true"> · </span>
+            <Link href="/privacy" className="px-1 py-2 underline">{t('Privacy', 'தனியுரிமை')}</Link>
+          </footer>
         </main>
 
         <Sheet open={sheet !== null} title={sheet === 'tryon' ? t('Your picture is ready to make ✨', 'உங்கள் படம் உருவாக்கத் தயார் ✨') : t('Sign in', 'உள்நுழை')} onClose={close}>

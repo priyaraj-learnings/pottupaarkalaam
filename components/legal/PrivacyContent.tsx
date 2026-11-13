@@ -75,6 +75,14 @@ export function PrivacyContent() {
             are kept as long as tax and accounting law requires (usually 8 years). When you delete your account, your name,
             email and the bank&rsquo;s message (which shows the payer&rsquo;s name) are removed; the amount, date and
             reference stay. Bank messages that match no recharge are cleared after 90 days.</li>
+          <li><b>Record of use:</b> what you did in the app and when (for example &ldquo;made a picture&rdquo;), with your
+            internet address; no photos. Kept 1 year, for security, complaints and as Indian law requires.</li>
+          <li><b>After you delete your account:</b> your sign-in email or mobile number and name are kept 180 days, only for
+            investigations the law requires, then deleted.</li>
+          <li><b>Complaints and problem reports:</b> a picture you report is kept up to 7 days so we can look at it. Complaint
+            records are kept 3 years.</li>
+          <li><b>If a picture is taken down or an account is blocked</b> for breaking the Terms, its photos and records are
+            kept 180 days as evidence, as the IT Rules require, and the account cannot be deleted until the review ends.</li>
           <li><b>After you delete your account or change your verified number:</b> if you used free credits this month
             with a verified mobile number, we keep a one-way code made from that number (not the number itself) until the end of the month, so the same
             number does not get that month&rsquo;s free credits twice. Then it is deleted.</li>

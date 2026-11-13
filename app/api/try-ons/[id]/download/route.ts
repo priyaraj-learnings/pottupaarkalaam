@@ -1,4 +1,5 @@
 import { requireUser } from '@/lib/server/auth'
+import { logEvent } from '@/lib/server/audit'
 import { handle } from '@/lib/server/http'
 import { lookAsJpeg } from '@/lib/server/looks'
 
@@ -11,6 +12,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const user = await requireUser(request)
     const { id } = await params
     const jpeg = await lookAsJpeg(user.id, id)
+    void logEvent(user.id, 'PICTURE_DOWNLOADED', id, request)
     return new Response(new Uint8Array(jpeg), {
       headers: {
         'Content-Type': 'image/jpeg',

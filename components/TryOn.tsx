@@ -36,7 +36,7 @@ let nextItemId = 0
 const GUEST_ACCOUNT: Account = {
   credits: 0, freeCreditsPerMonth: 0, freeLeft: 0, termsVersion: null, termsAcceptedAt: null, phone: null,
   phoneVerified: true, offersOk: false, phoneAskedAt: null, coupleOptIn: false, paidThisMonth: false,
-  emailOffersOk: false, monthlyEmailOk: false, referralCode: '', referralCredits: 0, friendsJoined: 0, starterAvailable: false, completedPictures: 0,
+  emailOffersOk: false, monthlyEmailOk: false, referralCode: '', referralCredits: 0, friendsJoined: 0, starterAvailable: false, completedPictures: 0, blocked: false, blockedReason: null, dataConsentAt: null,
 }
 const GUEST_EXTRA_PHOTOS = { enabled: false, credits: 1 }
 

@@ -1,4 +1,5 @@
 import { requireUser } from '@/lib/server/auth'
+import { logEvent } from '@/lib/server/audit'
 import { handle, json } from '@/lib/server/http'
 import { history, purgeAllForUser } from '@/lib/server/looks'
 
@@ -17,6 +18,8 @@ export async function GET(request: Request) {
 export async function DELETE(request: Request) {
   return handle(async () => {
     const user = await requireUser(request)
-    return json({ deleted: await purgeAllForUser(user.id) })
+    const deleted = await purgeAllForUser(user.id)
+    void logEvent(user.id, 'PHOTOS_DELETED', null, request)
+    return json({ deleted })
   })
 }

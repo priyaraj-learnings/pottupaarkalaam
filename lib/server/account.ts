@@ -4,6 +4,7 @@ import { DEFAULT_COUPLE_CREDITS, DEFAULT_PRICING, type StarterPack, formatMobile
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import type { SignedInUser } from '@/lib/server/auth'
 import { ApiError, dbError } from '@/lib/server/http'
+import { logEvent } from '@/lib/server/audit'
 import { settleReferral } from '@/lib/server/growth'
 import { msg91Settings, verifyMsg91Token } from '@/lib/server/phoneLogin'
 
@@ -34,6 +35,11 @@ export type Account = {
   starterAvailable: boolean
   // Finished pictures made so far (for the "Rate us" card).
   completedPictures: number
+  // Blocked by the admin for breaking the Terms (cannot make pictures or pay).
+  blocked: boolean
+  blockedReason: string | null
+  // When the itemised "how my data is used" notice was agreed to (null: ask).
+  dataConsentAt: string | null
 }
 
 export type AppSettings = {
@@ -62,6 +68,8 @@ export type AppSettings = {
   starterPack: StarterPack | null
   // "Rate us on Google" link, or null.
   googleReviewUrl: string | null
+  // On receipts, once registered for GST.
+  gstin: string | null
 }
 
 type SettingsRow = {
@@ -82,6 +90,7 @@ type SettingsRow = {
   starter_pack_inr?: number
   starter_pack_credits?: number
   google_review_url?: string | null
+  gstin?: string | null
   free_credits_per_month: number
   standard_rate_inr: number
   bulk_rate_inr: number
@@ -93,7 +102,7 @@ type SettingsRow = {
 export function settingsFromRow(row: SettingsRow | null): AppSettings {
   if (!row) {
     return { upiId: null, upiQrText: null, upiAppButtons: false, payeeName: null, supportContact: null, pricing: DEFAULT_PRICING, phoneWidget: null,
-      couple: { enabled: false, credits: DEFAULT_COUPLE_CREDITS }, extraPhotos: { enabled: false, credits: 1 }, referralCredits: 0, referralMaxPerPerson: 0, starterPack: null, googleReviewUrl: null }
+      couple: { enabled: false, credits: DEFAULT_COUPLE_CREDITS }, extraPhotos: { enabled: false, credits: 1 }, referralCredits: 0, referralMaxPerPerson: 0, starterPack: null, googleReviewUrl: null, gstin: null }
   }
   // Never the auth key: these settings go to the browser.
   const widgetId = row.msg91_widget_id?.trim()
@@ -113,6 +122,7 @@ export function settingsFromRow(row: SettingsRow | null): AppSettings {
     starterPack: (row.starter_pack_inr ?? 0) > 0 && (row.starter_pack_credits ?? 0) > 0
       ? { amountInr: row.starter_pack_inr as number, credits: row.starter_pack_credits as number } : null,
     googleReviewUrl: row.google_review_url?.trim() || null,
+    gstin: row.gstin ?? null,
     pricing: {
       freeCreditsPerMonth: row.free_credits_per_month,
       standardRateInr: row.standard_rate_inr,
@@ -139,6 +149,19 @@ export async function getAccount(user: SignedInUser, acceptTerms = false): Promi
   })
   if (error) throw dbError(error, 'Unable to load your account')
   return data as Account
+}
+
+// The consent screen's two ticks: the Terms, and the itemised "how my data is
+// used" notice (DPDP Rules 2025, rule 3). Both are recorded with this version.
+export async function acceptTermsAndDataUse(user: SignedInUser, dataConsent: boolean, request: Request): Promise<Account> {
+  if (!dataConsent) throw new ApiError(400, 'CONSENT_REQUIRED', 'Please tick both boxes to continue.')
+  await getAccount(user, true)
+  const { error } = await supabaseAdmin.from('accounts')
+    .update({ data_consent_at: new Date().toISOString(), data_consent_version: TERMS_VERSION }).eq('user_id', user.id)
+  if (error) throw dbError(error, 'Unable to save your consent')
+  void logEvent(user.id, 'TERMS_ACCEPTED', null, request)
+  void logEvent(user.id, 'DATA_CONSENT', null, request)
+  return getAccount(user)
 }
 
 // {"phone": "98765 43210", "offersOk": true} saves a typed mobile number,
@@ -214,6 +237,8 @@ export type RechargeView = {
   autoVerified: boolean
   rejectionReason: string | null
   createdAt: string
+  receiptNo: string | null
+  approvedAt: string | null
 }
 
 type RechargeRow = {
@@ -226,6 +251,8 @@ type RechargeRow = {
   auto_verified: boolean
   rejection_reason: string | null
   created_at: string
+  receipt_no?: string | null
+  reviewed_at?: string | null
 }
 
 const toRechargeView = (row: RechargeRow): RechargeView => ({
@@ -238,11 +265,13 @@ const toRechargeView = (row: RechargeRow): RechargeView => ({
   autoVerified: row.auto_verified,
   rejectionReason: row.rejection_reason,
   createdAt: row.created_at,
+  receiptNo: row.receipt_no ?? null,
+  approvedAt: row.status === 'APPROVED' ? row.reviewed_at ?? row.created_at : null,
 })
 
 export async function listRecharges(userId: string) {
   const { data, error } = await supabaseAdmin.from('recharges')
-    .select('id, amount_inr, credits, rate_inr, utr, status, auto_verified, rejection_reason, created_at')
+    .select('id, amount_inr, credits, rate_inr, utr, status, auto_verified, rejection_reason, created_at, receipt_no, reviewed_at')
     .eq('user_id', userId).order('created_at', { ascending: false }).limit(20)
   if (error) throw dbError(error, 'Unable to load your recharges')
   return (data ?? []).map(row => toRechargeView(row as RechargeRow))
@@ -262,6 +291,9 @@ export async function submitRecharge(user: SignedInUser, body: unknown) {
   const utr = normalizeUtr(String(input.utr ?? ''))
   if (!utr) throw new ApiError(400, 'INVALID_UTR', RECHARGE_ERRORS.INVALID_UTR({}))
   if (!Number.isInteger(amountInr)) throw new ApiError(400, 'INVALID_AMOUNT', 'Enter the amount you paid in whole rupees.')
+  if ((await getAccount(user)).blocked) {
+    throw new ApiError(403, 'ACCOUNT_BLOCKED', 'This account is blocked for breaking the Terms of Use, so it cannot be recharged. Write to us from the Complaints page if you paid.')
+  }
 
   const { data, error } = await supabaseAdmin.rpc('submit_recharge', {
     p_user_id: user.id,
