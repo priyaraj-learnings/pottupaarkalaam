@@ -230,6 +230,11 @@ export async function updateSettings(adminId: string, body: unknown) {
   row.extra_photo_credits = whole(input.extraPhotoCredits ?? 1, 'Extra credits for the 4th and 5th photo', 1, 10)
   if (input.referralCredits !== undefined) row.referral_credits = whole(input.referralCredits, 'Invite credits', 0, 20)
   if (input.referralMaxPerPerson !== undefined) row.referral_max_per_person = whole(input.referralMaxPerPerson, 'Friends per person', 0, 100)
+  if (input.gstin !== undefined) {
+    const gstin = (typeof input.gstin === 'string' ? input.gstin : '').trim().toUpperCase()
+    if (gstin && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z]$/.test(gstin)) throw new ApiError(400, 'INVALID_INPUT', 'That is not a GSTIN (15 characters, like 33ABCDE1234F1Z5).')
+    row.gstin = gstin || null
+  }
   if (input.paymentSenders !== undefined) {
     const senders = (typeof input.paymentSenders === 'string' ? input.paymentSenders : '').split(',').map(item => item.trim()).filter(Boolean)
     const wrong = senders.find(item => !smsSenderId(item) && !emailAddress(item))

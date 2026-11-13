@@ -1,5 +1,5 @@
 import { isAdmin, requireUser } from '@/lib/server/auth'
-import { getAccount, loadSettings } from '@/lib/server/account'
+import { acceptTermsAndDataUse, getAccount, loadSettings } from '@/lib/server/account'
 import { deleteAccount } from '@/lib/server/deleteAccount'
 import { handle, json } from '@/lib/server/http'
 import { TERMS_VERSION } from '@/lib/rules'
@@ -19,12 +19,15 @@ export async function GET(request: Request) {
   })
 }
 
-// {"acceptTerms": true}: the person agreed to the current terms.
+// {"acceptTerms": true, "dataConsent": true}: the person ticked both boxes on
+// the consent screen (the Terms, and how their data is used).
 export async function POST(request: Request) {
   return handle(async () => {
     const user = await requireUser(request)
-    const body = await request.json().catch(() => null) as { acceptTerms?: unknown } | null
-    const account = await getAccount(user, body?.acceptTerms === true)
+    const body = await request.json().catch(() => null) as { acceptTerms?: unknown; dataConsent?: unknown } | null
+    const account = body?.acceptTerms === true
+      ? await acceptTermsAndDataUse(user, body.dataConsent === true, request)
+      : await getAccount(user)
     return json({ account })
   })
 }
@@ -33,6 +36,6 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   return handle(async () => {
     const user = await requireUser(request)
-    return json(await deleteAccount(user))
+    return json(await deleteAccount(user, request))
   })
 }

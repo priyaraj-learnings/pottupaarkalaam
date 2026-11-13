@@ -7,7 +7,7 @@ export const COMPANY = {
   name: 'inaivu IT',
   description: 'a partnership firm',
   address: '101 Periyakollappatti - Block 5, Periyakollappatti, Salem District, Tamil Nadu 636 808, India',
-  supportEmail: 'partnerships@inaivuit.com',
+  supportEmail: 'pottupaar@inaivuit.com',
   // Customer care (Consumer Protection (E-Commerce) Rules 2020, rule 4(2)).
   supportPhone: '+91 96777 57237',
   supportPhoneLink: 'tel:+919677757237',

@@ -29,6 +29,11 @@ export type Account = {
   starterAvailable: boolean
   // Finished pictures made so far (for the "Rate us" card).
   completedPictures: number
+  // Blocked by the admin for breaking the Terms (cannot make pictures or pay).
+  blocked: boolean
+  blockedReason: string | null
+  // When the itemised "how my data is used" notice was agreed to (null: ask).
+  dataConsentAt: string | null
 }
 
 export type AppSettings = {
@@ -54,6 +59,8 @@ export type AppSettings = {
   starterPack: StarterPack | null
   // "Rate us on Google" link, or null.
   googleReviewUrl: string | null
+  // On receipts, once registered for GST.
+  gstin: string | null
 }
 
 export type Me = {
@@ -79,6 +86,10 @@ export type LookView = {
   refunded: boolean
   createdAt: string
   expiresAt: string
+  // "Report a problem" (finished, within its 3 days, not reported yet).
+  canReport?: boolean
+  problemStatus?: 'OPEN' | 'REFUNDED' | 'DECLINED' | null
+  problemReply?: string | null
 }
 
 export type RechargeView = {
@@ -91,6 +102,9 @@ export type RechargeView = {
   autoVerified: boolean
   rejectionReason: string | null
   createdAt: string
+  // Approved recharges: the receipt number and when it was approved.
+  receiptNo: string | null
+  approvedAt: string | null
 }
 
 export const isFinished = (look: Pick<LookView, 'status'>) => look.status === 'COMPLETED' || look.status === 'FAILED'

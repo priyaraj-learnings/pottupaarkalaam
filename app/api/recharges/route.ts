@@ -1,5 +1,6 @@
 import { after } from 'next/server'
 
+import { logEvent } from '@/lib/server/audit'
 import { requireUser } from '@/lib/server/auth'
 import { getAccount, listRecharges, submitRecharge } from '@/lib/server/account'
 import { handle, json } from '@/lib/server/http'
@@ -21,6 +22,7 @@ export async function POST(request: Request) {
   return handle(async () => {
     const user = await requireUser(request)
     const recharge = await submitRecharge(user, await request.json().catch(() => null))
+    void logEvent(user.id, 'RECHARGE_SUBMITTED', recharge.id, request)
     // Waiting for an admin: a Telegram alert, after the reply (if set up).
     if (recharge.status === 'PENDING') after(() => alertRechargeToCheck(recharge))
     return json({ recharge, account: await getAccount(user) }, 201)

@@ -118,6 +118,7 @@ function SettingsForm({ overview, onSaved, section }: { overview: Overview; onSa
     starterPackCredits: String(settings.starterPack?.credits ?? 0),
     googleReviewUrl: settings.googleReviewUrl ?? '',
     paymentSenders: overview.paymentSms.senders.join(', '),
+    gstin: settings.gstin ?? '',
   })
   const [busy, setBusy] = useState(false)
 
@@ -231,6 +232,17 @@ function SettingsForm({ overview, onSaved, section }: { overview: Overview; onSa
               It sends 4 photos to the AI instead of 2, so it costs a little more to make than a single picture (see the cost reports).
             </p>
           )}
+        </div>
+      </Card>
+
+      <Card title="Receipts" className={show('payments')}>
+        <div className="space-y-3">
+          <p className="text-sm text-stone-600">
+            Every approved recharge gets a numbered receipt (PP-2026-000001) that the customer can open and print from
+            Recharge. It shows the firm&rsquo;s name and address. Add your GSTIN once you are registered for GST; until then the
+            receipt says the firm is not registered and no GST is charged.
+          </p>
+          {field('gstin', 'GSTIN (optional)', { placeholder: '33ABCDE1234F1Z5', maxLength: '15' })}
         </div>
       </Card>
 

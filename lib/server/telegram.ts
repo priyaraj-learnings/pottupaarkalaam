@@ -141,3 +141,18 @@ export async function alertRechargeToCheck(recharge: { amountInr: number; credit
     return false
   }
 }
+
+// Any other alert for the admins (a complaint, a problem report). Never throws.
+// The text must not carry the customer's name, email or number.
+export async function alertAdmins(text: string) {
+  try {
+    const row = await settings()
+    if (!row.telegram_bot_token || !row.telegram_chat_id) return false
+    const link = row.telegram_admin_url ? `\nOpen: ${row.telegram_admin_url}` : ''
+    await call(row.telegram_bot_token, 'sendMessage', { chat_id: row.telegram_chat_id, text: `${text}${link}`, disable_web_page_preview: true })
+    return true
+  } catch (error) {
+    console.error(JSON.stringify({ event: 'telegram.alert_failed', message: error instanceof Error ? error.message : String(error) }))
+    return false
+  }
+}
