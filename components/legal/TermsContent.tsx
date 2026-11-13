@@ -87,7 +87,10 @@ export function TermsContent() {
       <section>
         <h2>5. Refunds</h2>
         <ul>
-          <li>Credits used for a picture that was made are not refunded.</li>
+          <li>Every approved recharge comes with a numbered receipt, which you can open and print from Recharge.</li>
+          <li>If a picture came out clearly wrong (the face is not yours, the garment is a different kind, or the picture is
+            distorted), tap <b>Report a problem</b> on it within 3 days. We look at it and reply in the app; if the picture is
+            faulty, its credits come back. Otherwise, credits used for a picture that was made are not refunded.</li>
           <li>If you paid twice, paid the wrong amount, or paid but no credits were added, write to {COMPANY.supportEmail}{' '}
             with your UPI reference. We refund the money to the account it came from within 7 working days of confirming it.</li>
           <li>Unused paid credits are refunded on request if we close the service.</li>
@@ -151,10 +154,13 @@ export function TermsContent() {
       <section>
         <h2>10. Complaints</h2>
         <p>
-          Grievance Officer: {COMPANY.grievanceOfficer}, {COMPANY.grievanceEmail}, {COMPANY.supportPhone}. We acknowledge a complaint within
-          24 hours and resolve it within 7 days. A complaint about a picture that shows a person without their consent,
-          in a sexual or intimate way, or pretending to be someone (for example a morphed or deepfake picture) is acted on
-          within 2 hours.
+          Send a complaint on our <a href="/complaints" className="underline">Complaints page</a> (no sign-in needed), or to our
+          Grievance Officer: {COMPANY.grievanceOfficer}, Grievance Officer, {COMPANY.name}, {COMPANY.address};
+          {' '}{COMPANY.grievanceEmail}; {COMPANY.supportPhone}. We acknowledge a complaint within 24 hours and resolve it within
+          7 days. A complaint about a picture that shows a person without their consent, in a sexual or intimate way, or
+          pretending to be someone (for example a morphed or deepfake picture), or that shows a child, is acted on within 2
+          hours. When we take down a picture or block an account, we keep the photos and records for 180 days, as the law
+          requires, and hand them only to the authorities when the law asks.
         </p>
       </section>
 

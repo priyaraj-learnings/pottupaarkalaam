@@ -54,11 +54,20 @@ abuse copy; Terms §3 has the full IT Rules 3(1)(b) list, the penalty warning, D
 covers providers; consumer commission / 1915 helpline; Privacy Policy adds the rights summary, nominee, response time,
 "someone added my photo", Supabase in Mumbai, Gmail and Telegram, and other-language requests.
 
-Proposed next (not built yet): receipts for recharges (Consumer Protection Act s.2(47)(ix)); an admin tool to block an
-account, take down a picture by its ID and hold evidence for 180 days (IT Rules 3(1)(c), 3(1)(g), 3(2)(b)); keeping
-deleted accounts' sign-in details for 180 days (IT Rules 3(1)(h)) and a one-year processing log (DPDP Rules 8(3), from
-13 May 2027); a standalone itemised consent notice with its own tick (DPDP Rules 3, from 13 May 2027); Terms in Tamil
-(IT Rules 3(1)(a)); a "Report a problem" refund route; a public /grievance page; a script-src CSP.
+Built next (migration `20261114000100_compliance.sql`, 13 November 2026):
+- Receipts: numbered receipts (PP-<year>-000001) for every approved recharge, printable from Recharge; GSTIN in
+  Settings once registered (Consumer Protection Act 2019, s.2(47)(ix)).
+- /admin → Safety: complaints (24 h / 7 days / 2 hours), problem reports with refunds, find a picture by its `pp-` ID,
+  take down, block / unblock, 180-day evidence hold that stops the cleanup and account deletion, action log
+  (IT Rules 2021, rules 3(1)(c), 3(1)(g), 3(2)).
+- Deleted accounts' sign-in details kept 180 days (IT Rules 2021, rule 3(1)(h)); usage log kept 1 year
+  (DPDP Rules 2025, rule 8(3)); both purged automatically.
+- Itemised "how we use your personal data" notice with its own tick, recorded with its version (DPDP Rules 2025, rule 3).
+- Terms of Use in Tamil (IT Rules 2021, rule 3(1)(a)).
+- "Report a problem" on each picture, refund when the admin agrees (Terms §5).
+- Public /complaints page with the Grievance Officer's details and ticket numbers; Telegram alerts for new complaints.
+- Customer care email: pottupaar@inaivuit.com.
+Still open: a script-src CSP.
 
 ## Open items for the owner
 

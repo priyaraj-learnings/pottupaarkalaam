@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState } from 'react'
 
 import { LanguageSwitch } from '@/components/LanguageSwitch'
@@ -9,7 +10,7 @@ import { Button, Card, Notice } from '@/components/ui'
 import { api, errorMessage } from '@/lib/client/api'
 import { useLanguage } from '@/lib/client/language'
 import type { Account } from '@/lib/client/types'
-import { CONSENT_SCREEN } from '@/lib/legal'
+import { COMPANY, CONSENT_SCREEN } from '@/lib/legal'
 
 // Asked at first sign-in, once again whenever the terms change (the server's
 // TERMS_VERSION), and once a year (termsDue), before the next try-on. The
@@ -24,6 +25,8 @@ export default function TermsConsent({ reason, onAgreed, onSignOut, onOpen }: {
 }) {
   const text = CONSENT_SCREEN[useLanguage()]
   const [checked, setChecked] = useState(false)
+  // The separate agreement to how personal data is used (DPDP Rules 2025, rule 3).
+  const [dataChecked, setDataChecked] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -31,7 +34,7 @@ export default function TermsConsent({ reason, onAgreed, onSignOut, onOpen }: {
     setBusy(true)
     setError('')
     try {
-      const { account } = await api<{ account: Account }>('/api/me', { method: 'POST', json: { acceptTerms: true } })
+      const { account } = await api<{ account: Account }>('/api/me', { method: 'POST', json: { acceptTerms: true, dataConsent: true } })
       onAgreed(account)
     } catch (agreeError) {
       setError(errorMessage(agreeError))
@@ -69,9 +72,27 @@ export default function TermsConsent({ reason, onAgreed, onSignOut, onOpen }: {
           </span>
         </label>
       </Card>
+      <Card title={text.dataTitle}>
+        <dl className="space-y-3">
+          {text.dataItems.map(item => (
+            <div key={item.what} className="text-sm">
+              <dt className="font-bold text-stone-800">{item.what}</dt>
+              <dd className="text-stone-600">{item.why}</dd>
+            </div>
+          ))}
+        </dl>
+        <p className="mt-3 text-xs text-stone-600">
+          {text.dataRights.replace('{privacyEmail}', COMPANY.privacyEmail)}{' '}
+          <Link href="/complaints" className="font-semibold text-brand-700 underline">/complaints</Link>
+        </p>
+        <label className="mt-4 flex items-start gap-3 rounded-2xl bg-brand-50 p-3 text-[15px] text-stone-800 ring-1 ring-brand-100">
+          <input type="checkbox" checked={dataChecked} onChange={event => setDataChecked(event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-brand-600" />
+          <span>{text.dataAgree}</span>
+        </label>
+      </Card>
       {error && <Notice tone="error">{error}</Notice>}
-      <Button busy={busy} disabled={!checked} onClick={agree} className="w-full text-base">{text.agree}</Button>
-      {!checked && <p className="-mt-2 text-center text-xs text-stone-500">{text.tickFirst}</p>}
+      <Button busy={busy} disabled={!checked || !dataChecked} onClick={agree} className="w-full text-base">{text.agree}</Button>
+      {(!checked || !dataChecked) && <p className="-mt-2 text-center text-xs text-stone-500">{text.tickBoth}</p>}
       <Button variant="ghost" onClick={onSignOut}>{text.signOut}</Button>
     </main>
   )
